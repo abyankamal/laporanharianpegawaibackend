@@ -127,12 +127,13 @@ func (Penilaian) TableName() string {
 }
 
 // HariLibur adalah tabel untuk menyimpan data hari libur.
-type HariLibur struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Tanggal    time.Time `gorm:"column:tanggal;type:date;unique" json:"tanggal"`
-	Keterangan string    `gorm:"column:keterangan;type:varchar(255)" json:"keterangan"`
-}
+// dikomen dulu, nanti diaktifkan lagi kalau sudah ada fitur hari libur
+// type HariLibur struct {
+// 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+// 	Tanggal    time.Time `gorm:"column:tanggal;type:date;unique" json:"tanggal"`
+// 	Keterangan string    `gorm:"column:keterangan;type:varchar(255)" json:"keterangan"`
+// }
 
-func (HariLibur) TableName() string {
-	return "hari_libur"
-}
+// func (HariLibur) TableName() string {
+// 	return "hari_libur"
+// }
