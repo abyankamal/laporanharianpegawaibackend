@@ -16,7 +16,7 @@ func (RefJabatan) TableName() string {
 // User adalah tabel untuk data pengguna sistem.
 type User struct {
 	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	NIP          string    `gorm:"column:nip;type:varchar(50);unique;not null" json:"nip"`
+	NIP          string    `gorm:"column:nip;type:varchar(20);unique;not null" json:"nip"`
 	Nama         string    `gorm:"column:nama;type:varchar(255);not null" json:"nama"`
 	Password     string    `gorm:"column:password;type:varchar(255);not null" json:"-"`
 	Role         string    `gorm:"column:role;type:varchar(50);not null" json:"role"` // 'lurah', 'sekertaris', 'kasi', 'staf'
