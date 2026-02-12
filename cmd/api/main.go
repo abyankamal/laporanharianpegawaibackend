@@ -34,6 +34,8 @@ func main() {
 	userRepo := repository.NewUserRepository(config.DB)
 	authService := service.NewAuthService(userRepo)
 	authHandler := handler.NewAuthHandler(authService)
+	userService := service.NewUserService(userRepo)
+	userHandler := handler.NewUserHandler(userService)
 
 	// --- Report Module ---
 	reportRepo := repository.NewReportRepository(config.DB)
@@ -109,6 +111,9 @@ func main() {
 	protected.Get("/reviews", reviewHandler.GetMyReviews)
 	protected.Get("/reviews/my-submissions", reviewHandler.GetMySubmittedReviews)
 
+	// Profile Settings
+	protected.Put("/profile/change-password", userHandler.ChangePassword)
+
 	// =============================================
 	// 7. START SERVER
 	// =============================================
@@ -132,6 +137,7 @@ func main() {
 	log.Println("   POST   /api/reviews        - Buat penilaian kinerja")
 	log.Println("   GET    /api/reviews        - Lihat penilaian saya (staf)")
 	log.Println("   GET    /api/reviews/my-submissions - Lihat history penilaian (atasan)")
+	log.Println("   PUT    /api/profile/change-password - Ubah password")
 	log.Println("================================================")
 
 	log.Fatal(app.Listen(":" + port))

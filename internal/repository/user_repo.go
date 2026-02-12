@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"errors"
+
 	"gorm.io/gorm"
 
 	"laporanharianapi/internal/domain"
@@ -14,6 +16,7 @@ type UserRepository interface {
 	Create(user *domain.User) error
 	Update(user *domain.User) error
 	Delete(id uint) error
+	UpdatePassword(userID uint, newPasswordHash string) error
 }
 
 // userRepository adalah implementasi dari UserRepository.
@@ -69,4 +72,17 @@ func (r *userRepository) Update(user *domain.User) error {
 // Delete menghapus user berdasarkan ID.
 func (r *userRepository) Delete(id uint) error {
 	return r.db.Delete(&domain.User{}, id).Error
+}
+
+// UpdatePassword mengupdate password user secara spesifik.
+// Method ini hanya mengupdate field password untuk menghindari perubahan field lain.
+func (r *userRepository) UpdatePassword(userID uint, newPasswordHash string) error {
+	result := r.db.Model(&domain.User{}).Where("id = ?", userID).Update("password", newPasswordHash)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("user tidak ditemukan")
+	}
+	return nil
 }

@@ -221,3 +221,54 @@ func (h *UserHandler) Delete(c fiber.Ctx) error {
 		"message": "User berhasil dihapus",
 	})
 }
+
+// ChangePassword mengubah password user yang sedang login.
+func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
+	// 1. Ambil user_id dari JWT Token (via Locals dari middleware)
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	userID := uint(userIDFloat)
+
+	// 2. Parse JSON Body
+	var req service.ChangePasswordRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid: " + err.Error(),
+		})
+	}
+
+	// 3. Validasi input wajib
+	if req.OldPassword == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "password lama wajib diisi",
+		})
+	}
+	if req.NewPassword == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "password baru wajib diisi",
+		})
+	}
+
+	// 4. Panggil service
+	err := h.userService.ChangePassword(userID, req)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// 5. Return response sukses
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Password berhasil diubah",
+	})
+}

@@ -45,30 +45,29 @@ func (RefSkorPenilaian) TableName() string {
 }
 
 // TugasPokok adalah tabel untuk menyimpan tugas pokok pegawai.
-// dikomen dulu, nanti diaktifkan lagi kalau sudah ada fitur tugas pokok
-// type TugasPokok struct {
-// 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-// 	UserID     *uint     `gorm:"column:user_id" json:"user_id"`
-// 	JudulTugas string    `gorm:"column:judul_tugas;type:varchar(255)" json:"judul_tugas"`
-// 	Deskripsi  string    `gorm:"column:deskripsi;type:text" json:"deskripsi"`
-// 	CreatedBy  *uint     `gorm:"column:created_by" json:"created_by"`
-// 	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
+type TugasPokok struct {
+	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID     *uint     `gorm:"column:user_id" json:"user_id"`
+	JudulTugas string    `gorm:"column:judul_tugas;type:varchar(255)" json:"judul_tugas"`
+	Deskripsi  string    `gorm:"column:deskripsi;type:text" json:"deskripsi"`
+	CreatedBy  *uint     `gorm:"column:created_by" json:"created_by"`
+	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
 
-// 	// Relasi
-// 	User    *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
-// 	Creator *User `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
-// }
+	// Relasi
+	User    *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Creator *User `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+}
 
-// func (TugasPokok) TableName() string {
-// 	return "tugas_pokok"
-// }
+func (TugasPokok) TableName() string {
+	return "tugas_pokok"
+}
 
 // Laporan adalah tabel untuk menyimpan laporan kinerja harian.
 type Laporan struct {
-	ID          uint  `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID      *uint `gorm:"column:user_id" json:"user_id"`
-	TipeLaporan bool  `gorm:"column:tipe_laporan;type:boolean" json:"tipe_laporan"` // true = pokok, false = tambahan
-	// TugasPokokID   *uint     `gorm:"column:tugas_pokok_id" json:"tugas_pokok_id"`              // nullable
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID         *uint     `gorm:"column:user_id" json:"user_id"`
+	TipeLaporan    bool      `gorm:"column:tipe_laporan;type:boolean" json:"tipe_laporan"` // true = pokok, false = tambahan
+	TugasPokokID   *uint     `gorm:"column:tugas_pokok_id" json:"tugas_pokok_id"`          // nullable
 	JudulKegiatan  string    `gorm:"column:judul_kegiatan;type:varchar(255)" json:"judul_kegiatan"`
 	DeskripsiHasil string    `gorm:"column:deskripsi_hasil;type:text" json:"deskripsi_hasil"`
 	WaktuMulai     time.Time `gorm:"column:waktu_mulai" json:"waktu_mulai"`
@@ -80,8 +79,8 @@ type Laporan struct {
 	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
-	User *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	// TugasPokok *TugasPokok `gorm:"foreignKey:TugasPokokID" json:"tugas_pokok,omitempty"`
+	User       *User       `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	TugasPokok *TugasPokok `gorm:"foreignKey:TugasPokokID" json:"tugas_pokok,omitempty"`
 }
 
 func (Laporan) TableName() string {

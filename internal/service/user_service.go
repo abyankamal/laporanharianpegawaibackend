@@ -30,6 +30,12 @@ type UpdateUserRequest struct {
 	SupervisorID *uint  `json:"supervisor_id"`
 }
 
+// ChangePasswordRequest adalah DTO untuk request ubah password.
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" validate:"required"`
+	NewPassword string `json:"new_password" validate:"required,min=8"`
+}
+
 // UserService adalah interface untuk operasi bisnis User.
 type UserService interface {
 	GetAllUsers() ([]domain.User, error)
@@ -37,6 +43,7 @@ type UserService interface {
 	CreateUser(req CreateUserRequest) (*domain.User, error)
 	UpdateUser(id uint, req UpdateUserRequest) (*domain.User, error)
 	DeleteUser(id uint) error
+	ChangePassword(userID uint, req ChangePasswordRequest) error
 }
 
 // userService adalah implementasi dari UserService.
@@ -160,6 +167,51 @@ func (s *userService) DeleteUser(id uint) error {
 	err = s.userRepo.Delete(id)
 	if err != nil {
 		return errors.New("gagal menghapus user")
+	}
+
+	return nil
+}
+
+// ChangePassword mengubah password user dengan validasi old password.
+func (s *userService) ChangePassword(userID uint, req ChangePasswordRequest) error {
+	// 1. Validasi input
+	if req.OldPassword == "" {
+		return errors.New("password lama wajib diisi")
+	}
+	if req.NewPassword == "" {
+		return errors.New("password baru wajib diisi")
+	}
+	if len(req.NewPassword) < 8 {
+		return errors.New("password baru minimal 8 karakter")
+	}
+
+	// 2. Ambil data user dari database
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return errors.New("user tidak ditemukan")
+	}
+
+	// 3. Verifikasi password lama dengan bcrypt
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword))
+	if err != nil {
+		return errors.New("password lama tidak sesuai")
+	}
+
+	// 4. Validasi: password baru tidak boleh sama dengan password lama
+	if req.OldPassword == req.NewPassword {
+		return errors.New("password baru tidak boleh sama dengan password lama")
+	}
+
+	// 5. Hash password baru
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal mengenkripsi password")
+	}
+
+	// 6. Update password di database (hanya field password)
+	err = s.userRepo.UpdatePassword(userID, string(hashedPassword))
+	if err != nil {
+		return errors.New("gagal mengubah password")
 	}
 
 	return nil
