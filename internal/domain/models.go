@@ -107,14 +107,16 @@ func (FileLaporan) TableName() string {
 
 // Penilaian adalah tabel untuk menyimpan hasil penilaian kinerja pegawai.
 type Penilaian struct {
-	ID              uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID          *uint     `gorm:"column:user_id" json:"user_id"`
-	PenilaiID       *uint     `gorm:"column:penilai_id" json:"penilai_id"`
-	Periode         string    `gorm:"column:periode;type:varchar(50)" json:"periode"`
-	TanggalPeriode  time.Time `gorm:"column:tanggal_periode;type:date" json:"tanggal_periode"`
-	SkorID          *uint     `gorm:"column:skor_id" json:"skor_id"`
-	CatatanEvaluasi string    `gorm:"column:catatan_evaluasi;type:text" json:"catatan_evaluasi"`
-	CreatedAt       time.Time `gorm:"column:created_at" json:"created_at"`
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID         *uint     `gorm:"column:user_id" json:"user_id"`
+	PenilaiID      *uint     `gorm:"column:penilai_id" json:"penilai_id"`
+	SkorID         *uint     `gorm:"column:skor_id" json:"skor_id"`
+	JenisPeriode   string    `gorm:"column:jenis_periode;type:varchar(50)" json:"jenis_periode"` // 'Harian', 'Mingguan', 'Bulanan', 'Custom'
+	TanggalMulai   time.Time `gorm:"column:tanggal_mulai;type:date" json:"tanggal_mulai"`
+	TanggalSelesai time.Time `gorm:"column:tanggal_selesai;type:date" json:"tanggal_selesai"`
+	Catatan        string    `gorm:"column:catatan;type:text" json:"catatan"`
+	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at" json:"updated_at"`
 
 	// Relasi
 	User    *User             `gorm:"foreignKey:UserID" json:"user,omitempty"`

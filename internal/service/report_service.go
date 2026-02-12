@@ -32,6 +32,7 @@ type ReportInput struct {
 // ReportService adalah interface untuk operasi bisnis Laporan.
 type ReportService interface {
 	CreateReport(input ReportInput) (*domain.Laporan, error)
+	GetAllReports(filter repository.ReportFilter) ([]domain.Laporan, int64, error)
 }
 
 // reportService adalah implementasi dari ReportService.
@@ -116,6 +117,11 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	}
 
 	return laporan, nil
+}
+
+// GetAllReports mengambil semua laporan dengan filter (untuk monitoring atasan).
+func (s *reportService) GetAllReports(filter repository.ReportFilter) ([]domain.Laporan, int64, error) {
+	return s.reportRepo.GetAll(filter)
 }
 
 // saveFile menyimpan file ke folder uploads/reports

@@ -1,0 +1,116 @@
+package service
+
+import (
+	"errors"
+	"fmt"
+	"time"
+
+	"laporanharianapi/internal/domain"
+	"laporanharianapi/internal/repository"
+)
+
+// CreateReviewRequest adalah struct input untuk membuat penilaian baru.
+type CreateReviewRequest struct {
+	TargetUserID   int    `json:"target_user_id" validate:"required"`
+	SkorID         int    `json:"skor_id" validate:"required"`
+	JenisPeriode   string `json:"jenis_periode" validate:"required"`   // Harian, Mingguan, Bulanan, Custom
+	TanggalMulai   string `json:"tanggal_mulai" validate:"required"`   // Format YYYY-MM-DD
+	TanggalSelesai string `json:"tanggal_selesai" validate:"required"` // Format YYYY-MM-DD
+	Catatan        string `json:"catatan"`
+}
+
+// ReviewService adalah interface untuk operasi bisnis Penilaian.
+type ReviewService interface {
+	SubmitReview(penilaiID uint, req CreateReviewRequest) (*domain.Penilaian, error)
+	GetReviewsByUserID(userID int, limit int, offset int) ([]domain.Penilaian, int64, error)
+	GetReviewsByPenilaiID(penilaiID int) ([]domain.Penilaian, error)
+}
+
+// reviewService adalah implementasi dari ReviewService.
+type reviewService struct {
+	reviewRepo repository.ReviewRepository
+}
+
+// NewReviewService membuat instance baru ReviewService.
+func NewReviewService(reviewRepo repository.ReviewRepository) ReviewService {
+	return &reviewService{reviewRepo: reviewRepo}
+}
+
+// SubmitReview membuat penilaian baru dengan validasi bisnis.
+func (s *reviewService) SubmitReview(penilaiID uint, req CreateReviewRequest) (*domain.Penilaian, error) {
+	// 1. Validasi: Tidak boleh menilai diri sendiri
+	if uint(req.TargetUserID) == penilaiID {
+		return nil, errors.New("tidak dapat menilai diri sendiri")
+	}
+
+	// 2. Validasi: JenisPeriode harus valid
+	validPeriode := map[string]bool{
+		"Harian":   true,
+		"Mingguan": true,
+		"Bulanan":  true,
+		"Custom":   true,
+	}
+	if !validPeriode[req.JenisPeriode] {
+		return nil, errors.New("jenis_periode tidak valid (pilihan: Harian, Mingguan, Bulanan, Custom)")
+	}
+
+	// 3. Parse dan validasi tanggal
+	tanggalMulai, err := time.Parse("2006-01-02", req.TanggalMulai)
+	if err != nil {
+		return nil, errors.New("format tanggal_mulai tidak valid (gunakan: YYYY-MM-DD)")
+	}
+
+	tanggalSelesai, err := time.Parse("2006-01-02", req.TanggalSelesai)
+	if err != nil {
+		return nil, errors.New("format tanggal_selesai tidak valid (gunakan: YYYY-MM-DD)")
+	}
+
+	// 4. Validasi: TanggalMulai tidak boleh lebih besar dari TanggalSelesai
+	if tanggalMulai.After(tanggalSelesai) {
+		return nil, errors.New("tanggal_mulai tidak boleh lebih besar dari tanggal_selesai")
+	}
+
+	// 5. Validasi: SkorID harus positif
+	if req.SkorID <= 0 {
+		return nil, errors.New("skor_id wajib diisi dan harus valid")
+	}
+
+	// 6. Validasi: TargetUserID harus positif
+	if req.TargetUserID <= 0 {
+		return nil, errors.New("target_user_id wajib diisi dan harus valid")
+	}
+
+	// 7. Buat struct Penilaian
+	now := time.Now()
+	userID := uint(req.TargetUserID)
+	skorID := uint(req.SkorID)
+	penilaian := &domain.Penilaian{
+		UserID:         &userID,
+		PenilaiID:      &penilaiID,
+		SkorID:         &skorID,
+		JenisPeriode:   req.JenisPeriode,
+		TanggalMulai:   tanggalMulai,
+		TanggalSelesai: tanggalSelesai,
+		Catatan:        req.Catatan,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	// 8. Simpan ke database
+	err = s.reviewRepo.Create(penilaian)
+	if err != nil {
+		return nil, fmt.Errorf("gagal menyimpan penilaian: %v", err)
+	}
+
+	return penilaian, nil
+}
+
+// GetReviewsByUserID mengambil riwayat penilaian berdasarkan pegawai (untuk staf melihat nilai sendiri).
+func (s *reviewService) GetReviewsByUserID(userID int, limit int, offset int) ([]domain.Penilaian, int64, error) {
+	return s.reviewRepo.FindByUserID(userID, limit, offset)
+}
+
+// GetReviewsByPenilaiID mengambil history penilaian yang dibuat oleh atasan tertentu.
+func (s *reviewService) GetReviewsByPenilaiID(penilaiID int) ([]domain.Penilaian, error) {
+	return s.reviewRepo.FindByPenilaiID(penilaiID)
+}

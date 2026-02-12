@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"math"
+	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 
+	"laporanharianapi/internal/repository"
 	"laporanharianapi/internal/service"
 )
 
@@ -16,6 +19,81 @@ type ReportHandler struct {
 // NewReportHandler membuat instance baru ReportHandler.
 func NewReportHandler(reportService service.ReportService) *ReportHandler {
 	return &ReportHandler{reportService: reportService}
+}
+
+// GetAll menangani request untuk mengambil semua laporan dengan filter (untuk monitoring atasan).
+// Query params: start_date, end_date, user_id, jabatan_id, limit, page
+func (h *ReportHandler) GetAll(c fiber.Ctx) error {
+	// 1. Parse query parameters
+	startDate := c.Query("start_date") // Format: YYYY-MM-DD
+	endDate := c.Query("end_date")     // Format: YYYY-MM-DD
+
+	userID, _ := strconv.Atoi(c.Query("user_id"))
+	jabatanID, _ := strconv.Atoi(c.Query("jabatan_id"))
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	page, _ := strconv.Atoi(c.Query("page"))
+
+	// 2. Set default value
+	if limit <= 0 {
+		limit = 10
+	}
+	if page <= 0 {
+		page = 1
+	}
+	offset := (page - 1) * limit
+
+	// 3. Validasi format tanggal jika diberikan
+	if startDate != "" {
+		if _, err := time.Parse("2006-01-02", startDate); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Format start_date tidak valid (gunakan: YYYY-MM-DD)",
+			})
+		}
+	}
+	if endDate != "" {
+		if _, err := time.Parse("2006-01-02", endDate); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Format end_date tidak valid (gunakan: YYYY-MM-DD)",
+			})
+		}
+	}
+
+	// 4. Buat filter
+	filter := repository.ReportFilter{
+		StartDate: startDate,
+		EndDate:   endDate,
+		UserID:    userID,
+		JabatanID: jabatanID,
+		Limit:     limit,
+		Offset:    offset,
+	}
+
+	// 5. Panggil service
+	reports, total, err := h.reportService.GetAllReports(filter)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Gagal mengambil data laporan: " + err.Error(),
+		})
+	}
+
+	// 6. Hitung total halaman
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	// 7. Return response sukses dengan metadata pagination
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Data laporan berhasil diambil",
+		"data":    reports,
+		"meta": fiber.Map{
+			"total":       total,
+			"page":        page,
+			"limit":       limit,
+			"total_pages": totalPages,
+		},
+	})
 }
 
 // Create menangani pembuatan laporan baru.

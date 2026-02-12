@@ -40,6 +40,11 @@ func main() {
 	reportService := service.NewReportService(reportRepo)
 	reportHandler := handler.NewReportHandler(reportService)
 
+	// --- Review (Penilaian) Module ---
+	reviewRepo := repository.NewReviewRepository(config.DB)
+	reviewService := service.NewReviewService(reviewRepo)
+	reviewHandler := handler.NewReviewHandler(reviewService)
+
 	// =============================================
 	// 4. SETUP FIBER APP
 	// =============================================
@@ -96,7 +101,13 @@ func main() {
 	})
 
 	// Laporan Kinerja
+	protected.Get("/reports", reportHandler.GetAll)
 	protected.Post("/reports", reportHandler.Create)
+
+	// Penilaian Kinerja
+	protected.Post("/reviews", reviewHandler.Create)
+	protected.Get("/reviews", reviewHandler.GetMyReviews)
+	protected.Get("/reviews/my-submissions", reviewHandler.GetMySubmittedReviews)
 
 	// =============================================
 	// 7. START SERVER
@@ -116,7 +127,11 @@ func main() {
 	log.Println("")
 	log.Println("   [PROTECTED - Butuh JWT]")
 	log.Println("   GET    /api/profile        - Lihat profil user")
+	log.Println("   GET    /api/reports        - Lihat semua laporan (dengan filter)")
 	log.Println("   POST   /api/reports        - Buat laporan kinerja")
+	log.Println("   POST   /api/reviews        - Buat penilaian kinerja")
+	log.Println("   GET    /api/reviews        - Lihat penilaian saya (staf)")
+	log.Println("   GET    /api/reviews/my-submissions - Lihat history penilaian (atasan)")
 	log.Println("================================================")
 
 	log.Fatal(app.Listen(":" + port))

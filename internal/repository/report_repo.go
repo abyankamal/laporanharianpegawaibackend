@@ -8,11 +8,22 @@ import (
 	"laporanharianapi/internal/domain"
 )
 
+// ReportFilter adalah struct parameter input untuk filtering laporan.
+type ReportFilter struct {
+	StartDate string // Format YYYY-MM-DD
+	EndDate   string // Format YYYY-MM-DD
+	UserID    int
+	JabatanID int
+	Limit     int
+	Offset    int
+}
+
 // ReportRepository adalah interface untuk operasi database Laporan.
 type ReportRepository interface {
 	Create(laporan *domain.Laporan) error
 	CreateFileLaporan(file *domain.FileLaporan) error
 	CheckIsHoliday(date time.Time) (bool, error)
+	GetAll(filter ReportFilter) ([]domain.Laporan, int64, error)
 }
 
 // reportRepository adalah implementasi dari ReportRepository.
@@ -52,4 +63,60 @@ func (r *reportRepository) CheckIsHoliday(date time.Time) (bool, error) {
 	}
 
 	return count > 0, nil
+}
+
+// GetAll mengambil semua laporan berdasarkan filter yang diberikan.
+// Mengembalikan slice laporan, total count, dan error.
+func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64, error) {
+	var reports []domain.Laporan
+	var total int64
+
+	query := r.db.Model(&domain.Laporan{})
+
+	// Filter berdasarkan tanggal mulai
+	if filter.StartDate != "" {
+		query = query.Where("laporan.created_at >= ?", filter.StartDate+" 00:00:00")
+	}
+
+	// Filter berdasarkan tanggal akhir
+	if filter.EndDate != "" {
+		query = query.Where("laporan.created_at <= ?", filter.EndDate+" 23:59:59")
+	}
+
+	// Filter berdasarkan user_id
+	if filter.UserID > 0 {
+		query = query.Where("laporan.user_id = ?", filter.UserID)
+	}
+
+	// Filter berdasarkan jabatan_id (melalui join tabel users)
+	if filter.JabatanID > 0 {
+		query = query.Joins("JOIN users ON users.id = laporan.user_id").
+			Where("users.jabatan_id = ?", filter.JabatanID)
+	}
+
+	// Hitung total data sebelum pagination (untuk metadata response)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Default limit jika tidak diset
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// Terapkan pagination dan sorting
+	err := query.
+		Preload("User").
+		Preload("User.Jabatan").
+		Order("laporan.created_at DESC").
+		Limit(limit).
+		Offset(filter.Offset).
+		Find(&reports).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return reports, total, nil
 }
