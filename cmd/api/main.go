@@ -86,7 +86,9 @@ func main() {
 	// --- Protected Routes (Wajib login dengan JWT) ---
 	protected := api.Group("/", middleware.Protected())
 
-	// Profile (contoh endpoint protected)
+	// ===================================================
+	// A. PROFILE (Semua role yang sudah login)
+	// ===================================================
 	protected.Get("/profile", func(c fiber.Ctx) error {
 		userID := c.Locals("user_id")
 		role := c.Locals("role")
@@ -101,18 +103,35 @@ func main() {
 			},
 		})
 	})
-
-	// Laporan Kinerja
-	protected.Get("/reports", reportHandler.GetAll)
-	protected.Post("/reports", reportHandler.Create)
-
-	// Penilaian Kinerja
-	protected.Post("/reviews", reviewHandler.Create)
-	protected.Get("/reviews", reviewHandler.GetMyReviews)
-	protected.Get("/reviews/my-submissions", reviewHandler.GetMySubmittedReviews)
-
-	// Profile Settings
 	protected.Put("/profile/change-password", userHandler.ChangePassword)
+
+	// ===================================================
+	// B. USER MANAGEMENT - Hanya Sekertaris
+	// ===================================================
+	userRoutes := protected.Group("/users", middleware.AllowRoles("sekertaris"))
+	userRoutes.Get("/", userHandler.GetAll)
+	userRoutes.Get("/:id", userHandler.GetOne)
+	userRoutes.Post("/", userHandler.Create)
+	userRoutes.Put("/:id", userHandler.Update)
+	userRoutes.Delete("/:id", userHandler.Delete)
+
+	// ===================================================
+	// C. LAPORAN - Semua role bisa create & view
+	//    Monitoring (GetAll) hanya Lurah
+	// ===================================================
+	reportRoutes := protected.Group("/reports")
+	reportRoutes.Post("/", reportHandler.Create)                                // Semua role
+	reportRoutes.Get("/", middleware.AllowRoles("lurah"), reportHandler.GetAll) // Hanya Lurah
+
+	// ===================================================
+	// D. PENILAIAN - Create hanya Lurah & Sekertaris
+	//    View penilaian diri sendiri boleh semua role
+	// ===================================================
+	protected.Get("/reviews", reviewHandler.GetMyReviews) // Semua role (lihat nilai sendiri)
+
+	reviewManage := protected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
+	reviewManage.Post("/", reviewHandler.Create)                             // Hanya Lurah & Sekertaris
+	reviewManage.Get("/my-submissions", reviewHandler.GetMySubmittedReviews) // Hanya Lurah & Sekertaris
 
 	// =============================================
 	// 7. START SERVER
@@ -128,16 +147,27 @@ func main() {
 	log.Println("")
 	log.Println("📌 Daftar Endpoints:")
 	log.Println("   [PUBLIC]")
-	log.Println("   POST   /api/login          - Login user")
+	log.Println("   POST   /api/login                        - Login user")
 	log.Println("")
-	log.Println("   [PROTECTED - Butuh JWT]")
-	log.Println("   GET    /api/profile        - Lihat profil user")
-	log.Println("   GET    /api/reports        - Lihat semua laporan (dengan filter)")
-	log.Println("   POST   /api/reports        - Buat laporan kinerja")
-	log.Println("   POST   /api/reviews        - Buat penilaian kinerja")
-	log.Println("   GET    /api/reviews        - Lihat penilaian saya (staf)")
-	log.Println("   GET    /api/reviews/my-submissions - Lihat history penilaian (atasan)")
-	log.Println("   PUT    /api/profile/change-password - Ubah password")
+	log.Println("   [PROTECTED - Semua Role]")
+	log.Println("   GET    /api/profile                      - Lihat profil user")
+	log.Println("   PUT    /api/profile/change-password       - Ubah password")
+	log.Println("   POST   /api/reports                      - Buat laporan kinerja")
+	log.Println("   GET    /api/reviews                      - Lihat penilaian saya")
+	log.Println("")
+	log.Println("   [RBAC - Sekertaris Only]")
+	log.Println("   GET    /api/users                        - Lihat semua user")
+	log.Println("   GET    /api/users/:id                    - Lihat detail user")
+	log.Println("   POST   /api/users                        - Buat user baru")
+	log.Println("   PUT    /api/users/:id                    - Update user")
+	log.Println("   DELETE /api/users/:id                    - Hapus user")
+	log.Println("")
+	log.Println("   [RBAC - Lurah Only]")
+	log.Println("   GET    /api/reports                      - Monitoring semua laporan")
+	log.Println("")
+	log.Println("   [RBAC - Lurah & Sekertaris]")
+	log.Println("   POST   /api/reviews                      - Buat penilaian kinerja")
+	log.Println("   GET    /api/reviews/my-submissions        - History penilaian dibuat")
 	log.Println("================================================")
 
 	log.Fatal(app.Listen(":" + port))
