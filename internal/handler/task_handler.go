@@ -82,3 +82,32 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 		},
 	})
 }
+
+// GetMyTasks menangani request pegawai untuk melihat daftar tugas pokok miliknya.
+func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
+	// 1. Ambil user_id dari JWT Token
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	userID := int(userIDFloat)
+
+	// 2. Panggil service
+	tasks, err := h.taskService.GetTasksByUserID(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Gagal mengambil daftar tugas: " + err.Error(),
+		})
+	}
+
+	// 3. Return response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Daftar tugas berhasil diambil",
+		"data":    tasks,
+	})
+}

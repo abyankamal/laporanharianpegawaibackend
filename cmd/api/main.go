@@ -143,6 +143,9 @@ func main() {
 	taskRoutes := protected.Group("/tasks", middleware.AllowRoles("lurah", "sekertaris"))
 	taskRoutes.Post("/", taskHandler.Create) // Hanya Lurah & Sekertaris
 
+	// My Tasks - Semua role bisa melihat tugas pokok miliknya (untuk dropdown)
+	protected.Get("/my-tasks", taskHandler.GetMyTasks)
+
 	// =============================================
 	// 7. START SERVER
 	// =============================================
