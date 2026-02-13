@@ -21,7 +21,7 @@ type CreateReviewRequest struct {
 
 // ReviewService adalah interface untuk operasi bisnis Penilaian.
 type ReviewService interface {
-	SubmitReview(penilaiID uint, req CreateReviewRequest) (*domain.Penilaian, error)
+	SubmitReview(penilaiID uint, penilaiRole string, req CreateReviewRequest) (*domain.Penilaian, error)
 	GetReviewsByUserID(userID int, limit int, offset int) ([]domain.Penilaian, int64, error)
 	GetReviewsByPenilaiID(penilaiID int) ([]domain.Penilaian, error)
 }
@@ -29,21 +29,49 @@ type ReviewService interface {
 // reviewService adalah implementasi dari ReviewService.
 type reviewService struct {
 	reviewRepo repository.ReviewRepository
+	userRepo   repository.UserRepository
 }
 
 // NewReviewService membuat instance baru ReviewService.
-func NewReviewService(reviewRepo repository.ReviewRepository) ReviewService {
-	return &reviewService{reviewRepo: reviewRepo}
+func NewReviewService(reviewRepo repository.ReviewRepository, userRepo repository.UserRepository) ReviewService {
+	return &reviewService{
+		reviewRepo: reviewRepo,
+		userRepo:   userRepo,
+	}
 }
 
-// SubmitReview membuat penilaian baru dengan validasi bisnis.
-func (s *reviewService) SubmitReview(penilaiID uint, req CreateReviewRequest) (*domain.Penilaian, error) {
+// SubmitReview membuat penilaian baru dengan validasi bisnis dan hierarki RBAC.
+func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req CreateReviewRequest) (*domain.Penilaian, error) {
 	// 1. Validasi: Tidak boleh menilai diri sendiri
 	if uint(req.TargetUserID) == penilaiID {
 		return nil, errors.New("tidak dapat menilai diri sendiri")
 	}
 
-	// 2. Validasi: JenisPeriode harus valid
+	// 2. Validasi: Hanya lurah dan sekertaris yang boleh menilai
+	if penilaiRole != "lurah" && penilaiRole != "sekertaris" {
+		return nil, errors.New("hanya Lurah dan Sekertaris yang boleh melakukan penilaian")
+	}
+
+	// 3. Validasi hierarki: Cek role target user
+	targetUser, err := s.userRepo.FindByID(uint(req.TargetUserID))
+	if err != nil {
+		return nil, errors.New("user yang akan dinilai tidak ditemukan")
+	}
+
+	switch penilaiRole {
+	case "lurah":
+		// Lurah hanya boleh menilai sekertaris dan kasi
+		if targetUser.Role != "sekertaris" && targetUser.Role != "kasi" {
+			return nil, errors.New("Lurah hanya boleh menilai Sekertaris dan Kasi")
+		}
+	case "sekertaris":
+		// Sekertaris hanya boleh menilai staf
+		if targetUser.Role != "staf" {
+			return nil, errors.New("Sekertaris hanya boleh menilai Staf")
+		}
+	}
+
+	// 4. Validasi: JenisPeriode harus valid
 	validPeriode := map[string]bool{
 		"Harian":   true,
 		"Mingguan": true,
@@ -54,7 +82,7 @@ func (s *reviewService) SubmitReview(penilaiID uint, req CreateReviewRequest) (*
 		return nil, errors.New("jenis_periode tidak valid (pilihan: Harian, Mingguan, Bulanan, Custom)")
 	}
 
-	// 3. Parse dan validasi tanggal
+	// 5. Parse dan validasi tanggal
 	tanggalMulai, err := time.Parse("2006-01-02", req.TanggalMulai)
 	if err != nil {
 		return nil, errors.New("format tanggal_mulai tidak valid (gunakan: YYYY-MM-DD)")
@@ -65,22 +93,22 @@ func (s *reviewService) SubmitReview(penilaiID uint, req CreateReviewRequest) (*
 		return nil, errors.New("format tanggal_selesai tidak valid (gunakan: YYYY-MM-DD)")
 	}
 
-	// 4. Validasi: TanggalMulai tidak boleh lebih besar dari TanggalSelesai
+	// 6. Validasi: TanggalMulai tidak boleh lebih besar dari TanggalSelesai
 	if tanggalMulai.After(tanggalSelesai) {
 		return nil, errors.New("tanggal_mulai tidak boleh lebih besar dari tanggal_selesai")
 	}
 
-	// 5. Validasi: SkorID harus positif
+	// 7. Validasi: SkorID harus positif
 	if req.SkorID <= 0 {
 		return nil, errors.New("skor_id wajib diisi dan harus valid")
 	}
 
-	// 6. Validasi: TargetUserID harus positif
+	// 8. Validasi: TargetUserID harus positif
 	if req.TargetUserID <= 0 {
 		return nil, errors.New("target_user_id wajib diisi dan harus valid")
 	}
 
-	// 7. Buat struct Penilaian
+	// 9. Buat struct Penilaian
 	now := time.Now()
 	userID := uint(req.TargetUserID)
 	skorID := uint(req.SkorID)
@@ -96,7 +124,7 @@ func (s *reviewService) SubmitReview(penilaiID uint, req CreateReviewRequest) (*
 		UpdatedAt:      now,
 	}
 
-	// 8. Simpan ke database
+	// 10. Simpan ke database
 	err = s.reviewRepo.Create(penilaian)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan penilaian: %v", err)

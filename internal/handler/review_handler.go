@@ -31,6 +31,15 @@ func (h *ReviewHandler) Create(c fiber.Ctx) error {
 	}
 	penilaiID := uint(penilaiIDFloat)
 
+	// Ambil role dari JWT
+	penilaiRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Role tidak ditemukan",
+		})
+	}
+
 	// 2. Parse JSON Body
 	var req service.CreateReviewRequest
 	if err := c.Bind().JSON(&req); err != nil {
@@ -67,7 +76,7 @@ func (h *ReviewHandler) Create(c fiber.Ctx) error {
 	}
 
 	// 4. Panggil service
-	penilaian, err := h.reviewService.SubmitReview(penilaiID, req)
+	penilaian, err := h.reviewService.SubmitReview(penilaiID, penilaiRole, req)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",

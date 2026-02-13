@@ -21,10 +21,28 @@ func NewReportHandler(reportService service.ReportService) *ReportHandler {
 	return &ReportHandler{reportService: reportService}
 }
 
-// GetAll menangani request untuk mengambil semua laporan dengan filter (untuk monitoring atasan).
+// GetAll menangani request untuk mengambil semua laporan dengan filter (dengan RBAC).
 // Query params: start_date, end_date, user_id, jabatan_id, limit, page
 func (h *ReportHandler) GetAll(c fiber.Ctx) error {
-	// 1. Parse query parameters
+	// 1. Ambil requester dari JWT Token
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	requesterID := uint(requesterIDFloat)
+
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Role tidak ditemukan",
+		})
+	}
+
+	// 2. Parse query parameters
 	startDate := c.Query("start_date") // Format: YYYY-MM-DD
 	endDate := c.Query("end_date")     // Format: YYYY-MM-DD
 
@@ -33,7 +51,7 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit"))
 	page, _ := strconv.Atoi(c.Query("page"))
 
-	// 2. Set default value
+	// 3. Set default value
 	if limit <= 0 {
 		limit = 10
 	}
@@ -42,7 +60,7 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 	}
 	offset := (page - 1) * limit
 
-	// 3. Validasi format tanggal jika diberikan
+	// 4. Validasi format tanggal jika diberikan
 	if startDate != "" {
 		if _, err := time.Parse("2006-01-02", startDate); err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -60,7 +78,7 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 		}
 	}
 
-	// 4. Buat filter
+	// 5. Buat filter
 	filter := repository.ReportFilter{
 		StartDate: startDate,
 		EndDate:   endDate,
@@ -70,8 +88,8 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 		Offset:    offset,
 	}
 
-	// 5. Panggil service
-	reports, total, err := h.reportService.GetAllReports(filter)
+	// 6. Panggil service (dengan RBAC)
+	reports, total, err := h.reportService.GetAllReports(filter, requesterRole, requesterID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",

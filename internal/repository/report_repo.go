@@ -14,6 +14,7 @@ type ReportFilter struct {
 	EndDate   string // Format YYYY-MM-DD
 	UserID    int
 	JabatanID int
+	UserRole  string // Filter laporan berdasarkan role user (untuk RBAC)
 	Limit     int
 	Offset    int
 }
@@ -88,10 +89,22 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 		query = query.Where("laporan.user_id = ?", filter.UserID)
 	}
 
+	// Flag untuk tracking apakah sudah JOIN users
+	needsJoin := false
+
+	// Filter berdasarkan role user (untuk RBAC - misal sekertaris hanya lihat laporan staf)
+	if filter.UserRole != "" {
+		needsJoin = true
+		query = query.Joins("JOIN users ON users.id = laporan.user_id").
+			Where("users.role = ?", filter.UserRole)
+	}
+
 	// Filter berdasarkan jabatan_id (melalui join tabel users)
 	if filter.JabatanID > 0 {
-		query = query.Joins("JOIN users ON users.id = laporan.user_id").
-			Where("users.jabatan_id = ?", filter.JabatanID)
+		if !needsJoin {
+			query = query.Joins("JOIN users ON users.id = laporan.user_id")
+		}
+		query = query.Where("users.jabatan_id = ?", filter.JabatanID)
 	}
 
 	// Hitung total data sebelum pagination (untuk metadata response)

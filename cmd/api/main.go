@@ -44,8 +44,13 @@ func main() {
 
 	// --- Review (Penilaian) Module ---
 	reviewRepo := repository.NewReviewRepository(config.DB)
-	reviewService := service.NewReviewService(reviewRepo)
+	reviewService := service.NewReviewService(reviewRepo, userRepo)
 	reviewHandler := handler.NewReviewHandler(reviewService)
+
+	// --- Task (Tugas Pokok) Module ---
+	taskRepo := repository.NewTaskRepository(config.DB)
+	taskService := service.NewTaskService(taskRepo, userRepo)
+	taskHandler := handler.NewTaskHandler(taskService)
 
 	// =============================================
 	// 4. SETUP FIBER APP
@@ -116,12 +121,11 @@ func main() {
 	userRoutes.Delete("/:id", userHandler.Delete)
 
 	// ===================================================
-	// C. LAPORAN - Semua role bisa create & view
-	//    Monitoring (GetAll) hanya Lurah
+	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
 	// ===================================================
 	reportRoutes := protected.Group("/reports")
-	reportRoutes.Post("/", reportHandler.Create)                                // Semua role
-	reportRoutes.Get("/", middleware.AllowRoles("lurah"), reportHandler.GetAll) // Hanya Lurah
+	reportRoutes.Post("/", reportHandler.Create) // Semua role
+	reportRoutes.Get("/", reportHandler.GetAll)  // RBAC ditangani di service layer
 
 	// ===================================================
 	// D. PENILAIAN - Create hanya Lurah & Sekertaris
@@ -132,6 +136,12 @@ func main() {
 	reviewManage := protected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
 	reviewManage.Post("/", reviewHandler.Create)                             // Hanya Lurah & Sekertaris
 	reviewManage.Get("/my-submissions", reviewHandler.GetMySubmittedReviews) // Hanya Lurah & Sekertaris
+
+	// ===================================================
+	// E. TUGAS POKOK - Create hanya Lurah & Sekertaris
+	// ===================================================
+	taskRoutes := protected.Group("/tasks", middleware.AllowRoles("lurah", "sekertaris"))
+	taskRoutes.Post("/", taskHandler.Create) // Hanya Lurah & Sekertaris
 
 	// =============================================
 	// 7. START SERVER
@@ -153,6 +163,7 @@ func main() {
 	log.Println("   GET    /api/profile                      - Lihat profil user")
 	log.Println("   PUT    /api/profile/change-password       - Ubah password")
 	log.Println("   POST   /api/reports                      - Buat laporan kinerja")
+	log.Println("   GET    /api/reports                      - Lihat laporan (RBAC di service)")
 	log.Println("   GET    /api/reviews                      - Lihat penilaian saya")
 	log.Println("")
 	log.Println("   [RBAC - Sekertaris Only]")
@@ -162,12 +173,10 @@ func main() {
 	log.Println("   PUT    /api/users/:id                    - Update user")
 	log.Println("   DELETE /api/users/:id                    - Hapus user")
 	log.Println("")
-	log.Println("   [RBAC - Lurah Only]")
-	log.Println("   GET    /api/reports                      - Monitoring semua laporan")
-	log.Println("")
 	log.Println("   [RBAC - Lurah & Sekertaris]")
 	log.Println("   POST   /api/reviews                      - Buat penilaian kinerja")
 	log.Println("   GET    /api/reviews/my-submissions        - History penilaian dibuat")
+	log.Println("   POST   /api/tasks                        - Buat tugas pokok")
 	log.Println("================================================")
 
 	log.Fatal(app.Listen(":" + port))

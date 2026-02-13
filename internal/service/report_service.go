@@ -32,7 +32,7 @@ type ReportInput struct {
 // ReportService adalah interface untuk operasi bisnis Laporan.
 type ReportService interface {
 	CreateReport(input ReportInput) (*domain.Laporan, error)
-	GetAllReports(filter repository.ReportFilter) ([]domain.Laporan, int64, error)
+	GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error)
 }
 
 // reportService adalah implementasi dari ReportService.
@@ -119,8 +119,24 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	return laporan, nil
 }
 
-// GetAllReports mengambil semua laporan dengan filter (untuk monitoring atasan).
-func (s *reportService) GetAllReports(filter repository.ReportFilter) ([]domain.Laporan, int64, error) {
+// GetAllReports mengambil laporan dengan filter berdasarkan role requester (RBAC).
+// - Lurah: Boleh melihat SEMUA laporan.
+// - Sekertaris: HANYA boleh melihat laporan milik Staf.
+// - Kasi & Staf: HANYA boleh melihat laporan DIRI SENDIRI.
+func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error) {
+	switch requesterRole {
+	case "lurah":
+		// Lurah boleh melihat semua laporan — tidak ada filter tambahan
+	case "sekertaris":
+		// Sekertaris hanya boleh melihat laporan milik staf
+		filter.UserRole = "staf"
+	case "kasi", "staf":
+		// Kasi & Staf hanya boleh melihat laporan diri sendiri
+		filter.UserID = int(requesterID)
+	default:
+		return nil, 0, errors.New("role tidak dikenali")
+	}
+
 	return s.reportRepo.GetAll(filter)
 }
 
