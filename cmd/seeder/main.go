@@ -152,7 +152,7 @@ func seedUsers(db *gorm.DB) {
 	users := []domain.User{
 		{
 			NIP:       "19800101",
-			Nama:      "Pak Lurah",
+			Nama:      "Iis Yuniawardani",
 			Password:  string(hashedPassword),
 			Role:      "lurah",
 			CreatedAt: time.Now(),

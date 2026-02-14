@@ -52,6 +52,11 @@ func main() {
 	taskService := service.NewTaskService(taskRepo, userRepo)
 	taskHandler := handler.NewTaskHandler(taskService)
 
+	// --- Dashboard Module ---
+	dashboardRepo := repository.NewDashboardRepository(config.DB)
+	dashboardService := service.NewDashboardService(dashboardRepo)
+	dashboardHandler := handler.NewDashboardHandler(dashboardService)
+
 	// =============================================
 	// 4. SETUP FIBER APP
 	// =============================================
@@ -92,23 +97,11 @@ func main() {
 	protected := api.Group("/", middleware.Protected())
 
 	// ===================================================
-	// A. PROFILE (Semua role yang sudah login)
+	// A. PROFILE & DASHBOARD (Semua role yang sudah login)
 	// ===================================================
-	protected.Get("/profile", func(c fiber.Ctx) error {
-		userID := c.Locals("user_id")
-		role := c.Locals("role")
-		jabatanID := c.Locals("jabatan_id")
-		return c.JSON(fiber.Map{
-			"status":  "success",
-			"message": "Data profil berhasil diambil",
-			"data": fiber.Map{
-				"user_id":    userID,
-				"role":       role,
-				"jabatan_id": jabatanID,
-			},
-		})
-	})
+	protected.Get("/profile", userHandler.GetProfile)
 	protected.Put("/profile/change-password", userHandler.ChangePassword)
+	protected.Get("/dashboard/summary", dashboardHandler.GetSummary)
 
 	// ===================================================
 	// B. USER MANAGEMENT - Hanya Sekertaris
@@ -163,8 +156,9 @@ func main() {
 	log.Println("   POST   /api/login                        - Login user")
 	log.Println("")
 	log.Println("   [PROTECTED - Semua Role]")
-	log.Println("   GET    /api/profile                      - Lihat profil user")
+	log.Println("   GET    /api/profile                      - Lihat profil user (dari DB)")
 	log.Println("   PUT    /api/profile/change-password       - Ubah password")
+	log.Println("   GET    /api/dashboard/summary             - Statistik dashboard")
 	log.Println("   POST   /api/reports                      - Buat laporan kinerja")
 	log.Println("   GET    /api/reports                      - Lihat laporan (RBAC di service)")
 	log.Println("   GET    /api/reviews                      - Lihat penilaian saya")

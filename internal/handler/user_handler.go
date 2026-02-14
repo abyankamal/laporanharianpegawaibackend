@@ -36,6 +36,50 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
+// GetProfile menangani request profil user yang sedang login.
+func (h *UserHandler) GetProfile(c fiber.Ctx) error {
+	// 1. Ambil user_id dari JWT Token
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	userID := uint(userIDFloat)
+
+	// 2. Query user dari database (dengan preload Jabatan)
+	user, err := h.userService.GetUserByID(userID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak ditemukan",
+		})
+	}
+
+	// 3. Siapkan nama jabatan
+	namaJabatan := ""
+	if user.Jabatan != nil {
+		namaJabatan = user.Jabatan.NamaJabatan
+	}
+
+	// 4. Return response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Data profil berhasil diambil",
+		"data": fiber.Map{
+			"id":            user.ID,
+			"nip":           user.NIP,
+			"nama":          user.Nama,
+			"role":          user.Role,
+			"jabatan_id":    user.JabatanID,
+			"nama_jabatan":  namaJabatan,
+			"supervisor_id": user.SupervisorID,
+			"created_at":    user.CreatedAt,
+		},
+	})
+}
+
 // GetAll mengambil semua user.
 func (h *UserHandler) GetAll(c fiber.Ctx) error {
 	users, err := h.userService.GetAllUsers()
