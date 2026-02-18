@@ -36,6 +36,19 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
+// ProfileResponse adalah struct response untuk endpoint GET /api/profile.
+type ProfileResponse struct {
+	ID           uint   `json:"id"`
+	NIP          string `json:"nip"`
+	Nama         string `json:"nama"`
+	Role         string `json:"role"`
+	JabatanID    *uint  `json:"jabatan_id"`
+	NamaJabatan  string `json:"nama_jabatan"`
+	SupervisorID *uint  `json:"supervisor_id"`
+	NamaAtasan   string `json:"nama_atasan"`
+	CreatedAt    string `json:"created_at"`
+}
+
 // GetProfile menangani request profil user yang sedang login.
 func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
@@ -48,7 +61,7 @@ func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 	}
 	userID := uint(userIDFloat)
 
-	// 2. Query user dari database (dengan preload Jabatan)
+	// 2. Query user dari database (dengan preload Jabatan & Supervisor)
 	user, err := h.userService.GetUserByID(userID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -57,26 +70,32 @@ func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 		})
 	}
 
-	// 3. Siapkan nama jabatan
-	namaJabatan := ""
+	// 3. Siapkan response
+	profile := ProfileResponse{
+		ID:           user.ID,
+		NIP:          user.NIP,
+		Nama:         user.Nama,
+		Role:         user.Role,
+		JabatanID:    user.JabatanID,
+		SupervisorID: user.SupervisorID,
+		CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	// Isi nama jabatan jika ada
 	if user.Jabatan != nil {
-		namaJabatan = user.Jabatan.NamaJabatan
+		profile.NamaJabatan = user.Jabatan.NamaJabatan
+	}
+
+	// Isi nama atasan jika ada
+	if user.Supervisor != nil {
+		profile.NamaAtasan = user.Supervisor.Nama
 	}
 
 	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Data profil berhasil diambil",
-		"data": fiber.Map{
-			"id":            user.ID,
-			"nip":           user.NIP,
-			"nama":          user.Nama,
-			"role":          user.Role,
-			"jabatan_id":    user.JabatanID,
-			"nama_jabatan":  namaJabatan,
-			"supervisor_id": user.SupervisorID,
-			"created_at":    user.CreatedAt,
-		},
+		"data":    profile,
 	})
 }
 

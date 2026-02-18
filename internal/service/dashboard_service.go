@@ -8,9 +8,9 @@ import (
 
 // DashboardSummary adalah struct response untuk dashboard.
 type DashboardSummary struct {
-	JumlahLaporanBulanIni int64  `json:"jumlah_laporan_bulan_ini"`
-	JumlahTugasPokok      int64  `json:"jumlah_tugas_pokok"`
-	LaporanMasukHariIni   *int64 `json:"laporan_masuk_hari_ini,omitempty"` // Hanya muncul untuk atasan
+	TaskPending         int64  `json:"task_pending"`                     // Tugas pokok belum dilaporkan hari ini
+	LaporanBulanIni     int64  `json:"laporan_bulan_ini"`                // Total laporan user bulan ini
+	LaporanMasukHariIni *int64 `json:"laporan_masuk_hari_ini,omitempty"` // Hanya muncul untuk atasan
 }
 
 // DashboardService adalah interface untuk operasi bisnis Dashboard.
@@ -32,24 +32,24 @@ func NewDashboardService(dashboardRepo repository.DashboardRepository) Dashboard
 func (s *dashboardService) GetSummary(userID uint, userRole string) (*DashboardSummary, error) {
 	now := time.Now()
 
-	// 1. Hitung jumlah laporan user bulan ini
-	jumlahLaporan, err := s.dashboardRepo.CountLaporanByUserAndMonth(userID, now.Year(), int(now.Month()))
+	// 1. Hitung tugas pokok yang belum dilaporkan hari ini
+	taskPending, err := s.dashboardRepo.CountTugasPendingHariIni(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Hitung jumlah tugas pokok user
-	jumlahTugas, err := s.dashboardRepo.CountTugasPokokByUser(userID)
+	// 2. Hitung jumlah laporan user bulan ini
+	laporanBulanIni, err := s.dashboardRepo.CountLaporanByUserAndMonth(userID, now.Year(), int(now.Month()))
 	if err != nil {
 		return nil, err
 	}
 
 	summary := &DashboardSummary{
-		JumlahLaporanBulanIni: jumlahLaporan,
-		JumlahTugasPokok:      jumlahTugas,
+		TaskPending:     taskPending,
+		LaporanBulanIni: laporanBulanIni,
 	}
 
-	// 3. Jika atasan (lurah/sekertaris), hitung laporan masuk hari ini
+	// 4. Jika atasan (lurah/sekertaris), hitung laporan masuk hari ini
 	if userRole == "lurah" || userRole == "sekertaris" {
 		laporanHariIni, err := s.dashboardRepo.CountLaporanHariIni()
 		if err != nil {

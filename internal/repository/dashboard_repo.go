@@ -6,19 +6,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// DashboardStats adalah struct untuk menyimpan statistik dashboard.
-type DashboardStats struct {
-	JumlahLaporanBulanIni int64 `json:"jumlah_laporan_bulan_ini"`
-	JumlahTugasPokok      int64 `json:"jumlah_tugas_pokok"`
-	LaporanMasukHariIni   int64 `json:"laporan_masuk_hari_ini"` // Hanya untuk atasan
-}
-
 // DashboardRepository adalah interface untuk query statistik dashboard.
 type DashboardRepository interface {
 	CountLaporanByUserAndMonth(userID uint, year int, month int) (int64, error)
 	CountTugasPokokByUser(userID uint) (int64, error)
 	CountLaporanHariIni() (int64, error)
 	CountLaporanHariIniByRole(role string) (int64, error)
+	CountTugasPendingHariIni(userID uint) (int64, error)
 }
 
 // dashboardRepository adalah implementasi dari DashboardRepository.
@@ -73,5 +67,22 @@ func (r *dashboardRepository) CountLaporanHariIniByRole(role string) (int64, err
 		Joins("JOIN users ON users.id = laporan.user_id").
 		Where("users.role = ? AND laporan.created_at >= ? AND laporan.created_at < ?", role, today+" 00:00:00", today+" 23:59:59").
 		Count(&count).Error
+	return count, err
+}
+
+// CountTugasPendingHariIni menghitung jumlah tugas pokok user
+// yang belum memiliki laporan (tipe_laporan = true) pada hari ini.
+// Menggunakan LEFT JOIN + IS NULL untuk menemukan tugas tanpa laporan.
+func (r *dashboardRepository) CountTugasPendingHariIni(userID uint) (int64, error) {
+	var count int64
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+	todayEnd := todayStart.AddDate(0, 0, 1)
+
+	err := r.db.Table("tugas_pokok").
+		Joins("LEFT JOIN laporan ON laporan.tugas_pokok_id = tugas_pokok.id AND laporan.tipe_laporan = ? AND laporan.created_at >= ? AND laporan.created_at < ?", true, todayStart, todayEnd).
+		Where("tugas_pokok.user_id = ? AND laporan.id IS NULL", userID).
+		Count(&count).Error
+
 	return count, err
 }
