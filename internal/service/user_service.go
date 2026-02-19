@@ -2,8 +2,15 @@ package service
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"laporanharianapi/internal/domain"
@@ -44,6 +51,7 @@ type UserService interface {
 	UpdateUser(id uint, req UpdateUserRequest) (*domain.User, error)
 	DeleteUser(id uint) error
 	ChangePassword(userID uint, req ChangePasswordRequest) error
+	UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error)
 }
 
 // userService adalah implementasi dari UserService.
@@ -215,4 +223,66 @@ func (s *userService) ChangePassword(userID uint, req ChangePasswordRequest) err
 	}
 
 	return nil
+}
+
+// UpdateProfilePhoto mengubah foto profil user.
+func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error) {
+	// 1. Validasi tipe file (hanya jpg/jpeg/png)
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+		return "", errors.New("format file tidak didukung, gunakan JPG/JPEG/PNG")
+	}
+
+	// 2. Validasi ukuran file (max 2MB)
+	if fileHeader.Size > 2*1024*1024 {
+		return "", errors.New("ukuran file maksimal 2MB")
+	}
+
+	// 3. Ambil data user untuk cek foto lama
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return "", errors.New("user tidak ditemukan")
+	}
+
+	// 4. Hapus foto lama jika ada
+	if user.FotoPath != nil && *user.FotoPath != "" {
+		os.Remove(*user.FotoPath)
+	}
+
+	// 5. Simpan file baru ke ./uploads/photos/
+	uploadDir := "./uploads/photos"
+	err = os.MkdirAll(uploadDir, os.ModePerm)
+	if err != nil {
+		return "", fmt.Errorf("gagal membuat direktori upload: %v", err)
+	}
+
+	newFileName := uuid.New().String() + ext
+	destPath := filepath.Join(uploadDir, newFileName)
+
+	src, err := fileHeader.Open()
+	if err != nil {
+		return "", fmt.Errorf("gagal membuka file: %v", err)
+	}
+	defer src.Close()
+
+	dst, err := os.Create(destPath)
+	if err != nil {
+		return "", fmt.Errorf("gagal menyimpan file: %v", err)
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", fmt.Errorf("gagal menulis file: %v", err)
+	}
+
+	// 6. Update foto_path di database
+	err = s.userRepo.UpdateFoto(userID, destPath)
+	if err != nil {
+		// Hapus file yang baru diupload jika gagal update DB
+		os.Remove(destPath)
+		return "", errors.New("gagal mengupdate foto profil")
+	}
+
+	return destPath, nil
 }

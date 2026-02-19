@@ -14,6 +14,7 @@ type UserResponse struct {
 	NIP          string           `json:"nip"`
 	Nama         string           `json:"nama"`
 	Role         string           `json:"role"`
+	FotoPath     *string          `json:"foto_path"`
 	JabatanID    *uint            `json:"jabatan_id"`
 	SupervisorID *uint            `json:"supervisor_id"`
 	Jabatan      *JabatanResponse `json:"jabatan,omitempty"`
@@ -38,15 +39,16 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 
 // ProfileResponse adalah struct response untuk endpoint GET /api/profile.
 type ProfileResponse struct {
-	ID           uint   `json:"id"`
-	NIP          string `json:"nip"`
-	Nama         string `json:"nama"`
-	Role         string `json:"role"`
-	JabatanID    *uint  `json:"jabatan_id"`
-	NamaJabatan  string `json:"nama_jabatan"`
-	SupervisorID *uint  `json:"supervisor_id"`
-	NamaAtasan   string `json:"nama_atasan"`
-	CreatedAt    string `json:"created_at"`
+	ID           uint    `json:"id"`
+	NIP          string  `json:"nip"`
+	Nama         string  `json:"nama"`
+	Role         string  `json:"role"`
+	FotoPath     *string `json:"foto_path"`
+	JabatanID    *uint   `json:"jabatan_id"`
+	NamaJabatan  string  `json:"nama_jabatan"`
+	SupervisorID *uint   `json:"supervisor_id"`
+	NamaAtasan   string  `json:"nama_atasan"`
+	CreatedAt    string  `json:"created_at"`
 }
 
 // GetProfile menangani request profil user yang sedang login.
@@ -76,6 +78,7 @@ func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 		NIP:          user.NIP,
 		Nama:         user.Nama,
 		Role:         user.Role,
+		FotoPath:     user.FotoPath,
 		JabatanID:    user.JabatanID,
 		SupervisorID: user.SupervisorID,
 		CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -117,6 +120,7 @@ func (h *UserHandler) GetAll(c fiber.Ctx) error {
 			NIP:          user.NIP,
 			Nama:         user.Nama,
 			Role:         user.Role,
+			FotoPath:     user.FotoPath,
 			JabatanID:    user.JabatanID,
 			SupervisorID: user.SupervisorID,
 			CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -166,6 +170,7 @@ func (h *UserHandler) GetOne(c fiber.Ctx) error {
 		NIP:          user.NIP,
 		Nama:         user.Nama,
 		Role:         user.Role,
+		FotoPath:     user.FotoPath,
 		JabatanID:    user.JabatanID,
 		SupervisorID: user.SupervisorID,
 		CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -333,5 +338,45 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Password berhasil diubah",
+	})
+}
+
+// ChangePhoto mengubah foto profil user yang sedang login.
+func (h *UserHandler) ChangePhoto(c fiber.Ctx) error {
+	// 1. Ambil user_id dari JWT Token
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	userID := uint(userIDFloat)
+
+	// 2. Ambil file dari form
+	fileHeader, err := c.FormFile("foto")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "File foto wajib diupload",
+		})
+	}
+
+	// 3. Panggil service
+	fotoPath, err := h.userService.UpdateProfilePhoto(userID, fileHeader)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// 4. Return response sukses
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Foto profil berhasil diubah",
+		"data": fiber.Map{
+			"foto_path": fotoPath,
+		},
 	})
 }

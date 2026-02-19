@@ -17,6 +17,7 @@ type UserRepository interface {
 	Update(user *domain.User) error
 	Delete(id uint) error
 	UpdatePassword(userID uint, newPasswordHash string) error
+	UpdateFoto(userID uint, fotoPath string) error
 }
 
 // userRepository adalah implementasi dari UserRepository.
@@ -78,6 +79,18 @@ func (r *userRepository) Delete(id uint) error {
 // Method ini hanya mengupdate field password untuk menghindari perubahan field lain.
 func (r *userRepository) UpdatePassword(userID uint, newPasswordHash string) error {
 	result := r.db.Model(&domain.User{}).Where("id = ?", userID).Update("password", newPasswordHash)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("user tidak ditemukan")
+	}
+	return nil
+}
+
+// UpdateFoto mengupdate foto profil user secara spesifik.
+func (r *userRepository) UpdateFoto(userID uint, fotoPath string) error {
+	result := r.db.Model(&domain.User{}).Where("id = ?", userID).Update("foto_path", fotoPath)
 	if result.Error != nil {
 		return result.Error
 	}

@@ -85,6 +85,11 @@ func main() {
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}))
 
+	// Static file serving untuk folder uploads/photos (foto profil)
+	app.Get("/uploads/photos/*", func(c fiber.Ctx) error {
+		return c.SendFile("./" + c.Path())
+	})
+
 	// =============================================
 	// 6. SETUP ROUTES
 	// =============================================
@@ -101,6 +106,7 @@ func main() {
 	// ===================================================
 	protected.Get("/profile", userHandler.GetProfile)
 	protected.Put("/profile/change-password", userHandler.ChangePassword)
+	protected.Put("/profile/change-photo", userHandler.ChangePhoto)
 	protected.Get("/dashboard/summary", dashboardHandler.GetSummary)
 
 	// ===================================================
@@ -158,6 +164,7 @@ func main() {
 	log.Println("   [PROTECTED - Semua Role]")
 	log.Println("   GET    /api/profile                      - Lihat profil user (dari DB)")
 	log.Println("   PUT    /api/profile/change-password       - Ubah password")
+	log.Println("   PUT    /api/profile/change-photo          - Ubah foto profil")
 	log.Println("   GET    /api/dashboard/summary             - Statistik dashboard")
 	log.Println("   POST   /api/reports                      - Buat laporan kinerja")
 	log.Println("   GET    /api/reports                      - Lihat laporan (RBAC di service)")
