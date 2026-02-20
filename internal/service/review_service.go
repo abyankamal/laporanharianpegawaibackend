@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"laporanharianapi/internal/domain"
@@ -30,13 +31,15 @@ type ReviewService interface {
 type reviewService struct {
 	reviewRepo repository.ReviewRepository
 	userRepo   repository.UserRepository
+	notifRepo  repository.NotificationRepository
 }
 
 // NewReviewService membuat instance baru ReviewService.
-func NewReviewService(reviewRepo repository.ReviewRepository, userRepo repository.UserRepository) ReviewService {
+func NewReviewService(reviewRepo repository.ReviewRepository, userRepo repository.UserRepository, notifRepo repository.NotificationRepository) ReviewService {
 	return &reviewService{
 		reviewRepo: reviewRepo,
 		userRepo:   userRepo,
+		notifRepo:  notifRepo,
 	}
 }
 
@@ -128,6 +131,19 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 	err = s.reviewRepo.Create(penilaian)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan penilaian: %v", err)
+	}
+
+	// 11. Buat notifikasi untuk target user
+	notif := &domain.Notification{
+		UserID:    req.TargetUserID,
+		Kategori:  "Penilaian",
+		Judul:     "Penilaian Kinerja Baru",
+		Pesan:     fmt.Sprintf("Atasan Anda telah memberikan penilaian kinerja untuk periode %s.", req.JenisPeriode),
+		TerkaitID: int(penilaian.ID),
+		CreatedAt: now,
+	}
+	if err := s.notifRepo.Create(notif); err != nil {
+		log.Printf("⚠️ Gagal membuat notifikasi penilaian: %v", err)
 	}
 
 	return penilaian, nil

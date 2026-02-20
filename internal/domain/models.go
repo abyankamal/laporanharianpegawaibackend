@@ -127,6 +127,22 @@ func (Penilaian) TableName() string {
 	return "penilaian"
 }
 
+// Notification adalah tabel untuk menyimpan notifikasi pengguna.
+type Notification struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID    int       `gorm:"column:user_id;not null" json:"user_id"`
+	Kategori  string    `gorm:"column:kategori;type:varchar(50);not null" json:"kategori"` // 'Tugas', 'Penilaian', 'Sistem'
+	Judul     string    `gorm:"column:judul;type:varchar(255);not null" json:"judul"`
+	Pesan     string    `gorm:"column:pesan;type:text;not null" json:"pesan"`
+	IsRead    bool      `gorm:"column:is_read;default:false" json:"is_read"`
+	TerkaitID int       `gorm:"column:terkait_id" json:"terkait_id"` // ID referensi (Tugas atau Penilaian)
+	CreatedAt time.Time `gorm:"column:created_at" json:"created_at"`
+}
+
+func (Notification) TableName() string {
+	return "notifications"
+}
+
 // HariLibur adalah tabel untuk menyimpan data hari libur.
 // dikomen dulu, nanti diaktifkan lagi kalau sudah ada fitur hari libur
 // type HariLibur struct {

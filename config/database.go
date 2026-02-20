@@ -58,6 +58,7 @@ func ConnectDatabase() {
 		&domain.FileLaporan{},
 		&domain.Penilaian{},
 		&domain.RefSkorPenilaian{},
+		&domain.Notification{},
 		// &domain.HariLibur{}, // dikomen dulu, nanti diaktifkan lagi kalau sudah ada fitur hari libur
 	)
 	if err != nil {

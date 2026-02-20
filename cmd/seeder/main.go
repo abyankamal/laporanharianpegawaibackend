@@ -151,33 +151,17 @@ func seedUsers(db *gorm.DB) {
 	// Data users
 	users := []domain.User{
 		{
-			NIP:       "19800101",
-			Nama:      "Iis Yuniawardani",
+			NIP:       "198106152014102004",
+			Nama:      "Iis Yuniawardani, S.IP",
 			Password:  string(hashedPassword),
 			Role:      "lurah",
 			CreatedAt: time.Now(),
 		},
 		{
-			NIP:       "19900202",
-			Nama:      "Bu Sekertaris",
+			NIP:       "198002012009061001",
+			Nama:      "Aep Saepudin, S.Kom",
 			Password:  string(hashedPassword),
 			Role:      "sekertaris",
-			CreatedAt: time.Now(),
-		},
-		{
-			NIP:       "20000303",
-			Nama:      "Pak Kasi",
-			Password:  string(hashedPassword),
-			Role:      "kasi",
-			JabatanID: &kasiPemerintahan.ID,
-			CreatedAt: time.Now(),
-		},
-		{
-			NIP:       "20100404",
-			Nama:      "Mas Staf",
-			Password:  string(hashedPassword),
-			Role:      "staf",
-			JabatanID: &operatorLayananOperasional.ID,
 			CreatedAt: time.Now(),
 		},
 	}

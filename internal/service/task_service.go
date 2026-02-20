@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"laporanharianapi/internal/domain"
@@ -24,15 +25,17 @@ type TaskService interface {
 
 // taskService adalah implementasi dari TaskService.
 type taskService struct {
-	taskRepo repository.TaskRepository
-	userRepo repository.UserRepository
+	taskRepo  repository.TaskRepository
+	userRepo  repository.UserRepository
+	notifRepo repository.NotificationRepository
 }
 
 // NewTaskService membuat instance baru TaskService.
-func NewTaskService(taskRepo repository.TaskRepository, userRepo repository.UserRepository) TaskService {
+func NewTaskService(taskRepo repository.TaskRepository, userRepo repository.UserRepository, notifRepo repository.NotificationRepository) TaskService {
 	return &taskService{
-		taskRepo: taskRepo,
-		userRepo: userRepo,
+		taskRepo:  taskRepo,
+		userRepo:  userRepo,
+		notifRepo: notifRepo,
 	}
 }
 
@@ -92,6 +95,19 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 	err = s.taskRepo.Create(tugas)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan tugas: %v", err)
+	}
+
+	// 7. Buat notifikasi untuk target user
+	notif := &domain.Notification{
+		UserID:    req.TargetUserID,
+		Kategori:  "Tugas",
+		Judul:     "Tugas Baru Ditetapkan",
+		Pesan:     fmt.Sprintf("Anda telah ditugaskan untuk '%s'. Silakan cek detail tugas.", req.JudulTugas),
+		TerkaitID: int(tugas.ID),
+		CreatedAt: time.Now(),
+	}
+	if err := s.notifRepo.Create(notif); err != nil {
+		log.Printf("⚠️ Gagal membuat notifikasi tugas: %v", err)
 	}
 
 	return tugas, nil

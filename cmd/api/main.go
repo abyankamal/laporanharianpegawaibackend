@@ -37,6 +37,11 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
 
+	// --- Notification Module ---
+	notifRepo := repository.NewNotificationRepository(config.DB)
+	notifService := service.NewNotificationService(notifRepo)
+	notifHandler := handler.NewNotificationHandler(notifService)
+
 	// --- Report Module ---
 	reportRepo := repository.NewReportRepository(config.DB)
 	reportService := service.NewReportService(reportRepo)
@@ -44,12 +49,12 @@ func main() {
 
 	// --- Review (Penilaian) Module ---
 	reviewRepo := repository.NewReviewRepository(config.DB)
-	reviewService := service.NewReviewService(reviewRepo, userRepo)
+	reviewService := service.NewReviewService(reviewRepo, userRepo, notifRepo)
 	reviewHandler := handler.NewReviewHandler(reviewService)
 
 	// --- Task (Tugas Pokok) Module ---
 	taskRepo := repository.NewTaskRepository(config.DB)
-	taskService := service.NewTaskService(taskRepo, userRepo)
+	taskService := service.NewTaskService(taskRepo, userRepo, notifRepo)
 	taskHandler := handler.NewTaskHandler(taskService)
 
 	// --- Dashboard Module ---
@@ -145,6 +150,13 @@ func main() {
 	// My Tasks - Semua role bisa melihat tugas pokok miliknya (untuk dropdown)
 	protected.Get("/my-tasks", taskHandler.GetMyTasks)
 
+	// ===================================================
+	// F. NOTIFIKASI - Semua role yang sudah login
+	// ===================================================
+	notifRoutes := protected.Group("/notifications")
+	notifRoutes.Get("/", notifHandler.GetMy)            // Ambil semua notifikasi saya
+	notifRoutes.Put("/:id/read", notifHandler.MarkRead) // Tandai notifikasi sebagai dibaca
+
 	// =============================================
 	// 7. START SERVER
 	// =============================================
@@ -169,6 +181,8 @@ func main() {
 	log.Println("   POST   /api/reports                      - Buat laporan kinerja")
 	log.Println("   GET    /api/reports                      - Lihat laporan (RBAC di service)")
 	log.Println("   GET    /api/reviews                      - Lihat penilaian saya")
+	log.Println("   GET    /api/notifications                - Lihat notifikasi saya")
+	log.Println("   PUT    /api/notifications/:id/read       - Tandai notifikasi dibaca")
 	log.Println("")
 	log.Println("   [RBAC - Sekertaris Only]")
 	log.Println("   GET    /api/users                        - Lihat semua user")
