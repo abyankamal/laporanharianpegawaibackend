@@ -132,34 +132,20 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 
 	judulKegiatan := c.FormValue("judul_kegiatan")
 	deskripsiHasil := c.FormValue("deskripsi_hasil")
-	lokasiLat := c.FormValue("lokasi_lat")
-	lokasiLong := c.FormValue("lokasi_long")
-	alamatLokasi := c.FormValue("alamat_lokasi")
+	lokasiLat := c.FormValue("lokasi_lat")       // opsional
+	lokasiLong := c.FormValue("lokasi_long")     // opsional
+	alamatLokasi := c.FormValue("alamat_lokasi") // opsional
 
-	// Parse waktu
-	waktuMulaiStr := c.FormValue("waktu_mulai")
-	waktuSelesaiStr := c.FormValue("waktu_selesai")
-
-	waktuMulai, err := time.Parse("2006-01-02 15:04:05", waktuMulaiStr)
+	// Parse waktu pelaporan
+	waktuPelaporanStr := c.FormValue("waktu_pelaporan")
+	waktuPelaporan, err := time.Parse("2006-01-02 15:04:05", waktuPelaporanStr)
 	if err != nil {
 		// Coba format lain
-		waktuMulai, err = time.Parse("2006-01-02T15:04:05", waktuMulaiStr)
+		waktuPelaporan, err = time.Parse("2006-01-02T15:04:05", waktuPelaporanStr)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"status":  "error",
-				"message": "Format waktu_mulai tidak valid (gunakan: 2006-01-02 15:04:05)",
-			})
-		}
-	}
-
-	waktuSelesai, err := time.Parse("2006-01-02 15:04:05", waktuSelesaiStr)
-	if err != nil {
-		// Coba format lain
-		waktuSelesai, err = time.Parse("2006-01-02T15:04:05", waktuSelesaiStr)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Format waktu_selesai tidak valid (gunakan: 2006-01-02 15:04:05)",
+				"message": "Format waktu_pelaporan tidak valid (gunakan: YYYY-MM-DD HH:mm:ss)",
 			})
 		}
 	}
@@ -181,8 +167,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 		TipeLaporan:    tipeLaporan,
 		JudulKegiatan:  judulKegiatan,
 		DeskripsiHasil: deskripsiHasil,
-		WaktuMulai:     waktuMulai,
-		WaktuSelesai:   waktuSelesai,
+		WaktuPelaporan: waktuPelaporan,
 		LokasiLat:      lokasiLat,
 		LokasiLong:     lokasiLong,
 		AlamatLokasi:   alamatLokasi,

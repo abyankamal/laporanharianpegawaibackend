@@ -71,12 +71,11 @@ type Laporan struct {
 	TugasPokokID   *uint     `gorm:"column:tugas_pokok_id" json:"tugas_pokok_id"`          // nullable
 	JudulKegiatan  string    `gorm:"column:judul_kegiatan;type:varchar(255)" json:"judul_kegiatan"`
 	DeskripsiHasil string    `gorm:"column:deskripsi_hasil;type:text" json:"deskripsi_hasil"`
-	WaktuMulai     time.Time `gorm:"column:waktu_mulai" json:"waktu_mulai"`
-	WaktuSelesai   time.Time `gorm:"column:waktu_selesai" json:"waktu_selesai"`
+	WaktuPelaporan time.Time `gorm:"column:waktu_pelaporan" json:"waktu_pelaporan"`
 	IsOvertime     bool      `gorm:"column:is_overtime;default:false" json:"is_overtime"`
-	LokasiLat      string    `gorm:"column:lokasi_lat;type:varchar(50)" json:"lokasi_lat"`
-	LokasiLong     string    `gorm:"column:lokasi_long;type:varchar(50)" json:"lokasi_long"`
-	AlamatLokasi   string    `gorm:"column:alamat_lokasi;type:text" json:"alamat_lokasi"`
+	LokasiLat      *string   `gorm:"column:lokasi_lat;type:varchar(50)" json:"lokasi_lat"`
+	LokasiLong     *string   `gorm:"column:lokasi_long;type:varchar(50)" json:"lokasi_long"`
+	AlamatLokasi   *string   `gorm:"column:alamat_lokasi;type:text" json:"alamat_lokasi"`
 	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi

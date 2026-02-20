@@ -74,14 +74,14 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 
 	query := r.db.Model(&domain.Laporan{})
 
-	// Filter berdasarkan tanggal mulai
+	// Filter berdasarkan tanggal mulai (menggunakan waktu_pelaporan)
 	if filter.StartDate != "" {
-		query = query.Where("laporan.created_at >= ?", filter.StartDate+" 00:00:00")
+		query = query.Where("laporan.waktu_pelaporan >= ?", filter.StartDate+" 00:00:00")
 	}
 
-	// Filter berdasarkan tanggal akhir
+	// Filter berdasarkan tanggal akhir (menggunakan waktu_pelaporan)
 	if filter.EndDate != "" {
-		query = query.Where("laporan.created_at <= ?", filter.EndDate+" 23:59:59")
+		query = query.Where("laporan.waktu_pelaporan <= ?", filter.EndDate+" 23:59:59")
 	}
 
 	// Filter berdasarkan user_id

@@ -21,11 +21,10 @@ type ReportInput struct {
 	TipeLaporan    bool // true = pokok, false = tambahan
 	JudulKegiatan  string
 	DeskripsiHasil string
-	WaktuMulai     time.Time
-	WaktuSelesai   time.Time
-	LokasiLat      string
-	LokasiLong     string
-	AlamatLokasi   string
+	WaktuPelaporan time.Time
+	LokasiLat      string                // opsional, bisa kosong
+	LokasiLong     string                // opsional, bisa kosong
+	AlamatLokasi   string                // opsional, bisa kosong
 	File           *multipart.FileHeader // File bukti (optional)
 }
 
@@ -43,6 +42,14 @@ type reportService struct {
 // NewReportService membuat instance baru ReportService.
 func NewReportService(reportRepo repository.ReportRepository) ReportService {
 	return &reportService{reportRepo: reportRepo}
+}
+
+// toStringPtr mengkonversi string ke pointer. Mengembalikan nil jika string kosong.
+func toStringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // CreateReport membuat laporan baru dengan validasi bisnis.
@@ -87,12 +94,11 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 		TipeLaporan:    input.TipeLaporan,
 		JudulKegiatan:  input.JudulKegiatan,
 		DeskripsiHasil: input.DeskripsiHasil,
-		WaktuMulai:     input.WaktuMulai,
-		WaktuSelesai:   input.WaktuSelesai,
+		WaktuPelaporan: input.WaktuPelaporan,
 		IsOvertime:     isOvertime,
-		LokasiLat:      input.LokasiLat,
-		LokasiLong:     input.LokasiLong,
-		AlamatLokasi:   input.AlamatLokasi,
+		LokasiLat:      toStringPtr(input.LokasiLat),
+		LokasiLong:     toStringPtr(input.LokasiLong),
+		AlamatLokasi:   toStringPtr(input.AlamatLokasi),
 		CreatedAt:      now,
 	}
 
