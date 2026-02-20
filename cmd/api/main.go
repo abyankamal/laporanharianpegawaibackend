@@ -12,6 +12,7 @@ import (
 	"laporanharianapi/internal/handler"
 	"laporanharianapi/internal/middleware"
 	"laporanharianapi/internal/repository"
+	"laporanharianapi/internal/scheduler"
 	"laporanharianapi/internal/service"
 )
 
@@ -158,7 +159,12 @@ func main() {
 	notifRoutes.Put("/:id/read", notifHandler.MarkRead) // Tandai notifikasi sebagai dibaca
 
 	// =============================================
-	// 7. START SERVER
+	// 7. BACKGROUND JOBS
+	// =============================================
+	scheduler.StartDailyReminder(config.DB, notifRepo)
+
+	// =============================================
+	// 8. START SERVER
 	// =============================================
 	port := os.Getenv("APP_PORT")
 	if port == "" {
@@ -195,6 +201,9 @@ func main() {
 	log.Println("   POST   /api/reviews                      - Buat penilaian kinerja")
 	log.Println("   GET    /api/reviews/my-submissions        - History penilaian dibuat")
 	log.Println("   POST   /api/tasks                        - Buat tugas pokok")
+	log.Println("")
+	log.Println("   [BACKGROUND JOBS]")
+	log.Println("   ⏰ Daily Reminder                         - Jam 15:00 hari kerja")
 	log.Println("================================================")
 
 	log.Fatal(app.Listen(":" + port))
