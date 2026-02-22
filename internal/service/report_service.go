@@ -18,7 +18,8 @@ import (
 // ReportInput adalah struct untuk input pembuatan laporan.
 type ReportInput struct {
 	UserID         uint
-	TipeLaporan    bool // true = pokok, false = tambahan
+	TipeLaporan    bool  // true = pokok, false = tambahan
+	TugasPokokID   *uint // ID tugas pokok (wajib jika TipeLaporan = true)
 	JudulKegiatan  string
 	DeskripsiHasil string
 	WaktuPelaporan time.Time
@@ -92,6 +93,7 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	laporan := &domain.Laporan{
 		UserID:         &userID,
 		TipeLaporan:    input.TipeLaporan,
+		TugasPokokID:   input.TugasPokokID,
 		JudulKegiatan:  input.JudulKegiatan,
 		DeskripsiHasil: input.DeskripsiHasil,
 		WaktuPelaporan: input.WaktuPelaporan,

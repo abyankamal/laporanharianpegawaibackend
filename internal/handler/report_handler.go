@@ -132,9 +132,18 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 
 	judulKegiatan := c.FormValue("judul_kegiatan")
 	deskripsiHasil := c.FormValue("deskripsi_hasil")
-	lokasiLat := c.FormValue("lokasi_lat")       // opsional
-	lokasiLong := c.FormValue("lokasi_long")     // opsional
-	alamatLokasi := c.FormValue("alamat_lokasi") // opsional
+	lokasiLat := c.FormValue("lokasi_lat")           // opsional
+	lokasiLong := c.FormValue("lokasi_long")         // opsional
+	alamatLokasi := c.FormValue("alamat_lokasi")     // opsional
+	tugasPokokIDStr := c.FormValue("tugas_pokok_id") // opsional (wajib jika tipe_laporan = pokok)
+
+	var tugasPokokID *uint
+	if tugasPokokIDStr != "" {
+		if id, err := strconv.ParseUint(tugasPokokIDStr, 10, 32); err == nil {
+			val := uint(id)
+			tugasPokokID = &val
+		}
+	}
 
 	// Parse waktu pelaporan
 	waktuPelaporanStr := c.FormValue("waktu_pelaporan")
@@ -165,6 +174,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	input := service.ReportInput{
 		UserID:         userID,
 		TipeLaporan:    tipeLaporan,
+		TugasPokokID:   tugasPokokID,
 		JudulKegiatan:  judulKegiatan,
 		DeskripsiHasil: deskripsiHasil,
 		WaktuPelaporan: waktuPelaporan,
