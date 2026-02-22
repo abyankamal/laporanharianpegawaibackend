@@ -211,3 +211,11 @@ func (m *DashboardRepositoryMock) CountTugasPendingHariIni(userID uint) (int64, 
 	args := m.Called(userID)
 	return args.Get(0).(int64), args.Error(1)
 }
+
+func (m *DashboardRepositoryMock) GetRecentLaporan(userID uint, limit int) ([]domain.Laporan, error) {
+	args := m.Called(userID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Laporan), args.Error(1)
+}

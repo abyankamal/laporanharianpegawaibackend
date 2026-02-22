@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"laporanharianapi/internal/domain"
 )
 
 // DashboardRepository adalah interface untuk query statistik dashboard.
@@ -13,6 +15,7 @@ type DashboardRepository interface {
 	CountLaporanHariIni() (int64, error)
 	CountLaporanHariIniByRole(role string) (int64, error)
 	CountTugasPendingHariIni(userID uint) (int64, error)
+	GetRecentLaporan(userID uint, limit int) ([]domain.Laporan, error)
 }
 
 // dashboardRepository adalah implementasi dari DashboardRepository.
@@ -85,4 +88,18 @@ func (r *dashboardRepository) CountTugasPendingHariIni(userID uint) (int64, erro
 		Count(&count).Error
 
 	return count, err
+}
+
+// GetRecentLaporan mengambil laporan terbaru milik user berdasarkan created_at DESC.
+func (r *dashboardRepository) GetRecentLaporan(userID uint, limit int) ([]domain.Laporan, error) {
+	var reports []domain.Laporan
+	if limit <= 0 {
+		limit = 5
+	}
+	err := r.db.Model(&domain.Laporan{}).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&reports).Error
+	return reports, err
 }

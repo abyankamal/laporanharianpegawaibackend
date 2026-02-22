@@ -60,7 +60,7 @@ func main() {
 
 	// --- Dashboard Module ---
 	dashboardRepo := repository.NewDashboardRepository(config.DB)
-	dashboardService := service.NewDashboardService(dashboardRepo)
+	dashboardService := service.NewDashboardService(dashboardRepo, userRepo)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
 
 	// =============================================
