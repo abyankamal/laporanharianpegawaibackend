@@ -1,7 +1,7 @@
 # API Documentation - Laporan Harian Pegawai
 
 Dokumentasi lengkap API Laporan Harian Pegawai.
-**Base URL**: `http://localhost:3000/api`
+**Base URL**: `http://localhost:5000/api`
 
 ## Daftar Isi
 1. [Authentication](#1-authentication)
