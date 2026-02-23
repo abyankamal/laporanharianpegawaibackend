@@ -27,6 +27,15 @@ type JabatanResponse struct {
 	NamaJabatan string `json:"nama_jabatan"`
 }
 
+// UserModelResponse adalah struct response untuk user (sesuai format frontend).
+type UserModelResponse struct {
+	ID          uint    `json:"id"`
+	NamaLengkap string  `json:"nama_lengkap"`
+	Jabatan     string  `json:"jabatan"`
+	NIP         string  `json:"nip"`
+	FotoUser    *string `json:"foto_user"`
+}
+
 // UserHandler menangani request user management.
 type UserHandler struct {
 	userService service.UserService
@@ -113,25 +122,19 @@ func (h *UserHandler) GetAll(c fiber.Ctx) error {
 	}
 
 	// Map ke response (tanpa password)
-	var response []UserResponse
+	var response []UserModelResponse
 	for _, user := range users {
-		userResp := UserResponse{
-			ID:           user.ID,
-			NIP:          user.NIP,
-			Nama:         user.Nama,
-			Role:         user.Role,
-			FotoPath:     user.FotoPath,
-			JabatanID:    user.JabatanID,
-			SupervisorID: user.SupervisorID,
-			CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
+		jabatanName := ""
+		if user.Jabatan != nil {
+			jabatanName = user.Jabatan.NamaJabatan
 		}
 
-		// Map jabatan jika ada
-		if user.Jabatan != nil {
-			userResp.Jabatan = &JabatanResponse{
-				ID:          user.Jabatan.ID,
-				NamaJabatan: user.Jabatan.NamaJabatan,
-			}
+		userResp := UserModelResponse{
+			ID:          user.ID,
+			NamaLengkap: user.Nama,
+			Jabatan:     jabatanName,
+			NIP:         user.NIP,
+			FotoUser:    user.FotoPath,
 		}
 
 		response = append(response, userResp)
@@ -164,23 +167,18 @@ func (h *UserHandler) GetOne(c fiber.Ctx) error {
 		})
 	}
 
-	// Map ke response (tanpa password)
-	response := UserResponse{
-		ID:           user.ID,
-		NIP:          user.NIP,
-		Nama:         user.Nama,
-		Role:         user.Role,
-		FotoPath:     user.FotoPath,
-		JabatanID:    user.JabatanID,
-		SupervisorID: user.SupervisorID,
-		CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
+	jabatanName := ""
+	if user.Jabatan != nil {
+		jabatanName = user.Jabatan.NamaJabatan
 	}
 
-	if user.Jabatan != nil {
-		response.Jabatan = &JabatanResponse{
-			ID:          user.Jabatan.ID,
-			NamaJabatan: user.Jabatan.NamaJabatan,
-		}
+	// Map ke response (tanpa password)
+	response := UserModelResponse{
+		ID:          user.ID,
+		NamaLengkap: user.Nama,
+		Jabatan:     jabatanName,
+		NIP:         user.NIP,
+		FotoUser:    user.FotoPath,
 	}
 
 	return c.JSON(fiber.Map{
