@@ -122,15 +122,19 @@ func main() {
 	protected.Get("/jabatan", jabatanHandler.GetAll)
 
 	// ===================================================
-	// B. USER MANAGEMENT - Hanya Sekertaris
+	// B. USER MANAGEMENT
 	// ===================================================
-	userRoutes := protected.Group("/users", middleware.AllowRoles("sekertaris"))
-	userRoutes.Get("/", userHandler.GetAll)
-	userRoutes.Get("/supervisors", userHandler.GetSupervisors)
-	userRoutes.Get("/:id", userHandler.GetOne)
-	userRoutes.Post("/", userHandler.Create)
-	userRoutes.Put("/:id", userHandler.Update)
-	userRoutes.Delete("/:id", userHandler.Delete)
+	// Read-only access untuk Lurah (butuh untuk dropdown bawahan) & Sekertaris
+	userRoutesRead := protected.Group("/users", middleware.AllowRoles("Sekertaris", "lurah", "sekertaris"))
+	userRoutesRead.Get("/", userHandler.GetAll)
+	userRoutesRead.Get("/supervisors", userHandler.GetSupervisors)
+	userRoutesRead.Get("/:id", userHandler.GetOne)
+
+	// Write access khusus Sekertaris
+	userRoutesWrite := protected.Group("/users", middleware.AllowRoles("sekertaris", "Sekertaris"))
+	userRoutesWrite.Post("/", userHandler.Create)
+	userRoutesWrite.Put("/:id", userHandler.Update)
+	userRoutesWrite.Delete("/:id", userHandler.Delete)
 
 	// ===================================================
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
@@ -154,6 +158,7 @@ func main() {
 	// ===================================================
 	taskRoutes := protected.Group("/tasks", middleware.AllowRoles("lurah", "sekertaris"))
 	taskRoutes.Post("/", taskHandler.Create) // Hanya Lurah & Sekertaris
+	taskRoutes.Get("/", taskHandler.GetAll)  // Hanya Lurah & Sekertaris
 
 	// My Tasks - Semua role bisa melihat tugas pokok miliknya (untuk dropdown)
 	protected.Get("/my-tasks", taskHandler.GetMyTasks)

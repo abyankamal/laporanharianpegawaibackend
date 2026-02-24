@@ -167,6 +167,14 @@ func (m *TaskRepositoryMock) FindByUserID(userID int) ([]domain.TugasPokok, erro
 	return args.Get(0).([]domain.TugasPokok), args.Error(1)
 }
 
+func (m *TaskRepositoryMock) FindAll() ([]domain.TugasPokok, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.TugasPokok), args.Error(1)
+}
+
 // ============================================================
 // NotificationRepositoryMock
 // ============================================================

@@ -10,6 +10,7 @@ import (
 type TaskRepository interface {
 	Create(task *domain.TugasPokok) error
 	FindByUserID(userID int) ([]domain.TugasPokok, error)
+	FindAll() ([]domain.TugasPokok, error)
 }
 
 // taskRepository adalah implementasi dari TaskRepository.
@@ -32,6 +33,15 @@ func (r *taskRepository) FindByUserID(userID int) ([]domain.TugasPokok, error) {
 	var tasks []domain.TugasPokok
 	err := r.db.Preload("User").Preload("User.Jabatan").Preload("Creator").
 		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Find(&tasks).Error
+	return tasks, err
+}
+
+// FindAll mengambil semua tugas pokok dari database.
+func (r *taskRepository) FindAll() ([]domain.TugasPokok, error) {
+	var tasks []domain.TugasPokok
+	err := r.db.Preload("User").Preload("User.Jabatan").Preload("Creator").
 		Order("created_at DESC").
 		Find(&tasks).Error
 	return tasks, err

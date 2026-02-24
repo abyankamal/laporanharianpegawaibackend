@@ -145,7 +145,7 @@ func TestCreateTask_Fail_EmptyJudul(t *testing.T) {
 }
 
 func TestCreateTask_Fail_AssignToSelf(t *testing.T) {
-	t.Run("Gagal: Tidak boleh memberi tugas ke diri sendiri", func(t *testing.T) {
+	t.Run("Gagal: Sekertaris tidak boleh memberi tugas ke diri sendiri", func(t *testing.T) {
 		// Setup
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
@@ -154,15 +154,48 @@ func TestCreateTask_Fail_AssignToSelf(t *testing.T) {
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
 		req := CreateTaskRequest{
-			TargetUserID: 1, // sama dengan requesterID
+			TargetUserID: 2, // sama dengan requesterID
 			JudulTugas:   "Tugas untuk diri sendiri",
 		}
-		tugas, err := taskSvc.CreateTask(1, "lurah", req)
+		tugas, err := taskSvc.CreateTask(2, "sekertaris", req)
 
 		// Assert
 		assert.Error(t, err)
 		assert.Nil(t, tugas)
 		assert.Equal(t, "tidak dapat memberi tugas ke diri sendiri", err.Error())
+	})
+}
+
+func TestCreateTask_Success_LurahAssignToSelf(t *testing.T) {
+	t.Run("Sukses: Lurah boleh memberi tugas ke diri sendiri", func(t *testing.T) {
+		// Setup
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		targetUser := &domain.User{
+			ID:   1,
+			Nama: "Bu Lurah",
+			Role: "lurah",
+		}
+		mockUserRepo.On("FindByID", uint(1)).Return(targetUser, nil)
+		mockTaskRepo.On("Create", mock.Anything).Return(nil)
+		mockNotifRepo.On("Create", mock.Anything).Return(nil)
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		req := CreateTaskRequest{
+			TargetUserID: 1, // sama dengan requesterID (1)
+			JudulTugas:   "Tugas Mandiri Lurah",
+		}
+		tugas, err := taskSvc.CreateTask(1, "lurah", req)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, tugas)
+		assert.Equal(t, "Tugas Mandiri Lurah", tugas.JudulTugas)
+		mockTaskRepo.AssertExpectations(t)
+		mockNotifRepo.AssertNumberOfCalls(t, "Create", 1)
 	})
 }
 
@@ -253,5 +286,54 @@ func TestCreateTask_Fail_DBError_StillNoNotification(t *testing.T) {
 		assert.Contains(t, err.Error(), "gagal menyimpan tugas")
 		// Notifikasi TIDAK boleh terkirim jika tugas gagal disimpan
 		mockNotifRepo.AssertNotCalled(t, "Create")
+	})
+}
+
+// ============================================================
+// Test GetAllTasks (TaskService)
+// ============================================================
+
+func TestGetAllTasks_Success(t *testing.T) {
+	t.Run("Sukses: Mengambil semua tugas pokok", func(t *testing.T) {
+		// Setup
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		expectedTasks := []domain.TugasPokok{
+			{JudulTugas: "Tugas 1"},
+			{JudulTugas: "Tugas 2"},
+		}
+
+		mockTaskRepo.On("FindAll").Return(expectedTasks, nil)
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		// Execute
+		tasks, err := taskSvc.GetAllTasks()
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, tasks, 2)
+		assert.Equal(t, "Tugas 1", tasks[0].JudulTugas)
+		mockTaskRepo.AssertExpectations(t)
+	})
+}
+
+func TestGetAllTasks_Fail_DBError(t *testing.T) {
+	t.Run("Gagal: Database error saat mengambil semua tugas", func(t *testing.T) {
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		mockTaskRepo.On("FindAll").Return(nil, errors.New("db disconnect"))
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		tasks, err := taskSvc.GetAllTasks()
+
+		assert.Error(t, err)
+		assert.Nil(t, tasks)
+		assert.Equal(t, "db disconnect", err.Error())
 	})
 }

@@ -111,3 +111,43 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 		"data":    tasks,
 	})
 }
+
+// GetAll menangani request atasan untuk melihat seluruh daftar tugas pokok.
+func (h *TaskHandler) GetAll(c fiber.Ctx) error {
+	tasks, err := h.taskService.GetAllTasks()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Gagal mengambil daftar tugas: " + err.Error(),
+		})
+	}
+
+	// Map ke format yang sesuai dengan TaskModel di frontend (flat structure)
+	var responseData []fiber.Map
+	for _, t := range tasks {
+		var name, nip, avatar string
+		if t.User != nil {
+			name = t.User.Nama
+			nip = t.User.NIP
+			if t.User.FotoPath != nil {
+				avatar = *t.User.FotoPath
+			}
+		}
+
+		responseData = append(responseData, fiber.Map{
+			"id":                 t.ID,
+			"assigned_to_name":   name,
+			"assigned_to_nip":    nip,
+			"assigned_to_avatar": avatar,
+			"date":               t.CreatedAt.Format("2006-01-02"), // Format YYYY-MM-DD
+			"judul_tugas":        t.JudulTugas,
+			"deskripsi":          t.Deskripsi,
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Daftar tugas berhasil diambil",
+		"data":    responseData,
+	})
+}

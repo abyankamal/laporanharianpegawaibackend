@@ -21,6 +21,7 @@ type CreateTaskRequest struct {
 type TaskService interface {
 	CreateTask(requesterID uint, requesterRole string, req CreateTaskRequest) (*domain.TugasPokok, error)
 	GetTasksByUserID(userID int) ([]domain.TugasPokok, error)
+	GetAllTasks() ([]domain.TugasPokok, error)
 }
 
 // taskService adalah implementasi dari TaskService.
@@ -57,8 +58,8 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 		return nil, errors.New("judul_tugas wajib diisi")
 	}
 
-	// 3. Tidak boleh memberi tugas ke diri sendiri
-	if uint(req.TargetUserID) == requesterID {
+	// 3. Tidak boleh memberi tugas ke diri sendiri (kecuali Lurah)
+	if uint(req.TargetUserID) == requesterID && requesterRole != "lurah" {
 		return nil, errors.New("tidak dapat memberi tugas ke diri sendiri")
 	}
 
@@ -70,9 +71,9 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 
 	switch requesterRole {
 	case "lurah":
-		// Lurah hanya boleh memberi tugas ke sekertaris dan kasi
-		if targetUser.Role != "sekertaris" && targetUser.Role != "kasi" {
-			return nil, errors.New("Lurah hanya boleh memberi tugas ke Sekertaris dan Kasi")
+		// Lurah boleh memberi tugas ke sekertaris, kasi, dan diri sendiri
+		if targetUser.Role != "sekertaris" && targetUser.Role != "kasi" && targetUser.Role != "lurah" {
+			return nil, errors.New("Lurah hanya boleh memberi tugas ke Sekertaris, Kasi, atau diri sendiri")
 		}
 	case "sekertaris":
 		// Sekertaris hanya boleh memberi tugas ke staf
@@ -116,4 +117,9 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 // GetTasksByUserID mengambil daftar tugas pokok untuk user tertentu.
 func (s *taskService) GetTasksByUserID(userID int) ([]domain.TugasPokok, error) {
 	return s.taskRepo.FindByUserID(userID)
+}
+
+// GetAllTasks mengambil semua tugas pokok (untuk atasan).
+func (s *taskService) GetAllTasks() ([]domain.TugasPokok, error) {
+	return s.taskRepo.FindAll()
 }
