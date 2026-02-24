@@ -29,11 +29,14 @@ type JabatanResponse struct {
 
 // UserModelResponse adalah struct response untuk user (sesuai format frontend).
 type UserModelResponse struct {
-	ID          uint    `json:"id"`
-	NamaLengkap string  `json:"nama_lengkap"`
-	Jabatan     string  `json:"jabatan"`
-	NIP         string  `json:"nip"`
-	FotoUser    *string `json:"foto_user"`
+	ID           uint    `json:"id"`
+	NamaLengkap  string  `json:"nama_lengkap"`
+	Jabatan      string  `json:"jabatan"`
+	JabatanID    *uint   `json:"jabatan_id"`
+	NIP          string  `json:"nip"`
+	Role         string  `json:"role"`
+	SupervisorID *uint   `json:"supervisor_id"`
+	FotoUser     *string `json:"foto_user"`
 }
 
 // UserHandler menangani request user management.
@@ -130,11 +133,14 @@ func (h *UserHandler) GetAll(c fiber.Ctx) error {
 		}
 
 		userResp := UserModelResponse{
-			ID:          user.ID,
-			NamaLengkap: user.Nama,
-			Jabatan:     jabatanName,
-			NIP:         user.NIP,
-			FotoUser:    user.FotoPath,
+			ID:           user.ID,
+			NamaLengkap:  user.Nama,
+			Jabatan:      jabatanName,
+			JabatanID:    user.JabatanID,
+			NIP:          user.NIP,
+			Role:         user.Role,
+			SupervisorID: user.SupervisorID,
+			FotoUser:     user.FotoPath,
 		}
 
 		response = append(response, userResp)
@@ -174,11 +180,14 @@ func (h *UserHandler) GetOne(c fiber.Ctx) error {
 
 	// Map ke response (tanpa password)
 	response := UserModelResponse{
-		ID:          user.ID,
-		NamaLengkap: user.Nama,
-		Jabatan:     jabatanName,
-		NIP:         user.NIP,
-		FotoUser:    user.FotoPath,
+		ID:           user.ID,
+		NamaLengkap:  user.Nama,
+		Jabatan:      jabatanName,
+		JabatanID:    user.JabatanID,
+		NIP:          user.NIP,
+		Role:         user.Role,
+		SupervisorID: user.SupervisorID,
+		FotoUser:     user.FotoPath,
 	}
 
 	return c.JSON(fiber.Map{
@@ -211,11 +220,14 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
 		"message": "User berhasil dibuat",
-		"data": fiber.Map{
-			"id":   user.ID,
-			"nip":  user.NIP,
-			"nama": user.Nama,
-			"role": user.Role,
+		"data": UserModelResponse{
+			ID:           user.ID,
+			NamaLengkap:  user.Nama,
+			NIP:          user.NIP,
+			Role:         user.Role,
+			JabatanID:    user.JabatanID,
+			SupervisorID: user.SupervisorID,
+			FotoUser:     user.FotoPath,
 		},
 	})
 }
@@ -253,11 +265,14 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"status":  "success",
 		"message": "User berhasil diupdate",
-		"data": fiber.Map{
-			"id":   user.ID,
-			"nip":  user.NIP,
-			"nama": user.Nama,
-			"role": user.Role,
+		"data": UserModelResponse{
+			ID:           user.ID,
+			NamaLengkap:  user.Nama,
+			NIP:          user.NIP,
+			Role:         user.Role,
+			JabatanID:    user.JabatanID,
+			SupervisorID: user.SupervisorID,
+			FotoUser:     user.FotoPath,
 		},
 	})
 }
@@ -399,11 +414,14 @@ func (h *UserHandler) GetSupervisors(c fiber.Ctx) error {
 		}
 
 		response = append(response, UserModelResponse{
-			ID:          s.ID,
-			NamaLengkap: s.Nama,
-			Jabatan:     jabatanName,
-			NIP:         s.NIP,
-			FotoUser:    s.FotoPath,
+			ID:           s.ID,
+			NamaLengkap:  s.Nama,
+			Jabatan:      jabatanName,
+			JabatanID:    s.JabatanID,
+			NIP:          s.NIP,
+			Role:         s.Role,
+			SupervisorID: s.SupervisorID,
+			FotoUser:     s.FotoPath,
 		})
 	}
 

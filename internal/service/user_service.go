@@ -95,6 +95,12 @@ func (s *userService) CreateUser(req CreateUserRequest) (*domain.User, error) {
 		return nil, errors.New("role wajib diisi")
 	}
 
+	// Normalisasi role agar sesuai dengan sistem (sekertaris)
+	role := strings.ToLower(req.Role)
+	if role == "sekretaris" {
+		role = "sekertaris"
+	}
+
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -106,7 +112,7 @@ func (s *userService) CreateUser(req CreateUserRequest) (*domain.User, error) {
 		NIP:          req.NIP,
 		Nama:         req.Nama,
 		Password:     string(hashedPassword),
-		Role:         req.Role,
+		Role:         role,
 		JabatanID:    req.JabatanID,
 		SupervisorID: req.SupervisorID,
 		CreatedAt:    time.Now(),
@@ -137,7 +143,11 @@ func (s *userService) UpdateUser(id uint, req UpdateUserRequest) (*domain.User, 
 		user.Nama = req.Nama
 	}
 	if req.Role != "" {
-		user.Role = req.Role
+		role := strings.ToLower(req.Role)
+		if role == "sekretaris" {
+			role = "sekertaris"
+		}
+		user.Role = role
 	}
 
 	// Update JabatanID (bisa null)

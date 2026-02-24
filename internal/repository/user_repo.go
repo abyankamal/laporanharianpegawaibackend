@@ -68,8 +68,9 @@ func (r *userRepository) Create(user *domain.User) error {
 }
 
 // Update mengupdate data user.
+// Kita Omit "Jabatan" dan "Supervisor" agar GORM tidak mencoba mengupdate relasi.
 func (r *userRepository) Update(user *domain.User) error {
-	return r.db.Save(user).Error
+	return r.db.Model(user).Omit("Jabatan", "Supervisor").Save(user).Error
 }
 
 // Delete menghapus user berdasarkan ID.
