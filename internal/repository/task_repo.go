@@ -28,7 +28,7 @@ func NewTaskRepository(db *gorm.DB) TaskRepository {
 
 // Create menyimpan tugas pokok baru ke database.
 func (r *taskRepository) Create(task *domain.TugasPokok) error {
-	return r.db.Create(task).Error
+	return r.db.Omit("User", "Creator").Create(task).Error
 }
 
 // FindByUserID mengambil tugas pokok berdasarkan user_id.
@@ -63,7 +63,7 @@ func (r *taskRepository) FindByID(id uint) (*domain.TugasPokok, error) {
 
 // Update mengubah data tugas pokok di database.
 func (r *taskRepository) Update(task *domain.TugasPokok) error {
-	return r.db.Save(task).Error
+	return r.db.Omit("User", "Creator").Save(task).Error
 }
 
 // Delete menghapus tugas pokok dari database.
