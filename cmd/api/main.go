@@ -63,6 +63,11 @@ func main() {
 	dashboardService := service.NewDashboardService(dashboardRepo, userRepo)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
 
+	// --- Jabatan Module ---
+	jabatanRepo := repository.NewJabatanRepository(config.DB)
+	jabatanService := service.NewJabatanService(jabatanRepo)
+	jabatanHandler := handler.NewJabatanHandler(jabatanService)
+
 	// =============================================
 	// 4. SETUP FIBER APP
 	// =============================================
@@ -114,6 +119,7 @@ func main() {
 	protected.Put("/profile/change-password", userHandler.ChangePassword)
 	protected.Put("/profile/change-photo", userHandler.ChangePhoto)
 	protected.Get("/dashboard/summary", dashboardHandler.GetSummary)
+	protected.Get("/jabatan", jabatanHandler.GetAll)
 
 	// ===================================================
 	// B. USER MANAGEMENT - Hanya Sekertaris
@@ -184,6 +190,7 @@ func main() {
 	log.Println("   PUT    /api/profile/change-password       - Ubah password")
 	log.Println("   PUT    /api/profile/change-photo          - Ubah foto profil")
 	log.Println("   GET    /api/dashboard/summary             - Statistik dashboard")
+	log.Println("   GET    /api/jabatan                      - Lihat daftar jabatan")
 	log.Println("   POST   /api/reports                      - Buat laporan kinerja")
 	log.Println("   GET    /api/reports                      - Lihat laporan (RBAC di service)")
 	log.Println("   GET    /api/reviews                      - Lihat penilaian saya")
