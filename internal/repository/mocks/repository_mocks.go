@@ -75,6 +75,14 @@ func (m *UserRepositoryMock) FindByRoles(roles []string) ([]domain.User, error) 
 	return args.Get(0).([]domain.User), args.Error(1)
 }
 
+func (m *UserRepositoryMock) FindSupervisors(roleFilter string) ([]domain.User, error) {
+	args := m.Called(roleFilter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.User), args.Error(1)
+}
+
 // ============================================================
 // ReportRepositoryMock
 // ============================================================

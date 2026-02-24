@@ -52,7 +52,7 @@ type UserService interface {
 	DeleteUser(id uint) error
 	ChangePassword(userID uint, req ChangePasswordRequest) error
 	UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error)
-	GetSupervisorsForRole(role string) ([]domain.User, error)
+	GetSupervisors(roleFilter string) ([]domain.User, error)
 }
 
 // userService adalah implementasi dari UserService.
@@ -288,23 +288,14 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 	return destPath, nil
 }
 
-// GetSupervisorsForRole mengambil daftar atasan yang sesuai berdasarkan role yang akan dibuat.
-func (s *userService) GetSupervisorsForRole(role string) ([]domain.User, error) {
-	var rolesToSearch []string
-
-	switch role {
-	case "sekertaris", "kasi":
-		// Sekertaris dan Kasi dibawahi oleh Lurah
-		rolesToSearch = []string{"lurah"}
-	case "staf":
-		// Staf dibawahi oleh Sekertaris
-		rolesToSearch = []string{"sekertaris"}
-	case "lurah":
-		// Lurah tidak punya atasan di sistem ini
-		return []domain.User{}, nil
-	default:
-		return nil, errors.New("role tidak valid")
+// GetSupervisors mengambil daftar atasan secara dinamis berdasarkan query parameter roleFilter.
+func (s *userService) GetSupervisors(roleFilter string) ([]domain.User, error) {
+	supervisors, err := s.userRepo.FindSupervisors(roleFilter)
+	if err != nil {
+		return nil, err
 	}
-
-	return s.userRepo.FindByRoles(rolesToSearch)
+	if len(supervisors) == 0 {
+		return nil, errors.New("data atasan tidak ditemukan")
+	}
+	return supervisors, nil
 }

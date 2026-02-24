@@ -379,19 +379,13 @@ func (h *UserHandler) ChangePhoto(c fiber.Ctx) error {
 	})
 }
 
-// GetSupervisors menangani request untuk mengambil daftar atasan yang sesuai berdasarkan role.
+// GetSupervisors menangani request untuk mengambil daftar atasan secara dinamis.
 func (h *UserHandler) GetSupervisors(c fiber.Ctx) error {
-	role := c.Query("role")
-	if role == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Parameter role wajib diisi",
-		})
-	}
+	roleFilter := c.Query("role")
 
-	supervisors, err := h.userService.GetSupervisorsForRole(role)
+	supervisors, err := h.userService.GetSupervisors(roleFilter)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"status":  "error",
 			"message": err.Error(),
 		})

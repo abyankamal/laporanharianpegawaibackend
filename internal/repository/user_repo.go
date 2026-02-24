@@ -19,6 +19,7 @@ type UserRepository interface {
 	UpdatePassword(userID uint, newPasswordHash string) error
 	UpdateFoto(userID uint, fotoPath string) error
 	FindByRoles(roles []string) ([]domain.User, error)
+	FindSupervisors(roleFilter string) ([]domain.User, error)
 }
 
 // userRepository adalah implementasi dari UserRepository.
@@ -108,5 +109,27 @@ func (r *userRepository) FindByRoles(roles []string) ([]domain.User, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
+	return users, nil
+}
+
+// FindSupervisors mengambil daftar atasan secara dinamis berdasarkan query parameter roleFilter.
+func (r *userRepository) FindSupervisors(roleFilter string) ([]domain.User, error) {
+	var users []domain.User
+	query := r.db.Preload("Jabatan")
+
+	if roleFilter == "" {
+		// Jika roleFilter kosong, ambil semua user yang memiliki role 'Atasan' atau 'Admin'
+		// (Catatan: disesuaikan dengan role sistem: lurah, sekertaris, kasi)
+		query = query.Where("role IN ?", []string{"Atasan", "Admin", "lurah", "sekertaris", "kasi"})
+	} else {
+		// Jika roleFilter memiliki isi (misal: "sekertaris"), tambahkan kondisi
+		query = query.Where("role = ?", roleFilter)
+	}
+
+	result := query.Find(&users)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
 	return users, nil
 }
