@@ -67,6 +67,14 @@ func (m *UserRepositoryMock) UpdateFoto(userID uint, fotoPath string) error {
 	return args.Error(0)
 }
 
+func (m *UserRepositoryMock) FindByRoles(roles []string) ([]domain.User, error) {
+	args := m.Called(roles)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.User), args.Error(1)
+}
+
 // ============================================================
 // ReportRepositoryMock
 // ============================================================

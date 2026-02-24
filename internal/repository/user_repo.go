@@ -18,6 +18,7 @@ type UserRepository interface {
 	Delete(id uint) error
 	UpdatePassword(userID uint, newPasswordHash string) error
 	UpdateFoto(userID uint, fotoPath string) error
+	FindByRoles(roles []string) ([]domain.User, error)
 }
 
 // userRepository adalah implementasi dari UserRepository.
@@ -98,4 +99,14 @@ func (r *userRepository) UpdateFoto(userID uint, fotoPath string) error {
 		return errors.New("user tidak ditemukan")
 	}
 	return nil
+}
+
+// FindByRoles mengambil daftar user berdasarkan beberapa role.
+func (r *userRepository) FindByRoles(roles []string) ([]domain.User, error) {
+	var users []domain.User
+	result := r.db.Preload("Jabatan").Where("role IN ?", roles).Find(&users)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return users, nil
 }

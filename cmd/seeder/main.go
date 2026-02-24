@@ -46,10 +46,10 @@ func main() {
 	fmt.Println("🎉 ========================================")
 	fmt.Println("")
 	fmt.Println("📝 Akun yang tersedia untuk testing:")
-	fmt.Println("   - NIP: 19800101 | Password: 123456 | Role: lurah")
-	fmt.Println("   - NIP: 19900202 | Password: 123456 | Role: sekertaris")
-	fmt.Println("   - NIP: 20000303 | Password: 123456 | Role: kasi")
-	fmt.Println("   - NIP: 20100404 | Password: 123456 | Role: staf")
+	fmt.Println("   - NIP: 198106152014102004 | Password: 123456 | Role: lurah")
+	fmt.Println("   - NIP: 198002012009061001 | Password: 123456 | Role: sekertaris")
+	fmt.Println("   - NIP: 197905172014101003 | Password: 123456 | Role: kasi")
+	fmt.Println("   - NIP: 198102252014111001 | Password: 123456 | Role: staf")
 }
 
 // connectDatabase membuat koneksi ke MySQL
@@ -142,11 +142,11 @@ func seedUsers(db *gorm.DB) {
 	}
 
 	// Ambil ID jabatan yang diperlukan
-	var kasiPemerintahan domain.RefJabatan
-	db.Where("nama_jabatan = ?", "Kasi Pemerintahan").First(&kasiPemerintahan)
-
-	var operatorLayananOperasional domain.RefJabatan
-	db.Where("nama_jabatan = ?", "Operator Layanan Operasional").First(&operatorLayananOperasional)
+	var jabLurah, jabSekertaris, jabKasi, jabStaf domain.RefJabatan
+	db.Where("nama_jabatan = ?", "Lurah").First(&jabLurah)
+	db.Where("nama_jabatan = ?", "Sekertaris").First(&jabSekertaris)
+	db.Where("nama_jabatan = ?", "Kasi Pemerintahan").First(&jabKasi)
+	db.Where("nama_jabatan = ?", "Pengadministrasi Perkantoran").First(&jabStaf)
 
 	// Data users
 	users := []domain.User{
@@ -155,6 +155,7 @@ func seedUsers(db *gorm.DB) {
 			Nama:      "Iis Yuniawardani, S.IP",
 			Password:  string(hashedPassword),
 			Role:      "lurah",
+			JabatanID: &jabLurah.ID,
 			CreatedAt: time.Now(),
 		},
 		{
@@ -162,16 +163,41 @@ func seedUsers(db *gorm.DB) {
 			Nama:      "Aep Saepudin, S.Kom",
 			Password:  string(hashedPassword),
 			Role:      "sekertaris",
+			JabatanID: &jabSekertaris.ID,
+			CreatedAt: time.Now(),
+		},
+		{
+			NIP:       "197905172014101003",
+			Nama:      "Cahyo Dirgantoro Priyawan, A.Md",
+			Password:  string(hashedPassword),
+			Role:      "kasi",
+			JabatanID: &jabKasi.ID,
+			CreatedAt: time.Now(),
+		},
+		{
+			NIP:       "198102252014111001",
+			Nama:      "Budi Budiansyah",
+			Password:  string(hashedPassword),
+			Role:      "staf",
+			JabatanID: &jabStaf.ID,
 			CreatedAt: time.Now(),
 		},
 	}
 
 	for _, user := range users {
-		result := db.Where("nip = ?", user.NIP).FirstOrCreate(&user)
-		if result.RowsAffected > 0 {
+		var existing domain.User
+		result := db.Where("nip = ?", user.NIP).First(&existing)
+		if result.Error != nil {
+			// Jika belum ada, buat baru
+			db.Create(&user)
 			fmt.Printf("   ✅ User '%s' (NIP: %s, Role: %s) berhasil ditambahkan\n", user.Nama, user.NIP, user.Role)
 		} else {
-			fmt.Printf("   ⏭️  User '%s' sudah ada, dilewati\n", user.Nama)
+			// Jika sudah ada, update datanya (terutama jabatannya)
+			existing.Nama = user.Nama
+			existing.Role = user.Role
+			existing.JabatanID = user.JabatanID
+			db.Save(&existing)
+			fmt.Printf("   🔄 User '%s' sudah ada, data diperbarui\n", user.Nama)
 		}
 	}
 }

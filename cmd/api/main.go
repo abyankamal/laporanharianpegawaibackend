@@ -126,6 +126,7 @@ func main() {
 	// ===================================================
 	userRoutes := protected.Group("/users", middleware.AllowRoles("sekertaris"))
 	userRoutes.Get("/", userHandler.GetAll)
+	userRoutes.Get("/supervisors", userHandler.GetSupervisors)
 	userRoutes.Get("/:id", userHandler.GetOne)
 	userRoutes.Post("/", userHandler.Create)
 	userRoutes.Put("/:id", userHandler.Update)
