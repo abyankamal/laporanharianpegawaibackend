@@ -154,11 +154,13 @@ func main() {
 	reviewManage.Get("/my-submissions", reviewHandler.GetMySubmittedReviews) // Hanya Lurah & Sekertaris
 
 	// ===================================================
-	// E. TUGAS POKOK - Create hanya Lurah & Sekertaris
+	// E. TUGAS POKOK - Create, Update, Delete hanya Lurah & Sekertaris
 	// ===================================================
 	taskRoutes := protected.Group("/tasks", middleware.AllowRoles("lurah", "sekertaris"))
-	taskRoutes.Post("/", taskHandler.Create) // Hanya Lurah & Sekertaris
-	taskRoutes.Get("/", taskHandler.GetAll)  // Hanya Lurah & Sekertaris
+	taskRoutes.Post("/", taskHandler.Create)      // Hanya Lurah & Sekertaris
+	taskRoutes.Get("/", taskHandler.GetAll)       // Hanya Lurah & Sekertaris
+	taskRoutes.Put("/:id", taskHandler.Update)    // Hanya Lurah & Sekertaris
+	taskRoutes.Delete("/:id", taskHandler.Delete) // Hanya Lurah & Sekertaris
 
 	// My Tasks - Semua role bisa melihat tugas pokok miliknya (untuk dropdown)
 	protected.Get("/my-tasks", taskHandler.GetMyTasks)

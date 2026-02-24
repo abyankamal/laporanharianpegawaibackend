@@ -11,6 +11,9 @@ type TaskRepository interface {
 	Create(task *domain.TugasPokok) error
 	FindByUserID(userID int) ([]domain.TugasPokok, error)
 	FindAll() ([]domain.TugasPokok, error)
+	FindByID(id uint) (*domain.TugasPokok, error)
+	Update(task *domain.TugasPokok) error
+	Delete(id uint) error
 }
 
 // taskRepository adalah implementasi dari TaskRepository.
@@ -45,4 +48,25 @@ func (r *taskRepository) FindAll() ([]domain.TugasPokok, error) {
 		Order("created_at DESC").
 		Find(&tasks).Error
 	return tasks, err
+}
+
+// FindByID mengambil tugas pokok berdasarkan ID.
+func (r *taskRepository) FindByID(id uint) (*domain.TugasPokok, error) {
+	var task domain.TugasPokok
+	err := r.db.Preload("User").Preload("User.Jabatan").Preload("Creator").
+		First(&task, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &task, nil
+}
+
+// Update mengubah data tugas pokok di database.
+func (r *taskRepository) Update(task *domain.TugasPokok) error {
+	return r.db.Save(task).Error
+}
+
+// Delete menghapus tugas pokok dari database.
+func (r *taskRepository) Delete(id uint) error {
+	return r.db.Delete(&domain.TugasPokok{}, id).Error
 }

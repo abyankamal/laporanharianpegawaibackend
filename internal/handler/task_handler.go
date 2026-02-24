@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strconv"
+
 	"github.com/gofiber/fiber/v3"
 
 	"laporanharianapi/internal/service"
@@ -104,11 +106,48 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 		})
 	}
 
+	// Map ke format yang sesuai dengan TaskModel di frontend (flat structure)
+	var responseData []fiber.Map
+	for _, t := range tasks {
+		var name, nip, avatar string
+		if t.User != nil {
+			name = t.User.Nama
+			nip = t.User.NIP
+			if t.User.FotoPath != nil {
+				avatar = *t.User.FotoPath
+			}
+		}
+
+		var creatorName, creatorAvatar, creatorNip string
+		if t.Creator != nil {
+			creatorName = t.Creator.Nama
+			creatorNip = t.Creator.NIP
+			if t.Creator.FotoPath != nil {
+				creatorAvatar = *t.Creator.FotoPath
+			}
+		}
+
+		responseData = append(responseData, fiber.Map{
+			"id":                 t.ID,
+			"user_id":            t.UserID,
+			"created_by":         t.CreatedBy,
+			"creator_name":       creatorName,
+			"creator_nip":        creatorNip,
+			"creator_avatar":     creatorAvatar,
+			"assigned_to_name":   name,
+			"assigned_to_nip":    nip,
+			"assigned_to_avatar": avatar,
+			"date":               t.CreatedAt.Format("2006-01-02"), // Format YYYY-MM-DD
+			"judul_tugas":        t.JudulTugas,
+			"deskripsi":          t.Deskripsi,
+		})
+	}
+
 	// 3. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Daftar tugas berhasil diambil",
-		"data":    tasks,
+		"data":    responseData,
 	})
 }
 
@@ -134,8 +173,22 @@ func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 			}
 		}
 
+		var creatorName, creatorAvatar, creatorNip string
+		if t.Creator != nil {
+			creatorName = t.Creator.Nama
+			creatorNip = t.Creator.NIP
+			if t.Creator.FotoPath != nil {
+				creatorAvatar = *t.Creator.FotoPath
+			}
+		}
+
 		responseData = append(responseData, fiber.Map{
 			"id":                 t.ID,
+			"user_id":            t.UserID,
+			"created_by":         t.CreatedBy,
+			"creator_name":       creatorName,
+			"creator_nip":        creatorNip,
+			"creator_avatar":     creatorAvatar,
 			"assigned_to_name":   name,
 			"assigned_to_nip":    nip,
 			"assigned_to_avatar": avatar,
@@ -149,5 +202,109 @@ func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 		"status":  "success",
 		"message": "Daftar tugas berhasil diambil",
 		"data":    responseData,
+	})
+}
+
+// Update menangani request untuk mengubah tugas pokok.
+func (h *TaskHandler) Update(c fiber.Ctx) error {
+	// 1. Ambil task ID dari URL parameter
+	taskID, err := strconv.Atoi(c.Params("id"))
+	if err != nil || taskID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID tugas tidak valid",
+		})
+	}
+
+	// 2. Ambil requester dari JWT Token
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	requesterID := uint(requesterIDFloat)
+
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Role tidak ditemukan",
+		})
+	}
+
+	// 3. Parse JSON Body
+	var req service.UpdateTaskRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid: " + err.Error(),
+		})
+	}
+
+	// 4. Panggil service
+	updatedTask, err := h.taskService.UpdateTask(requesterID, requesterRole, uint(taskID), req)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Tugas pokok berhasil diperbarui",
+		"data": fiber.Map{
+			"id":          updatedTask.ID,
+			"user_id":     updatedTask.UserID,
+			"judul_tugas": updatedTask.JudulTugas,
+			"deskripsi":   updatedTask.Deskripsi,
+			"created_by":  updatedTask.CreatedBy,
+		},
+	})
+}
+
+// Delete menangani request untuk menghapus tugas pokok.
+func (h *TaskHandler) Delete(c fiber.Ctx) error {
+	// 1. Ambil task ID dari URL parameter
+	taskID, err := strconv.Atoi(c.Params("id"))
+	if err != nil || taskID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID tugas tidak valid",
+		})
+	}
+
+	// 2. Ambil requester dari JWT Token
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	requesterID := uint(requesterIDFloat)
+
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Role tidak ditemukan",
+		})
+	}
+
+	// 3. Panggil service
+	err = h.taskService.DeleteTask(requesterID, requesterRole, uint(taskID))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Tugas pokok berhasil dihapus",
 	})
 }

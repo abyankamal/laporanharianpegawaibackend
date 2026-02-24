@@ -175,6 +175,24 @@ func (m *TaskRepositoryMock) FindAll() ([]domain.TugasPokok, error) {
 	return args.Get(0).([]domain.TugasPokok), args.Error(1)
 }
 
+func (m *TaskRepositoryMock) FindByID(id uint) (*domain.TugasPokok, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.TugasPokok), args.Error(1)
+}
+
+func (m *TaskRepositoryMock) Update(task *domain.TugasPokok) error {
+	args := m.Called(task)
+	return args.Error(0)
+}
+
+func (m *TaskRepositoryMock) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
 // ============================================================
 // NotificationRepositoryMock
 // ============================================================
