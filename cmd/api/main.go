@@ -97,8 +97,13 @@ func main() {
 	}))
 
 	// Static file serving untuk folder uploads/photos (foto profil)
+	// Ditambahkan alias "/api" agar sesuai dengan baseImageUrl frontend yang menggunakan /api
+	app.Get("/api/uploads/photos/*", func(c fiber.Ctx) error {
+		return c.SendFile("./uploads/photos/" + c.Params("*"))
+	})
+
 	app.Get("/uploads/photos/*", func(c fiber.Ctx) error {
-		return c.SendFile("./" + c.Path())
+		return c.SendFile("./uploads/photos/" + c.Params("*"))
 	})
 
 	// =============================================
