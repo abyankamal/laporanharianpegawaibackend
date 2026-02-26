@@ -33,6 +33,7 @@ type ReportInput struct {
 type ReportService interface {
 	CreateReport(input ReportInput) (*domain.Laporan, error)
 	GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error)
+	GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, *domain.FileLaporan, error)
 }
 
 // reportService adalah implementasi dari ReportService.
@@ -146,6 +147,44 @@ func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterR
 	}
 
 	return s.reportRepo.GetAll(filter)
+}
+
+// GetReportDetail mengambil detail satu laporan dan file lampirannya.
+func (s *reportService) GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, *domain.FileLaporan, error) {
+	// 1. Ambil data laporan
+	laporan, err := s.reportRepo.GetByID(id)
+	if err != nil {
+		return nil, nil, errors.New("laporan tidak ditemukan")
+	}
+
+	// 2. Terapkan RBAC
+	// - Lurah: Boleh melihat semua
+	// - Sekertaris: Boleh melihat laporan milik staf
+	// - Kasi & Staf: Hanya boleh melihat laporan sendiri
+	switch requesterRole {
+	case "lurah":
+		// Bebas akses
+	case "sekertaris":
+		if laporan.User != nil && laporan.User.Role != "staf" {
+			return nil, nil, errors.New("akses ditolak: hanya dapat melihat laporan staf")
+		}
+	case "kasi", "staf":
+		if laporan.UserID != nil && *laporan.UserID != requesterID {
+			return nil, nil, errors.New("akses ditolak: hanya dapat melihat laporan milik sendiri")
+		}
+	default:
+		return nil, nil, errors.New("role tidak dikenali")
+	}
+
+	// 3. Ambil data file lampiran (jika ada)
+	// Kita bisa query langsung melalui GORM ke tabel file_laporan menggunakan db instance,
+
+	// Type assertion untuk mengakses gorm.DB dari repository (sementara, lebih baik ditambahkan di repo interface)
+	// Alternatif yang lebih baik: kita akan tambahkan GetFileByReportID di reportRepository.
+	// Di sini kita panggil fungsi tersebut.
+	file, _ := s.reportRepo.GetFileByReportID(id)
+
+	return laporan, file, nil
 }
 
 // saveFile menyimpan file ke folder uploads/reports

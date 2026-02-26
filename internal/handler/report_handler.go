@@ -2,6 +2,7 @@ package handler
 
 import (
 	"math"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -202,5 +203,85 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 			"is_overtime": laporan.IsOvertime,
 			"created_at":  laporan.CreatedAt,
 		},
+	})
+}
+
+// GetOne menangani request untuk mengambil detail satu laporan.
+func (h *ReportHandler) GetOne(c fiber.Ctx) error {
+	// 1. Ambil ID dari URL parameter
+	idParam := c.Params("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID laporan tidak valid",
+		})
+	}
+
+	// 2. Ambil requester dari JWT Token untuk RBAC
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	requesterID := uint(requesterIDFloat)
+
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Role tidak ditemukan",
+		})
+	}
+
+	// 3. Panggil service GetReportDetail
+	laporan, fileLampiran, err := h.reportService.GetReportDetail(uint(id), requesterRole, requesterID)
+	if err != nil {
+		status := fiber.StatusInternalServerError
+		if err.Error() == "laporan tidak ditemukan" {
+			status = fiber.StatusNotFound
+		} else if err.Error() == "akses ditolak: hanya dapat melihat laporan staf" || err.Error() == "akses ditolak: hanya dapat melihat laporan milik sendiri" {
+			status = fiber.StatusForbidden
+		}
+		return c.Status(status).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// 4. Susun response
+	responseMap := fiber.Map{
+		"id":                laporan.ID,
+		"status":            "Disetujui", // TODO: Implementasi status sesungguhnya jika ada
+		"jenis_tugas":       "Tugas Tambahan",
+		"judul_laporan":     laporan.JudulKegiatan,
+		"waktu_pelaksanaan": laporan.WaktuPelaporan,
+		"lokasi":            laporan.AlamatLokasi,
+		"deskripsi_hasil":   laporan.DeskripsiHasil,
+		"lampiran_url":      nil,
+		"lampiran_nama":     nil,
+		"is_image":          false,
+	}
+
+	if laporan.TipeLaporan {
+		responseMap["jenis_tugas"] = "Tugas Pokok"
+		if laporan.TugasPokok != nil {
+			responseMap["jenis_tugas"] = laporan.TugasPokok.JudulTugas
+		}
+	}
+
+	if fileLampiran != nil {
+		// Kembalikan path mentah agar frontend yang mensubstitusi base URL-nya
+		responseMap["lampiran_url"] = fileLampiran.FilePath
+		responseMap["lampiran_nama"] = filepath.Base(fileLampiran.FilePath)
+		responseMap["is_image"] = (fileLampiran.TipeFile == "image")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Detail laporan berhasil diambil",
+		"data":    responseMap,
 	})
 }

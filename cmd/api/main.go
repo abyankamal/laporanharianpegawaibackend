@@ -106,6 +106,15 @@ func main() {
 		return c.SendFile("./uploads/photos/" + c.Params("*"))
 	})
 
+	// Static file serving untuk folder uploads/reports (bukti laporan)
+	app.Get("/api/uploads/reports/*", func(c fiber.Ctx) error {
+		return c.SendFile("./uploads/reports/" + c.Params("*"))
+	})
+
+	app.Get("/uploads/reports/*", func(c fiber.Ctx) error {
+		return c.SendFile("./uploads/reports/" + c.Params("*"))
+	})
+
 	// =============================================
 	// 6. SETUP ROUTES
 	// =============================================
@@ -145,8 +154,9 @@ func main() {
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
 	// ===================================================
 	reportRoutes := protected.Group("/reports")
-	reportRoutes.Post("/", reportHandler.Create) // Semua role
-	reportRoutes.Get("/", reportHandler.GetAll)  // RBAC ditangani di service layer
+	reportRoutes.Post("/", reportHandler.Create)   // Semua role
+	reportRoutes.Get("/", reportHandler.GetAll)    // RBAC ditangani di service layer
+	reportRoutes.Get("/:id", reportHandler.GetOne) // Mengambil detail laporan
 
 	// ===================================================
 	// D. PENILAIAN - Create hanya Lurah & Sekertaris

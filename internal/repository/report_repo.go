@@ -23,8 +23,10 @@ type ReportFilter struct {
 type ReportRepository interface {
 	Create(laporan *domain.Laporan) error
 	CreateFileLaporan(file *domain.FileLaporan) error
+	GetFileByReportID(reportID uint) (*domain.FileLaporan, error)
 	CheckIsHoliday(date time.Time) (bool, error)
 	GetAll(filter ReportFilter) ([]domain.Laporan, int64, error)
+	GetByID(id uint) (*domain.Laporan, error)
 }
 
 // reportRepository adalah implementasi dari ReportRepository.
@@ -132,4 +134,30 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 	}
 
 	return reports, total, nil
+}
+
+// GetByID mengambil satu laporan berdasarkan ID beserta relasinya.
+func (r *reportRepository) GetByID(id uint) (*domain.Laporan, error) {
+	var laporan domain.Laporan
+	err := r.db.
+		Preload("User").
+		Preload("User.Jabatan").
+		Preload("TugasPokok").
+		Where("id = ?", id).
+		First(&laporan).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &laporan, nil
+}
+
+// GetFileByReportID mengambil file lampiran berdasarkan ID laporan.
+func (r *reportRepository) GetFileByReportID(reportID uint) (*domain.FileLaporan, error) {
+	var fileLaporan domain.FileLaporan
+	err := r.db.Where("laporan_id = ?", reportID).First(&fileLaporan).Error
+	if err != nil {
+		return nil, err
+	}
+	return &fileLaporan, nil
 }

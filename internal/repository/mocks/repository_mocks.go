@@ -115,6 +115,22 @@ func (m *ReportRepositoryMock) GetAll(filter repository.ReportFilter) ([]domain.
 	return args.Get(0).([]domain.Laporan), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *ReportRepositoryMock) GetByID(id uint) (*domain.Laporan, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Laporan), args.Error(1)
+}
+
+func (m *ReportRepositoryMock) GetFileByReportID(reportID uint) (*domain.FileLaporan, error) {
+	args := m.Called(reportID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.FileLaporan), args.Error(1)
+}
+
 // ============================================================
 // ReviewRepositoryMock
 // ============================================================
