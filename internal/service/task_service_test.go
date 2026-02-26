@@ -12,119 +12,159 @@ import (
 )
 
 // ============================================================
-// Test CreateTask (TaskService)
+// Test CreateTask — Tugas Organisasi
 // ============================================================
 
-func TestCreateTask_Success_LurahToSekertaris(t *testing.T) {
-	t.Run("Sukses: Lurah memberi tugas ke Sekertaris + notifikasi terkirim", func(t *testing.T) {
+func TestCreateTask_Organisasi_Success(t *testing.T) {
+	t.Run("Sukses: Lurah membuat tugas organisasi ke 2 user", func(t *testing.T) {
 		// Setup
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
-		// Mock: target user adalah sekertaris
-		targetUser := &domain.User{
-			ID:   2,
-			Nama: "Aep Saepudin, S.Kom",
-			Role: "sekertaris",
-		}
-		mockUserRepo.On("FindByID", uint(2)).Return(targetUser, nil)
+		// Mock: target users
+		user1 := &domain.User{ID: 2, Nama: "Aep Saepudin", Role: "sekertaris"}
+		user2 := &domain.User{ID: 3, Nama: "Mas Kasi", Role: "kasi"}
+		mockUserRepo.On("FindByID", uint(2)).Return(user1, nil)
+		mockUserRepo.On("FindByID", uint(3)).Return(user2, nil)
 
 		// Mock: simpan tugas berhasil
 		mockTaskRepo.On("Create", mock.Anything).Return(nil)
+		mockTaskRepo.On("ReplaceAssignees", mock.AnythingOfType("uint"), mock.Anything).Return(nil)
 
-		// Mock: simpan notifikasi berhasil
+		// Mock: notifikasi berhasil
 		mockNotifRepo.On("Create", mock.Anything).Return(nil)
 
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
 		// Execute
 		req := CreateTaskRequest{
-			TargetUserID: 2,
-			JudulTugas:   "Menyusun Laporan Bulanan",
-			Deskripsi:    "Buat laporan bulanan untuk bulan Februari",
+			JenisTugas:    "organisasi",
+			TargetUserIDs: []int{2, 3},
+			JudulTugas:    "Tugas Organisasi Penting",
+			Deskripsi:     "Deskripsi tugas organisasi",
+			FileBukti:     "https://example.com/bukti.pdf",
 		}
 		tugas, err := taskSvc.CreateTask(1, "lurah", req)
 
 		// Assert
 		assert.NoError(t, err)
 		assert.NotNil(t, tugas)
-		assert.Equal(t, "Menyusun Laporan Bulanan", tugas.JudulTugas)
+		assert.Equal(t, "organisasi", tugas.JenisTugas)
+		assert.Equal(t, "Tugas Organisasi Penting", tugas.JudulTugas)
+		assert.Len(t, tugas.Assignees, 2)
 
-		// Verifikasi: semua mock terpanggil sesuai ekspektasi
 		mockTaskRepo.AssertExpectations(t)
 		mockUserRepo.AssertExpectations(t)
-		mockNotifRepo.AssertExpectations(t)
-
-		// Verifikasi: NotificationRepo.Create() dipanggil tepat 1 kali
-		mockNotifRepo.AssertNumberOfCalls(t, "Create", 1)
+		// Notifikasi dikirim ke 2 assignees
+		mockNotifRepo.AssertNumberOfCalls(t, "Create", 2)
 	})
 }
 
-func TestCreateTask_Success_SekertarisToStaf(t *testing.T) {
-	t.Run("Sukses: Sekertaris memberi tugas ke Staf", func(t *testing.T) {
-		// Setup
+func TestCreateTask_Organisasi_Fail_NonLurah(t *testing.T) {
+	t.Run("Gagal: Sekertaris tidak boleh membuat tugas organisasi", func(t *testing.T) {
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
-		targetUser := &domain.User{
-			ID:   3,
-			Nama: "Mas Staf",
-			Role: "staf",
-		}
-		mockUserRepo.On("FindByID", uint(3)).Return(targetUser, nil)
-		mockTaskRepo.On("Create", mock.Anything).Return(nil)
-		mockNotifRepo.On("Create", mock.Anything).Return(nil)
-
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
-		// Execute
 		req := CreateTaskRequest{
-			TargetUserID: 3,
-			JudulTugas:   "Input Data Warga",
-			Deskripsi:    "Input data warga baru ke sistem",
+			JenisTugas:    "organisasi",
+			TargetUserIDs: []int{3},
+			JudulTugas:    "Tugas dari sekertaris",
 		}
 		tugas, err := taskSvc.CreateTask(2, "sekertaris", req)
 
-		// Assert
-		assert.NoError(t, err)
-		assert.NotNil(t, tugas)
-		mockNotifRepo.AssertNumberOfCalls(t, "Create", 1)
-		mockTaskRepo.AssertExpectations(t)
+		assert.Error(t, err)
+		assert.Nil(t, tugas)
+		assert.Equal(t, "hanya Lurah yang boleh membuat tugas organisasi", err.Error())
+		mockTaskRepo.AssertNotCalled(t, "Create")
 	})
 }
 
-func TestCreateTask_Fail_StafCannotAssign(t *testing.T) {
-	t.Run("Gagal: Staf tidak boleh memberi tugas", func(t *testing.T) {
-		// Setup
+func TestCreateTask_Organisasi_Fail_EmptyTargetUserIDs(t *testing.T) {
+	t.Run("Gagal: Tugas organisasi tanpa target_user_ids", func(t *testing.T) {
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
-		// Execute
 		req := CreateTaskRequest{
-			TargetUserID: 1,
-			JudulTugas:   "Tugas dari staf",
+			JenisTugas:    "organisasi",
+			TargetUserIDs: []int{}, // kosong
+			JudulTugas:    "Tugas tanpa target",
+		}
+		tugas, err := taskSvc.CreateTask(1, "lurah", req)
+
+		assert.Error(t, err)
+		assert.Nil(t, tugas)
+		assert.Equal(t, "target_user_ids wajib diisi untuk tugas organisasi", err.Error())
+	})
+}
+
+func TestCreateTask_Organisasi_Fail_TargetNotFound(t *testing.T) {
+	t.Run("Gagal: User target tidak ditemukan di database", func(t *testing.T) {
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		mockUserRepo.On("FindByID", uint(999)).Return(nil, errors.New("record not found"))
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		req := CreateTaskRequest{
+			JenisTugas:    "organisasi",
+			TargetUserIDs: []int{999},
+			JudulTugas:    "Tugas ke user yang tidak ada",
+		}
+		tugas, err := taskSvc.CreateTask(1, "lurah", req)
+
+		assert.Error(t, err)
+		assert.Nil(t, tugas)
+		assert.Contains(t, err.Error(), "tidak ditemukan")
+	})
+}
+
+// ============================================================
+// Test CreateTask — Tugas Individu
+// ============================================================
+
+func TestCreateTask_Individu_Success(t *testing.T) {
+	t.Run("Sukses: User membuat tugas individu untuk diri sendiri", func(t *testing.T) {
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		mockTaskRepo.On("Create", mock.Anything).Return(nil)
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		req := CreateTaskRequest{
+			JenisTugas: "individu",
+			JudulTugas: "Tugas Mandiri Staf",
+			Deskripsi:  "Saya buat tugas sendiri",
 		}
 		tugas, err := taskSvc.CreateTask(3, "staf", req)
 
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, tugas)
-		assert.Equal(t, "hanya Lurah dan Sekertaris yang boleh memberi tugas", err.Error())
-
-		// Tidak ada interaksi ke repo
-		mockTaskRepo.AssertNotCalled(t, "Create")
+		assert.NoError(t, err)
+		assert.NotNil(t, tugas)
+		assert.Equal(t, "individu", tugas.JenisTugas)
+		assert.Equal(t, uint(3), *tugas.UserID) // UserID = requesterID
+		assert.Equal(t, uint(3), *tugas.CreatedBy)
+		mockTaskRepo.AssertExpectations(t)
+		// Tidak ada notifikasi untuk tugas individu
 		mockNotifRepo.AssertNotCalled(t, "Create")
 	})
 }
 
+// ============================================================
+// Test CreateTask — Validasi Umum
+// ============================================================
+
 func TestCreateTask_Fail_EmptyJudul(t *testing.T) {
 	t.Run("Gagal: Judul tugas kosong", func(t *testing.T) {
-		// Setup
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
@@ -132,21 +172,19 @@ func TestCreateTask_Fail_EmptyJudul(t *testing.T) {
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
 		req := CreateTaskRequest{
-			TargetUserID: 2,
-			JudulTugas:   "", // kosong
+			JenisTugas: "individu",
+			JudulTugas: "", // kosong
 		}
 		tugas, err := taskSvc.CreateTask(1, "lurah", req)
 
-		// Assert
 		assert.Error(t, err)
 		assert.Nil(t, tugas)
 		assert.Equal(t, "judul_tugas wajib diisi", err.Error())
 	})
 }
 
-func TestCreateTask_Fail_AssignToSelf(t *testing.T) {
-	t.Run("Gagal: Sekertaris tidak boleh memberi tugas ke diri sendiri", func(t *testing.T) {
-		// Setup
+func TestCreateTask_Fail_InvalidJenisTugas(t *testing.T) {
+	t.Run("Gagal: Jenis tugas tidak valid", func(t *testing.T) {
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
@@ -154,165 +192,61 @@ func TestCreateTask_Fail_AssignToSelf(t *testing.T) {
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
 		req := CreateTaskRequest{
-			TargetUserID: 2, // sama dengan requesterID
-			JudulTugas:   "Tugas untuk diri sendiri",
-		}
-		tugas, err := taskSvc.CreateTask(2, "sekertaris", req)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, tugas)
-		assert.Equal(t, "tidak dapat memberi tugas ke diri sendiri", err.Error())
-	})
-}
-
-func TestCreateTask_Success_LurahAssignToSelf(t *testing.T) {
-	t.Run("Sukses: Lurah boleh memberi tugas ke diri sendiri", func(t *testing.T) {
-		// Setup
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		targetUser := &domain.User{
-			ID:   1,
-			Nama: "Bu Lurah",
-			Role: "lurah",
-		}
-		mockUserRepo.On("FindByID", uint(1)).Return(targetUser, nil)
-		mockTaskRepo.On("Create", mock.Anything).Return(nil)
-		mockNotifRepo.On("Create", mock.Anything).Return(nil)
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			TargetUserID: 1, // sama dengan requesterID (1)
-			JudulTugas:   "Tugas Mandiri Lurah",
+			JenisTugas: "invalid",
+			JudulTugas: "Test",
 		}
 		tugas, err := taskSvc.CreateTask(1, "lurah", req)
 
-		// Assert
-		assert.NoError(t, err)
-		assert.NotNil(t, tugas)
-		assert.Equal(t, "Tugas Mandiri Lurah", tugas.JudulTugas)
-		mockTaskRepo.AssertExpectations(t)
-		mockNotifRepo.AssertNumberOfCalls(t, "Create", 1)
-	})
-}
-
-func TestCreateTask_Fail_LurahToStaf(t *testing.T) {
-	t.Run("Gagal: Lurah tidak boleh memberi tugas ke Staf (harus lewat Sekertaris)", func(t *testing.T) {
-		// Setup
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		// Mock: target user adalah staf
-		targetUser := &domain.User{
-			ID:   3,
-			Nama: "Mas Staf",
-			Role: "staf",
-		}
-		mockUserRepo.On("FindByID", uint(3)).Return(targetUser, nil)
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			TargetUserID: 3,
-			JudulTugas:   "Tugas langsung ke staf",
-		}
-		tugas, err := taskSvc.CreateTask(1, "lurah", req)
-
-		// Assert
 		assert.Error(t, err)
 		assert.Nil(t, tugas)
-		assert.Equal(t, "Lurah hanya boleh memberi tugas ke Sekertaris dan Kasi", err.Error())
-		mockTaskRepo.AssertNotCalled(t, "Create")
-		mockNotifRepo.AssertNotCalled(t, "Create")
+		assert.Equal(t, "jenis_tugas harus 'organisasi' atau 'individu'", err.Error())
 	})
 }
 
-func TestCreateTask_Fail_TargetUserNotFound(t *testing.T) {
-	t.Run("Gagal: User target tidak ditemukan di database", func(t *testing.T) {
-		// Setup
+func TestCreateTask_Fail_DBError(t *testing.T) {
+	t.Run("Gagal: Error saat simpan tugas individu", func(t *testing.T) {
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
-		// Mock: FindByID mengembalikan error
-		mockUserRepo.On("FindByID", uint(999)).Return(nil, errors.New("record not found"))
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			TargetUserID: 999,
-			JudulTugas:   "Tugas ke user yang tidak ada",
-		}
-		tugas, err := taskSvc.CreateTask(1, "lurah", req)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, tugas)
-		assert.Equal(t, "user target tidak ditemukan", err.Error())
-	})
-}
-
-func TestCreateTask_Fail_DBError_StillNoNotification(t *testing.T) {
-	t.Run("Gagal: Error saat simpan tugas — notifikasi tidak terkirim", func(t *testing.T) {
-		// Setup
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		targetUser := &domain.User{
-			ID:   2,
-			Nama: "Aep Saepudin, S.Kom",
-			Role: "sekertaris",
-		}
-		mockUserRepo.On("FindByID", uint(2)).Return(targetUser, nil)
-		// Mock: simpan tugas gagal
 		mockTaskRepo.On("Create", mock.Anything).Return(errors.New("database error"))
 
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
 		req := CreateTaskRequest{
-			TargetUserID: 2,
-			JudulTugas:   "Tugas yang gagal disimpan",
+			JenisTugas: "individu",
+			JudulTugas: "Tugas yang gagal disimpan",
 		}
 		tugas, err := taskSvc.CreateTask(1, "lurah", req)
 
-		// Assert
 		assert.Error(t, err)
 		assert.Nil(t, tugas)
 		assert.Contains(t, err.Error(), "gagal menyimpan tugas")
-		// Notifikasi TIDAK boleh terkirim jika tugas gagal disimpan
 		mockNotifRepo.AssertNotCalled(t, "Create")
 	})
 }
 
 // ============================================================
-// Test GetAllTasks (TaskService)
+// Test GetAllTasks
 // ============================================================
 
 func TestGetAllTasks_Success(t *testing.T) {
 	t.Run("Sukses: Mengambil semua tugas pokok", func(t *testing.T) {
-		// Setup
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
 		expectedTasks := []domain.TugasPokok{
-			{JudulTugas: "Tugas 1"},
-			{JudulTugas: "Tugas 2"},
+			{JudulTugas: "Tugas 1", JenisTugas: "individu"},
+			{JudulTugas: "Tugas 2", JenisTugas: "organisasi"},
 		}
 
 		mockTaskRepo.On("FindAll").Return(expectedTasks, nil)
 
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
-		// Execute
 		tasks, err := taskSvc.GetAllTasks()
 
-		// Assert
 		assert.NoError(t, err)
 		assert.Len(t, tasks, 2)
 		assert.Equal(t, "Tugas 1", tasks[0].JudulTugas)

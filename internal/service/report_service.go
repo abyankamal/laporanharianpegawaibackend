@@ -26,14 +26,15 @@ type ReportInput struct {
 	LokasiLat      string                // opsional, bisa kosong
 	LokasiLong     string                // opsional, bisa kosong
 	AlamatLokasi   string                // opsional, bisa kosong
-	File           *multipart.FileHeader // File bukti (optional)
+	FileFoto       *multipart.FileHeader // File foto lampiran (opsional)
+	FileDokumen    *multipart.FileHeader // File dokumen lampiran (opsional)
 }
 
 // ReportService adalah interface untuk operasi bisnis Laporan.
 type ReportService interface {
 	CreateReport(input ReportInput) (*domain.Laporan, error)
 	GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error)
-	GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, *domain.FileLaporan, error)
+	GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, error)
 }
 
 // reportService adalah implementasi dari ReportService.
@@ -79,17 +80,27 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	currentHour := now.Hour()
 	isOvertime := currentHour < 7 || currentHour >= 16
 
-	// 4. Proses upload file jika ada
-	var filePath string
-	if input.File != nil {
-		uploadedPath, err := s.saveFile(input.File)
+	// 4. Proses upload file foto jika ada
+	var fotoURL *string
+	if input.FileFoto != nil {
+		uploadedPath, err := s.saveFile(input.FileFoto, "foto")
 		if err != nil {
-			return nil, fmt.Errorf("gagal menyimpan file: %v", err)
+			return nil, fmt.Errorf("gagal menyimpan file foto: %v", err)
 		}
-		filePath = uploadedPath
+		fotoURL = &uploadedPath
 	}
 
-	// 5. Buat struct Laporan
+	// 5. Proses upload file dokumen jika ada
+	var dokumenURL *string
+	if input.FileDokumen != nil {
+		uploadedPath, err := s.saveFile(input.FileDokumen, "dokumen")
+		if err != nil {
+			return nil, fmt.Errorf("gagal menyimpan file dokumen: %v", err)
+		}
+		dokumenURL = &uploadedPath
+	}
+
+	// 6. Buat struct Laporan
 	userID := input.UserID
 	laporan := &domain.Laporan{
 		UserID:         &userID,
@@ -102,27 +113,15 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 		LokasiLat:      toStringPtr(input.LokasiLat),
 		LokasiLong:     toStringPtr(input.LokasiLong),
 		AlamatLokasi:   toStringPtr(input.AlamatLokasi),
+		FotoURL:        fotoURL,
+		DokumenURL:     dokumenURL,
 		CreatedAt:      now,
 	}
 
-	// 6. Simpan laporan ke database
+	// 7. Simpan laporan ke database
 	err = s.reportRepo.Create(laporan)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan laporan: %v", err)
-	}
-
-	// 7. Simpan data file ke tabel file_laporan jika ada file
-	if filePath != "" && input.File != nil {
-		fileLaporan := &domain.FileLaporan{
-			LaporanID:  &laporan.ID,
-			TipeFile:   getFileType(input.File.Filename),
-			FilePath:   filePath,
-			UploadedAt: now,
-		}
-		err = s.reportRepo.CreateFileLaporan(fileLaporan)
-		if err != nil {
-			return nil, fmt.Errorf("gagal menyimpan data file: %v", err)
-		}
 	}
 
 	return laporan, nil
@@ -149,48 +148,37 @@ func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterR
 	return s.reportRepo.GetAll(filter)
 }
 
-// GetReportDetail mengambil detail satu laporan dan file lampirannya.
-func (s *reportService) GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, *domain.FileLaporan, error) {
+// GetReportDetail mengambil detail satu laporan.
+func (s *reportService) GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, error) {
 	// 1. Ambil data laporan
 	laporan, err := s.reportRepo.GetByID(id)
 	if err != nil {
-		return nil, nil, errors.New("laporan tidak ditemukan")
+		return nil, errors.New("laporan tidak ditemukan")
 	}
 
 	// 2. Terapkan RBAC
-	// - Lurah: Boleh melihat semua
-	// - Sekertaris: Boleh melihat laporan milik staf
-	// - Kasi & Staf: Hanya boleh melihat laporan sendiri
 	switch requesterRole {
 	case "lurah":
 		// Bebas akses
 	case "sekertaris":
 		if laporan.User != nil && laporan.User.Role != "staf" {
-			return nil, nil, errors.New("akses ditolak: hanya dapat melihat laporan staf")
+			return nil, errors.New("akses ditolak: hanya dapat melihat laporan staf")
 		}
 	case "kasi", "staf":
 		if laporan.UserID != nil && *laporan.UserID != requesterID {
-			return nil, nil, errors.New("akses ditolak: hanya dapat melihat laporan milik sendiri")
+			return nil, errors.New("akses ditolak: hanya dapat melihat laporan milik sendiri")
 		}
 	default:
-		return nil, nil, errors.New("role tidak dikenali")
+		return nil, errors.New("role tidak dikenali")
 	}
 
-	// 3. Ambil data file lampiran (jika ada)
-	// Kita bisa query langsung melalui GORM ke tabel file_laporan menggunakan db instance,
-
-	// Type assertion untuk mengakses gorm.DB dari repository (sementara, lebih baik ditambahkan di repo interface)
-	// Alternatif yang lebih baik: kita akan tambahkan GetFileByReportID di reportRepository.
-	// Di sini kita panggil fungsi tersebut.
-	file, _ := s.reportRepo.GetFileByReportID(id)
-
-	return laporan, file, nil
+	return laporan, nil
 }
 
-// saveFile menyimpan file ke folder uploads/reports
-func (s *reportService) saveFile(fileHeader *multipart.FileHeader) (string, error) {
-	// Pastikan folder uploads/reports ada
-	uploadDir := "./uploads/reports"
+// saveFile menyimpan file ke subfolder uploads/reports/<subDir>
+func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string) (string, error) {
+	// Pastikan folder uploads/reports/<subDir> ada
+	uploadDir := filepath.Join("./uploads/reports", subDir)
 	err := os.MkdirAll(uploadDir, os.ModePerm)
 	if err != nil {
 		return "", err
@@ -222,19 +210,4 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader) (string, erro
 	}
 
 	return destPath, nil
-}
-
-// getFileType menentukan tipe file berdasarkan ekstensi
-func getFileType(filename string) string {
-	ext := filepath.Ext(filename)
-	switch ext {
-	case ".jpg", ".jpeg", ".png", ".gif", ".webp":
-		return "image"
-	case ".mp4", ".mov", ".avi":
-		return "video"
-	case ".pdf":
-		return "document"
-	default:
-		return "other"
-	}
 }

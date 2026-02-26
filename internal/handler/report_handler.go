@@ -116,6 +116,7 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 }
 
 // Create menangani pembuatan laporan baru.
+// Mendukung upload DUA file sekaligus: foto dan dokumen (keduanya opsional).
 func (h *ReportHandler) Create(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token (via Locals dari middleware)
 	userIDFloat, ok := c.Locals("user_id").(float64)
@@ -168,10 +169,13 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 		})
 	}
 
-	// 4. Ambil file bukti (optional)
-	fileHeader, _ := c.FormFile("file_bukti")
+	// 4. Ambil file foto (opsional)
+	fileFoto, _ := c.FormFile("foto")
 
-	// 5. Susun input untuk service
+	// 5. Ambil file dokumen (opsional)
+	fileDokumen, _ := c.FormFile("dokumen")
+
+	// 6. Susun input untuk service
 	input := service.ReportInput{
 		UserID:         userID,
 		TipeLaporan:    tipeLaporan,
@@ -182,10 +186,11 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 		LokasiLat:      lokasiLat,
 		LokasiLong:     lokasiLong,
 		AlamatLokasi:   alamatLokasi,
-		File:           fileHeader,
+		FileFoto:       fileFoto,
+		FileDokumen:    fileDokumen,
 	}
 
-	// 6. Panggil service
+	// 7. Panggil service
 	laporan, err := h.reportService.CreateReport(input)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -194,13 +199,15 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 		})
 	}
 
-	// 7. Return response sukses
+	// 8. Return response sukses
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Laporan berhasil dibuat",
 		"data": fiber.Map{
 			"id":          laporan.ID,
 			"is_overtime": laporan.IsOvertime,
+			"foto_url":    laporan.FotoURL,
+			"dokumen_url": laporan.DokumenURL,
 			"created_at":  laporan.CreatedAt,
 		},
 	})
@@ -236,8 +243,8 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		})
 	}
 
-	// 3. Panggil service GetReportDetail
-	laporan, fileLampiran, err := h.reportService.GetReportDetail(uint(id), requesterRole, requesterID)
+	// 3. Panggil service GetReportDetail (sekarang return 2 value, bukan 3)
+	laporan, err := h.reportService.GetReportDetail(uint(id), requesterRole, requesterID)
 	if err != nil {
 		status := fiber.StatusInternalServerError
 		if err.Error() == "laporan tidak ditemukan" {
@@ -260,9 +267,8 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		"waktu_pelaksanaan": laporan.WaktuPelaporan,
 		"lokasi":            laporan.AlamatLokasi,
 		"deskripsi_hasil":   laporan.DeskripsiHasil,
-		"lampiran_url":      nil,
-		"lampiran_nama":     nil,
-		"is_image":          false,
+		"foto_url":          laporan.FotoURL,
+		"dokumen_url":       laporan.DokumenURL,
 	}
 
 	if laporan.TipeLaporan {
@@ -272,11 +278,19 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		}
 	}
 
-	if fileLampiran != nil {
-		// Kembalikan path mentah agar frontend yang mensubstitusi base URL-nya
-		responseMap["lampiran_url"] = fileLampiran.FilePath
-		responseMap["lampiran_nama"] = filepath.Base(fileLampiran.FilePath)
-		responseMap["is_image"] = (fileLampiran.TipeFile == "image")
+	// Backward compatibility: tampilkan lampiran_url dari foto jika ada
+	if laporan.FotoURL != nil {
+		responseMap["lampiran_url"] = *laporan.FotoURL
+		responseMap["lampiran_nama"] = filepath.Base(*laporan.FotoURL)
+		responseMap["is_image"] = true
+	} else if laporan.DokumenURL != nil {
+		responseMap["lampiran_url"] = *laporan.DokumenURL
+		responseMap["lampiran_nama"] = filepath.Base(*laporan.DokumenURL)
+		responseMap["is_image"] = false
+	} else {
+		responseMap["lampiran_url"] = nil
+		responseMap["lampiran_nama"] = nil
+		responseMap["is_image"] = false
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{

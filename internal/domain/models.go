@@ -48,15 +48,18 @@ func (RefSkorPenilaian) TableName() string {
 // TugasPokok adalah tabel untuk menyimpan tugas pokok pegawai.
 type TugasPokok struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID     *uint     `gorm:"column:user_id" json:"user_id"`
+	UserID     *uint     `gorm:"column:user_id" json:"user_id"`                                                      // Tetap untuk tugas individu
+	JenisTugas string    `gorm:"column:jenis_tugas;type:varchar(20);not null;default:'individu'" json:"jenis_tugas"` // "organisasi" | "individu"
+	FileBukti  *string   `gorm:"column:file_bukti;type:varchar(255)" json:"file_bukti"`                              // URL dokumen pendukung (opsional, untuk organisasi)
 	JudulTugas string    `gorm:"column:judul_tugas;type:varchar(255)" json:"judul_tugas"`
 	Deskripsi  string    `gorm:"column:deskripsi;type:text" json:"deskripsi"`
 	CreatedBy  *uint     `gorm:"column:created_by" json:"created_by"`
 	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
-	User    *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Creator *User `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	User      *User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Creator   *User  `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	Assignees []User `gorm:"many2many:tugas_assignees;" json:"assignees,omitempty"` // M2M untuk tugas organisasi
 }
 
 func (TugasPokok) TableName() string {
@@ -76,6 +79,8 @@ type Laporan struct {
 	LokasiLat      *string   `gorm:"column:lokasi_lat;type:varchar(50)" json:"lokasi_lat"`
 	LokasiLong     *string   `gorm:"column:lokasi_long;type:varchar(50)" json:"lokasi_long"`
 	AlamatLokasi   *string   `gorm:"column:alamat_lokasi;type:text" json:"alamat_lokasi"`
+	FotoURL        *string   `gorm:"column:foto_url;type:varchar(255)" json:"foto_url"`       // URL file foto lampiran (opsional)
+	DokumenURL     *string   `gorm:"column:dokumen_url;type:varchar(255)" json:"dokumen_url"` // URL file dokumen lampiran (opsional)
 	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi

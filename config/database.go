@@ -53,7 +53,7 @@ func ConnectDatabase() {
 	err = db.AutoMigrate(
 		&domain.User{},
 		&domain.RefJabatan{},
-		// &domain.TugasPokok{}, // Dikomentari karena struct-nya belum aktif
+		&domain.TugasPokok{}, // Mengaktifkan AutoMigrate — akan membuat tabel tugas_pokok + tugas_assignees (M2M)
 		&domain.Laporan{},
 		&domain.FileLaporan{},
 		&domain.Penilaian{},

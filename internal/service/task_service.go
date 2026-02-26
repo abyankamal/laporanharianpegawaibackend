@@ -12,16 +12,20 @@ import (
 
 // CreateTaskRequest adalah struct input untuk membuat tugas pokok baru.
 type CreateTaskRequest struct {
-	TargetUserID int    `json:"target_user_id" validate:"required"`
-	JudulTugas   string `json:"judul_tugas" validate:"required"`
-	Deskripsi    string `json:"deskripsi"`
+	JenisTugas    string `json:"jenis_tugas" validate:"required"` // "organisasi" | "individu"
+	TargetUserIDs []int  `json:"target_user_ids"`                 // Wajib untuk organisasi (banyak user)
+	JudulTugas    string `json:"judul_tugas" validate:"required"`
+	Deskripsi     string `json:"deskripsi"`
+	FileBukti     string `json:"file_bukti"` // Opsional, URL dokumen pendukung untuk tugas organisasi
 }
 
 // UpdateTaskRequest adalah struct input untuk mengubah tugas pokok.
 type UpdateTaskRequest struct {
-	TargetUserID int    `json:"target_user_id" validate:"required"`
-	JudulTugas   string `json:"judul_tugas" validate:"required"`
-	Deskripsi    string `json:"deskripsi"`
+	JenisTugas    string `json:"jenis_tugas" validate:"required"` // "organisasi" | "individu"
+	TargetUserIDs []int  `json:"target_user_ids"`                 // Wajib untuk organisasi
+	JudulTugas    string `json:"judul_tugas" validate:"required"`
+	Deskripsi     string `json:"deskripsi"`
+	FileBukti     string `json:"file_bukti"` // Opsional
 }
 
 // TaskService adalah interface untuk operasi bisnis Tugas Pokok.
@@ -49,83 +53,149 @@ func NewTaskService(taskRepo repository.TaskRepository, userRepo repository.User
 	}
 }
 
-// CreateTask membuat tugas pokok baru dengan validasi hierarki RBAC.
-// - Lurah hanya boleh memberi tugas ke Sekertaris dan Kasi.
-// - Sekertaris hanya boleh memberi tugas ke Staf.
-// - Kasi dan Staf TIDAK boleh memberi tugas.
+// CreateTask membuat tugas pokok baru dengan dua jalur logika:
+// - ORGANISASI: Dibuat oleh Lurah, bisa di-assign ke banyak user via M2M.
+// - INDIVIDU: Dibuat mandiri oleh user yang bersangkutan.
 func (s *taskService) CreateTask(requesterID uint, requesterRole string, req CreateTaskRequest) (*domain.TugasPokok, error) {
-	// 1. Validasi: Hanya lurah dan sekertaris yang boleh memberi tugas
-	if requesterRole != "lurah" && requesterRole != "sekertaris" {
-		return nil, errors.New("hanya Lurah dan Sekertaris yang boleh memberi tugas")
-	}
-
-	// 2. Validasi input
-	if req.TargetUserID <= 0 {
-		return nil, errors.New("target_user_id wajib diisi dan harus valid")
-	}
+	// 1. Validasi input dasar
 	if req.JudulTugas == "" {
 		return nil, errors.New("judul_tugas wajib diisi")
 	}
-
-	// 3. Tidak boleh memberi tugas ke diri sendiri (kecuali Lurah)
-	if uint(req.TargetUserID) == requesterID && requesterRole != "lurah" {
-		return nil, errors.New("tidak dapat memberi tugas ke diri sendiri")
+	if req.JenisTugas != "organisasi" && req.JenisTugas != "individu" {
+		return nil, errors.New("jenis_tugas harus 'organisasi' atau 'individu'")
 	}
 
-	// 4. Validasi hierarki: Cek role target user
-	targetUser, err := s.userRepo.FindByID(uint(req.TargetUserID))
-	if err != nil {
-		return nil, errors.New("user target tidak ditemukan")
+	switch req.JenisTugas {
+	case "organisasi":
+		return s.createOrganisasiTask(requesterID, requesterRole, req)
+	case "individu":
+		return s.createIndividuTask(requesterID, req)
+	default:
+		return nil, errors.New("jenis_tugas tidak valid")
+	}
+}
+
+// createOrganisasiTask membuat tugas organisasi (hanya boleh oleh Lurah).
+// Menerima multiple TargetUserIDs dan menyimpan sebagai M2M assignees.
+func (s *taskService) createOrganisasiTask(requesterID uint, requesterRole string, req CreateTaskRequest) (*domain.TugasPokok, error) {
+	// 1. Validasi: Hanya Lurah yang boleh membuat tugas organisasi
+	if requesterRole != "lurah" {
+		return nil, errors.New("hanya Lurah yang boleh membuat tugas organisasi")
 	}
 
-	switch requesterRole {
-	case "lurah":
-		// Lurah boleh memberi tugas ke sekertaris, kasi, dan diri sendiri
-		if targetUser.Role != "sekertaris" && targetUser.Role != "kasi" && targetUser.Role != "lurah" {
-			return nil, errors.New("Lurah hanya boleh memberi tugas ke Sekertaris, Kasi, atau diri sendiri")
+	// 2. Validasi: TargetUserIDs wajib diisi untuk tugas organisasi
+	if len(req.TargetUserIDs) == 0 {
+		return nil, errors.New("target_user_ids wajib diisi untuk tugas organisasi")
+	}
+
+	// 3. Validasi semua target user ada di database
+	var assignees []domain.User
+	for _, uid := range req.TargetUserIDs {
+		user, err := s.userRepo.FindByID(uint(uid))
+		if err != nil {
+			return nil, fmt.Errorf("user target dengan ID %d tidak ditemukan", uid)
 		}
-	case "sekertaris":
-		// Sekertaris hanya boleh memberi tugas ke staf
-		if targetUser.Role != "staf" {
-			return nil, errors.New("Sekertaris hanya boleh memberi tugas ke Staf")
-		}
+		assignees = append(assignees, *user)
 	}
 
-	// 5. Buat struct TugasPokok
-	userID := uint(req.TargetUserID)
+	// 4. Buat struct TugasPokok (tanpa UserID karena M2M)
+	var fileBukti *string
+	if req.FileBukti != "" {
+		fileBukti = &req.FileBukti
+	}
+
 	tugas := &domain.TugasPokok{
-		UserID:     &userID,
+		JenisTugas: "organisasi",
+		FileBukti:  fileBukti,
 		JudulTugas: req.JudulTugas,
 		Deskripsi:  req.Deskripsi,
 		CreatedBy:  &requesterID,
 		CreatedAt:  time.Now(),
 	}
 
-	// 6. Simpan ke database
-	err = s.taskRepo.Create(tugas)
-	if err != nil {
+	// 5. Simpan tugas ke database
+	if err := s.taskRepo.Create(tugas); err != nil {
 		return nil, fmt.Errorf("gagal menyimpan tugas: %v", err)
 	}
 
-	// 7. Buat notifikasi untuk target user
-	notif := &domain.Notification{
-		UserID:    req.TargetUserID,
-		Kategori:  "Tugas",
-		Judul:     "Tugas Baru Ditetapkan",
-		Pesan:     fmt.Sprintf("Anda telah ditugaskan untuk '%s'. Silakan cek detail tugas.", req.JudulTugas),
-		TerkaitID: int(tugas.ID),
-		CreatedAt: time.Now(),
+	// 6. Simpan relasi M2M assignees
+	if err := s.taskRepo.ReplaceAssignees(tugas.ID, assignees); err != nil {
+		return nil, fmt.Errorf("gagal menyimpan assignees: %v", err)
 	}
-	if err := s.notifRepo.Create(notif); err != nil {
-		log.Printf("⚠️ Gagal membuat notifikasi tugas: %v", err)
+
+	// 7. Set assignees di response
+	tugas.Assignees = assignees
+
+	// 8. Kirim notifikasi ke semua assignees
+	for _, user := range assignees {
+		notif := &domain.Notification{
+			UserID:    int(user.ID),
+			Kategori:  "Tugas",
+			Judul:     "Tugas Organisasi Baru",
+			Pesan:     fmt.Sprintf("Anda telah ditugaskan untuk tugas organisasi '%s'. Silakan cek detail tugas.", req.JudulTugas),
+			TerkaitID: int(tugas.ID),
+			CreatedAt: time.Now(),
+		}
+		if err := s.notifRepo.Create(notif); err != nil {
+			log.Printf("⚠️ Gagal membuat notifikasi untuk user %d: %v", user.ID, err)
+		}
+	}
+
+	return tugas, nil
+}
+
+// createIndividuTask membuat tugas individu secara mandiri oleh user yang bersangkutan.
+// Tidak memerlukan validasi atasan — UserID = RequesterID.
+func (s *taskService) createIndividuTask(requesterID uint, req CreateTaskRequest) (*domain.TugasPokok, error) {
+	// 1. Buat struct TugasPokok — UserID = requesterID (diri sendiri)
+	tugas := &domain.TugasPokok{
+		UserID:     &requesterID,
+		JenisTugas: "individu",
+		JudulTugas: req.JudulTugas,
+		Deskripsi:  req.Deskripsi,
+		CreatedBy:  &requesterID,
+		CreatedAt:  time.Now(),
+	}
+
+	// 2. Simpan ke database
+	if err := s.taskRepo.Create(tugas); err != nil {
+		return nil, fmt.Errorf("gagal menyimpan tugas: %v", err)
 	}
 
 	return tugas, nil
 }
 
 // GetTasksByUserID mengambil daftar tugas pokok untuk user tertentu.
+// Menggabungkan tugas individu (via user_id) dan tugas organisasi (via M2M assignees).
 func (s *taskService) GetTasksByUserID(userID int) ([]domain.TugasPokok, error) {
-	return s.taskRepo.FindByUserID(userID)
+	// 1. Ambil tugas individu
+	individuTasks, err := s.taskRepo.FindByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Ambil tugas organisasi yang di-assign ke user ini
+	orgTasks, err := s.taskRepo.FindByAssigneeID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Gabungkan dan deduplicate (menghindari duplikasi jika ada)
+	taskMap := make(map[uint]domain.TugasPokok)
+	for _, t := range individuTasks {
+		taskMap[t.ID] = t
+	}
+	for _, t := range orgTasks {
+		taskMap[t.ID] = t
+	}
+
+	// 4. Convert map back to slice
+	var result []domain.TugasPokok
+	for _, t := range taskMap {
+		result = append(result, t)
+	}
+
+	return result, nil
 }
 
 // GetAllTasks mengambil semua tugas pokok (untuk atasan).
@@ -147,37 +217,66 @@ func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID 
 	}
 
 	// 3. Validasi input
-	if req.TargetUserID <= 0 {
-		return nil, errors.New("target_user_id wajib diisi dan harus valid")
-	}
 	if req.JudulTugas == "" {
 		return nil, errors.New("judul_tugas wajib diisi")
 	}
-
-	// 4. Validasi hierarki target user (sama dengan create)
-	targetUser, err := s.userRepo.FindByID(uint(req.TargetUserID))
-	if err != nil {
-		return nil, errors.New("user target tidak ditemukan")
+	if req.JenisTugas != "organisasi" && req.JenisTugas != "individu" {
+		return nil, errors.New("jenis_tugas harus 'organisasi' atau 'individu'")
 	}
 
-	switch requesterRole {
-	case "lurah":
-		// Lurah boleh memberi tugas ke sekertaris, kasi, dan diri sendiri
-		if targetUser.Role != "sekertaris" && targetUser.Role != "kasi" && targetUser.Role != "lurah" {
-			return nil, errors.New("Lurah hanya boleh memberi tugas ke Sekertaris, Kasi, atau diri sendiri")
-		}
-	case "sekertaris":
-		// Sekertaris hanya boleh memberi tugas ke staf
-		if targetUser.Role != "staf" {
-			return nil, errors.New("Sekertaris hanya boleh memberi tugas ke Staf")
-		}
-	}
-
-	// 5. Update data
-	userID := uint(req.TargetUserID)
-	task.UserID = &userID
+	// 4. Update field utama
+	task.JenisTugas = req.JenisTugas
 	task.JudulTugas = req.JudulTugas
 	task.Deskripsi = req.Deskripsi
+
+	if req.FileBukti != "" {
+		task.FileBukti = &req.FileBukti
+	} else {
+		task.FileBukti = nil
+	}
+
+	// 5. Handle berdasarkan jenis tugas
+	if req.JenisTugas == "organisasi" {
+		// Validasi: Hanya Lurah yang boleh membuat tugas organisasi
+		if requesterRole != "lurah" {
+			return nil, errors.New("hanya Lurah yang boleh mengubah tugas menjadi jenis organisasi")
+		}
+
+		// Validasi TargetUserIDs
+		if len(req.TargetUserIDs) == 0 {
+			return nil, errors.New("target_user_ids wajib diisi untuk tugas organisasi")
+		}
+
+		// Validasi semua target user
+		var assignees []domain.User
+		for _, uid := range req.TargetUserIDs {
+			user, err := s.userRepo.FindByID(uint(uid))
+			if err != nil {
+				return nil, fmt.Errorf("user target dengan ID %d tidak ditemukan", uid)
+			}
+			assignees = append(assignees, *user)
+		}
+
+		// Update assignees M2M
+		if err := s.taskRepo.ReplaceAssignees(taskID, assignees); err != nil {
+			return nil, fmt.Errorf("gagal mengubah assignees: %v", err)
+		}
+
+		// Clear UserID karena organisasi pakai M2M
+		task.UserID = nil
+		task.Assignees = assignees
+	} else {
+		// Tugas individu: UserID tetap requesterID atau target
+		if len(req.TargetUserIDs) > 0 {
+			uid := uint(req.TargetUserIDs[0])
+			task.UserID = &uid
+		}
+
+		// Clear M2M assignees
+		if err := s.taskRepo.ReplaceAssignees(taskID, []domain.User{}); err != nil {
+			return nil, fmt.Errorf("gagal membersihkan assignees: %v", err)
+		}
+	}
 
 	// 6. Simpan perubahan ke DB
 	if err := s.taskRepo.Update(task); err != nil {
@@ -200,7 +299,7 @@ func (s *taskService) DeleteTask(requesterID uint, requesterRole string, taskID 
 		return errors.New("anda tidak memiliki akses untuk menghapus tugas ini")
 	}
 
-	// 3. Hapus tugas
+	// 3. Hapus tugas (akan otomatis clear M2M di repository)
 	if err := s.taskRepo.Delete(taskID); err != nil {
 		return fmt.Errorf("gagal menghapus tugas: %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/service"
 )
 
@@ -18,7 +19,8 @@ func NewTaskHandler(taskService service.TaskService) *TaskHandler {
 	return &TaskHandler{taskService: taskService}
 }
 
-// Create menangani pembuatan tugas pokok baru oleh atasan.
+// Create menangani pembuatan tugas pokok baru.
+// Mendukung dua jenis tugas: "organisasi" (Lurah, multi-assign) dan "individu" (self-assign).
 func (h *TaskHandler) Create(c fiber.Ctx) error {
 	// 1. Ambil requester dari JWT Token (via Locals dari middleware)
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
@@ -48,10 +50,10 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	}
 
 	// 3. Validasi input wajib
-	if req.TargetUserID == 0 {
+	if req.JenisTugas == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
-			"message": "target_user_id wajib diisi",
+			"message": "jenis_tugas wajib diisi ('organisasi' atau 'individu')",
 		})
 	}
 	if req.JudulTugas == "" {
@@ -70,22 +72,41 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 		})
 	}
 
-	// 5. Return response sukses
+	// 5. Susun response berdasarkan jenis tugas
+	responseData := fiber.Map{
+		"id":          tugas.ID,
+		"jenis_tugas": tugas.JenisTugas,
+		"judul_tugas": tugas.JudulTugas,
+		"deskripsi":   tugas.Deskripsi,
+		"created_by":  tugas.CreatedBy,
+		"created_at":  tugas.CreatedAt,
+	}
+
+	if tugas.JenisTugas == "organisasi" {
+		// Sertakan daftar assignees
+		var assigneeList []fiber.Map
+		for _, a := range tugas.Assignees {
+			assigneeList = append(assigneeList, fiber.Map{
+				"id":   a.ID,
+				"nama": a.Nama,
+				"nip":  a.NIP,
+			})
+		}
+		responseData["assignees"] = assigneeList
+		responseData["file_bukti"] = tugas.FileBukti
+	} else {
+		responseData["user_id"] = tugas.UserID
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Tugas pokok berhasil dibuat",
-		"data": fiber.Map{
-			"id":          tugas.ID,
-			"user_id":     tugas.UserID,
-			"judul_tugas": tugas.JudulTugas,
-			"deskripsi":   tugas.Deskripsi,
-			"created_by":  tugas.CreatedBy,
-			"created_at":  tugas.CreatedAt,
-		},
+		"data":    responseData,
 	})
 }
 
 // GetMyTasks menangani request pegawai untuk melihat daftar tugas pokok miliknya.
+// Menggabungkan tugas individu dan tugas organisasi yang di-assign ke user.
 func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
@@ -106,44 +127,10 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 		})
 	}
 
-	// Map ke format yang sesuai dengan TaskModel di frontend (flat structure)
-	var responseData []fiber.Map
-	for _, t := range tasks {
-		var name, nip, avatar string
-		if t.User != nil {
-			name = t.User.Nama
-			nip = t.User.NIP
-			if t.User.FotoPath != nil {
-				avatar = *t.User.FotoPath
-			}
-		}
+	// 3. Map ke format response
+	responseData := h.mapTasksToResponse(tasks)
 
-		var creatorName, creatorAvatar, creatorNip string
-		if t.Creator != nil {
-			creatorName = t.Creator.Nama
-			creatorNip = t.Creator.NIP
-			if t.Creator.FotoPath != nil {
-				creatorAvatar = *t.Creator.FotoPath
-			}
-		}
-
-		responseData = append(responseData, fiber.Map{
-			"id":                 t.ID,
-			"user_id":            t.UserID,
-			"created_by":         t.CreatedBy,
-			"creator_name":       creatorName,
-			"creator_nip":        creatorNip,
-			"creator_avatar":     creatorAvatar,
-			"assigned_to_name":   name,
-			"assigned_to_nip":    nip,
-			"assigned_to_avatar": avatar,
-			"date":               t.CreatedAt.Format("2006-01-02"), // Format YYYY-MM-DD
-			"judul_tugas":        t.JudulTugas,
-			"deskripsi":          t.Deskripsi,
-		})
-	}
-
-	// 3. Return response
+	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Daftar tugas berhasil diambil",
@@ -161,42 +148,7 @@ func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 		})
 	}
 
-	// Map ke format yang sesuai dengan TaskModel di frontend (flat structure)
-	var responseData []fiber.Map
-	for _, t := range tasks {
-		var name, nip, avatar string
-		if t.User != nil {
-			name = t.User.Nama
-			nip = t.User.NIP
-			if t.User.FotoPath != nil {
-				avatar = *t.User.FotoPath
-			}
-		}
-
-		var creatorName, creatorAvatar, creatorNip string
-		if t.Creator != nil {
-			creatorName = t.Creator.Nama
-			creatorNip = t.Creator.NIP
-			if t.Creator.FotoPath != nil {
-				creatorAvatar = *t.Creator.FotoPath
-			}
-		}
-
-		responseData = append(responseData, fiber.Map{
-			"id":                 t.ID,
-			"user_id":            t.UserID,
-			"created_by":         t.CreatedBy,
-			"creator_name":       creatorName,
-			"creator_nip":        creatorNip,
-			"creator_avatar":     creatorAvatar,
-			"assigned_to_name":   name,
-			"assigned_to_nip":    nip,
-			"assigned_to_avatar": avatar,
-			"date":               t.CreatedAt.Format("2006-01-02"), // Format YYYY-MM-DD
-			"judul_tugas":        t.JudulTugas,
-			"deskripsi":          t.Deskripsi,
-		})
-	}
+	responseData := h.mapTasksToResponse(tasks)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
@@ -252,16 +204,34 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 		})
 	}
 
+	// 5. Susun response
+	responseData := fiber.Map{
+		"id":          updatedTask.ID,
+		"jenis_tugas": updatedTask.JenisTugas,
+		"judul_tugas": updatedTask.JudulTugas,
+		"deskripsi":   updatedTask.Deskripsi,
+		"created_by":  updatedTask.CreatedBy,
+		"file_bukti":  updatedTask.FileBukti,
+	}
+
+	if updatedTask.JenisTugas == "organisasi" {
+		var assigneeList []fiber.Map
+		for _, a := range updatedTask.Assignees {
+			assigneeList = append(assigneeList, fiber.Map{
+				"id":   a.ID,
+				"nama": a.Nama,
+				"nip":  a.NIP,
+			})
+		}
+		responseData["assignees"] = assigneeList
+	} else {
+		responseData["user_id"] = updatedTask.UserID
+	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Tugas pokok berhasil diperbarui",
-		"data": fiber.Map{
-			"id":          updatedTask.ID,
-			"user_id":     updatedTask.UserID,
-			"judul_tugas": updatedTask.JudulTugas,
-			"deskripsi":   updatedTask.Deskripsi,
-			"created_by":  updatedTask.CreatedBy,
-		},
+		"data":    responseData,
 	})
 }
 
@@ -307,4 +277,65 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 		"status":  "success",
 		"message": "Tugas pokok berhasil dihapus",
 	})
+}
+
+// mapTasksToResponse mengonversi slice TugasPokok ke format response JSON yang flat.
+func (h *TaskHandler) mapTasksToResponse(tasks []domain.TugasPokok) []fiber.Map {
+	var responseData []fiber.Map
+	for _, t := range tasks {
+		item := fiber.Map{
+			"id":          t.ID,
+			"jenis_tugas": t.JenisTugas,
+			"judul_tugas": t.JudulTugas,
+			"deskripsi":   t.Deskripsi,
+			"file_bukti":  t.FileBukti,
+			"created_by":  t.CreatedBy,
+			"date":        t.CreatedAt.Format("2006-01-02"),
+		}
+
+		// Info creator
+		if t.Creator != nil {
+			item["creator_name"] = t.Creator.Nama
+			item["creator_nip"] = t.Creator.NIP
+			if t.Creator.FotoPath != nil {
+				item["creator_avatar"] = *t.Creator.FotoPath
+			} else {
+				item["creator_avatar"] = ""
+			}
+		}
+
+		if t.JenisTugas == "organisasi" {
+			// Tugas organisasi: sertakan daftar assignees
+			var assigneeList []fiber.Map
+			for _, a := range t.Assignees {
+				aMap := fiber.Map{
+					"id":   a.ID,
+					"nama": a.Nama,
+					"nip":  a.NIP,
+				}
+				if a.FotoPath != nil {
+					aMap["avatar"] = *a.FotoPath
+				} else {
+					aMap["avatar"] = ""
+				}
+				assigneeList = append(assigneeList, aMap)
+			}
+			item["assignees"] = assigneeList
+		} else {
+			// Tugas individu: sertakan info user tunggal
+			item["user_id"] = t.UserID
+			if t.User != nil {
+				item["assigned_to_name"] = t.User.Nama
+				item["assigned_to_nip"] = t.User.NIP
+				if t.User.FotoPath != nil {
+					item["assigned_to_avatar"] = *t.User.FotoPath
+				} else {
+					item["assigned_to_avatar"] = ""
+				}
+			}
+		}
+
+		responseData = append(responseData, item)
+	}
+	return responseData
 }

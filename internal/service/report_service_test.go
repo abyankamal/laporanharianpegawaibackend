@@ -37,7 +37,8 @@ func TestCreateReport_Success_DocumentMode(t *testing.T) {
 			LokasiLat:      "", // kosong (opsional)
 			LokasiLong:     "", // kosong (opsional)
 			AlamatLokasi:   "", // kosong (opsional)
-			File:           nil,
+			FileFoto:       nil,
+			FileDokumen:    nil,
 		}
 
 		laporan, err := reportSvc.CreateReport(input)
@@ -72,7 +73,8 @@ func TestCreateReport_Success_WithLocation(t *testing.T) {
 			LokasiLat:      "-6.2088",
 			LokasiLong:     "106.8456",
 			AlamatLokasi:   "Kantor Kelurahan",
-			File:           nil,
+			FileFoto:       nil,
+			FileDokumen:    nil,
 		}
 
 		laporan, err := reportSvc.CreateReport(input)
