@@ -30,6 +30,9 @@ func TestSubmitReview_Success_LurahToSekertaris(t *testing.T) {
 		}
 		mockUserRepo.On("FindByID", uint(2)).Return(targetUser, nil)
 
+		// Mock: check existing review returns false
+		mockReviewRepo.On("CheckExistingReview", uint(2), 2, 2026).Return(false, nil)
+
 		// Mock: simpan penilaian berhasil
 		mockReviewRepo.On("Create", mock.Anything).Return(nil)
 
@@ -43,6 +46,8 @@ func TestSubmitReview_Success_LurahToSekertaris(t *testing.T) {
 			TargetUserID:   2,
 			SkorID:         2,
 			JenisPeriode:   "Bulanan",
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-01",
 			TanggalSelesai: "2026-02-28",
 			Catatan:        "Kinerja baik bulan ini",
@@ -77,6 +82,7 @@ func TestSubmitReview_Success_SekertarisToStaf(t *testing.T) {
 			Role: "staf",
 		}
 		mockUserRepo.On("FindByID", uint(3)).Return(targetUser, nil)
+		mockReviewRepo.On("CheckExistingReview", uint(3), 2, 2026).Return(false, nil)
 		mockReviewRepo.On("Create", mock.Anything).Return(nil)
 		mockNotifRepo.On("Create", mock.Anything).Return(nil)
 
@@ -86,6 +92,8 @@ func TestSubmitReview_Success_SekertarisToStaf(t *testing.T) {
 			TargetUserID:   3,
 			SkorID:         3,
 			JenisPeriode:   "Harian",
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-20",
 			TanggalSelesai: "2026-02-20",
 			Catatan:        "Sangat rajin hari ini",
@@ -110,6 +118,8 @@ func TestSubmitReview_Fail_SelfReview(t *testing.T) {
 			TargetUserID:   1, // sama dengan penilaiID
 			SkorID:         2,
 			JenisPeriode:   "Bulanan",
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-01",
 			TanggalSelesai: "2026-02-28",
 		}
@@ -142,6 +152,8 @@ func TestSubmitReview_Fail_InvalidDateRange(t *testing.T) {
 			TargetUserID:   2,
 			SkorID:         2,
 			JenisPeriode:   "Custom",
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-28", // lebih besar
 			TanggalSelesai: "2026-02-01", // lebih kecil
 		}
@@ -166,6 +178,8 @@ func TestSubmitReview_Fail_StafCannotReview(t *testing.T) {
 			TargetUserID:   1,
 			SkorID:         2,
 			JenisPeriode:   "Bulanan",
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-01",
 			TanggalSelesai: "2026-02-28",
 		}
@@ -192,6 +206,8 @@ func TestSubmitReview_Fail_InvalidPeriode(t *testing.T) {
 			TargetUserID:   2,
 			SkorID:         2,
 			JenisPeriode:   "Tahunan", // tidak valid
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-01",
 			TanggalSelesai: "2026-02-28",
 		}
@@ -218,6 +234,8 @@ func TestSubmitReview_Fail_LurahToStaf(t *testing.T) {
 			TargetUserID:   3,
 			SkorID:         2,
 			JenisPeriode:   "Bulanan",
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-01",
 			TanggalSelesai: "2026-02-28",
 		}
@@ -237,6 +255,7 @@ func TestSubmitReview_Fail_DBError_NoNotification(t *testing.T) {
 
 		targetUser := &domain.User{ID: 2, Role: "sekertaris"}
 		mockUserRepo.On("FindByID", uint(2)).Return(targetUser, nil)
+		mockReviewRepo.On("CheckExistingReview", uint(2), 2, 2026).Return(false, nil)
 		mockReviewRepo.On("Create", mock.Anything).Return(errors.New("database error"))
 
 		reviewSvc := NewReviewService(mockReviewRepo, mockUserRepo, mockNotifRepo)
@@ -245,6 +264,8 @@ func TestSubmitReview_Fail_DBError_NoNotification(t *testing.T) {
 			TargetUserID:   2,
 			SkorID:         2,
 			JenisPeriode:   "Bulanan",
+			Bulan:          2,
+			Tahun:          2026,
 			TanggalMulai:   "2026-02-01",
 			TanggalSelesai: "2026-02-28",
 		}

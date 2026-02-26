@@ -14,7 +14,9 @@ import (
 type CreateReviewRequest struct {
 	TargetUserID   int    `json:"target_user_id" validate:"required"`
 	SkorID         int    `json:"skor_id" validate:"required"`
-	JenisPeriode   string `json:"jenis_periode" validate:"required"`   // Harian, Mingguan, Bulanan, Custom
+	JenisPeriode   string `json:"jenis_periode" validate:"required"` // Harian, Mingguan, Bulanan, Custom
+	Bulan          int    `json:"bulan" validate:"required"`
+	Tahun          int    `json:"tahun" validate:"required"`
 	TanggalMulai   string `json:"tanggal_mulai" validate:"required"`   // Format YYYY-MM-DD
 	TanggalSelesai string `json:"tanggal_selesai" validate:"required"` // Format YYYY-MM-DD
 	Catatan        string `json:"catatan"`
@@ -111,7 +113,16 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 		return nil, errors.New("target_user_id wajib diisi dan harus valid")
 	}
 
-	// 9. Buat struct Penilaian
+	// 9. Validasi: Satu bulan hanya bisa satu kali penilaian (Monthly Appraisal Constraint)
+	exists, err := s.reviewRepo.CheckExistingReview(uint(req.TargetUserID), req.Bulan, req.Tahun)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengecek riwayat penilaian: %v", err)
+	}
+	if exists {
+		return nil, errors.New("Pegawai ini sudah dinilai pada bulan tersebut")
+	}
+
+	// 10. Buat struct Penilaian
 	now := time.Now()
 	userID := uint(req.TargetUserID)
 	skorID := uint(req.SkorID)
@@ -120,6 +131,8 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 		PenilaiID:      &penilaiID,
 		SkorID:         &skorID,
 		JenisPeriode:   req.JenisPeriode,
+		Bulan:          req.Bulan,
+		Tahun:          req.Tahun,
 		TanggalMulai:   tanggalMulai,
 		TanggalSelesai: tanggalSelesai,
 		Catatan:        req.Catatan,
@@ -127,13 +140,13 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 		UpdatedAt:      now,
 	}
 
-	// 10. Simpan ke database
+	// 11. Simpan ke database
 	err = s.reviewRepo.Create(penilaian)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan penilaian: %v", err)
 	}
 
-	// 11. Buat notifikasi untuk target user
+	// 12. Buat notifikasi untuk target user
 	notif := &domain.Notification{
 		UserID:    req.TargetUserID,
 		Kategori:  "Penilaian",

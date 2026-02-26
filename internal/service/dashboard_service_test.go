@@ -31,7 +31,7 @@ func TestGetSummary_Success_Staf(t *testing.T) {
 		// Mock: 15 laporan bulan ini
 		mockDashboardRepo.On("CountLaporanByUserAndMonth", uint(3), now.Year(), int(now.Month())).Return(int64(15), nil)
 		// Mock: laporan terbaru (kosong)
-		mockDashboardRepo.On("GetRecentLaporan", uint(3), 5).Return([]domain.Laporan{}, nil)
+		mockDashboardRepo.On("GetRecentLaporan", uint(3), 3).Return([]domain.Laporan{}, nil)
 
 		dashboardSvc := NewDashboardService(mockDashboardRepo, mockUserRepo)
 
@@ -69,7 +69,7 @@ func TestGetSummary_Success_Lurah(t *testing.T) {
 		// Mock: 5 laporan bulan ini
 		mockDashboardRepo.On("CountLaporanByUserAndMonth", uint(1), now.Year(), int(now.Month())).Return(int64(5), nil)
 		// Mock: laporan terbaru
-		mockDashboardRepo.On("GetRecentLaporan", uint(1), 5).Return([]domain.Laporan{}, nil)
+		mockDashboardRepo.On("GetRecentLaporan", uint(1), 3).Return([]domain.Laporan{}, nil)
 		// Mock: 8 laporan masuk hari ini (semua pegawai)
 		mockDashboardRepo.On("CountLaporanHariIni").Return(int64(8), nil)
 
@@ -103,7 +103,7 @@ func TestGetSummary_Success_Sekertaris(t *testing.T) {
 		mockUserRepo.On("FindByID", uint(2)).Return(&domain.User{ID: 2, Nama: namaUser}, nil)
 		mockDashboardRepo.On("CountTugasPendingHariIni", uint(2)).Return(int64(1), nil)
 		mockDashboardRepo.On("CountLaporanByUserAndMonth", uint(2), now.Year(), int(now.Month())).Return(int64(20), nil)
-		mockDashboardRepo.On("GetRecentLaporan", uint(2), 5).Return([]domain.Laporan{}, nil)
+		mockDashboardRepo.On("GetRecentLaporan", uint(2), 3).Return([]domain.Laporan{}, nil)
 		mockDashboardRepo.On("CountLaporanHariIni").Return(int64(12), nil)
 
 		dashboardSvc := NewDashboardService(mockDashboardRepo, mockUserRepo)
@@ -201,7 +201,7 @@ func TestGetSummary_Success_WithRiwayat(t *testing.T) {
 		mockUserRepo.On("FindByID", mock.AnythingOfType("uint")).Return(&domain.User{ID: 5, Nama: "Staf Test"}, nil)
 		mockDashboardRepo.On("CountTugasPendingHariIni", mock.AnythingOfType("uint")).Return(int64(0), nil)
 		mockDashboardRepo.On("CountLaporanByUserAndMonth", mock.AnythingOfType("uint"), now.Year(), int(now.Month())).Return(int64(2), nil)
-		mockDashboardRepo.On("GetRecentLaporan", mock.AnythingOfType("uint"), 5).Return(laporan, nil)
+		mockDashboardRepo.On("GetRecentLaporan", mock.AnythingOfType("uint"), 3).Return(laporan, nil)
 
 		dashboardSvc := NewDashboardService(mockDashboardRepo, mockUserRepo)
 
@@ -225,7 +225,7 @@ func TestGetSummary_Success_ZeroValues(t *testing.T) {
 		mockUserRepo.On("FindByID", mock.AnythingOfType("uint")).Return(&domain.User{ID: 99, Nama: "Pegawai Baru"}, nil)
 		mockDashboardRepo.On("CountTugasPendingHariIni", mock.AnythingOfType("uint")).Return(int64(0), nil)
 		mockDashboardRepo.On("CountLaporanByUserAndMonth", mock.AnythingOfType("uint"), now.Year(), int(now.Month())).Return(int64(0), nil)
-		mockDashboardRepo.On("GetRecentLaporan", mock.AnythingOfType("uint"), 5).Return([]domain.Laporan{}, nil)
+		mockDashboardRepo.On("GetRecentLaporan", mock.AnythingOfType("uint"), 3).Return([]domain.Laporan{}, nil)
 
 		dashboardSvc := NewDashboardService(mockDashboardRepo, mockUserRepo)
 

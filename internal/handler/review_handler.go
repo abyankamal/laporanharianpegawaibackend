@@ -74,6 +74,12 @@ func (h *ReviewHandler) Create(c fiber.Ctx) error {
 			"message": "tanggal_mulai dan tanggal_selesai wajib diisi",
 		})
 	}
+	if req.Bulan <= 0 || req.Bulan > 12 || req.Tahun <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "bulan (1-12) dan tahun wajib diisi dengan valid",
+		})
+	}
 
 	// 4. Panggil service
 	penilaian, err := h.reviewService.SubmitReview(penilaiID, penilaiRole, req)
@@ -94,6 +100,8 @@ func (h *ReviewHandler) Create(c fiber.Ctx) error {
 			"penilai_id":      penilaian.PenilaiID,
 			"skor_id":         penilaian.SkorID,
 			"jenis_periode":   penilaian.JenisPeriode,
+			"bulan":           penilaian.Bulan,
+			"tahun":           penilaian.Tahun,
 			"tanggal_mulai":   penilaian.TanggalMulai.Format("2006-01-02"),
 			"tanggal_selesai": penilaian.TanggalSelesai.Format("2006-01-02"),
 			"created_at":      penilaian.CreatedAt,

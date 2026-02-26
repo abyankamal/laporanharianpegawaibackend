@@ -261,7 +261,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 	// 4. Susun response
 	responseMap := fiber.Map{
 		"id":                laporan.ID,
-		"status":            "Disetujui", // TODO: Implementasi status sesungguhnya jika ada
+		"status":            laporan.Status,
 		"jenis_tugas":       "Tugas Tambahan",
 		"judul_laporan":     laporan.JudulKegiatan,
 		"waktu_pelaksanaan": laporan.WaktuPelaporan,
@@ -297,5 +297,52 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		"status":  "success",
 		"message": "Detail laporan berhasil diambil",
 		"data":    responseMap,
+	})
+}
+
+// GetReportRecapHandler mengambil rekapitulasi agregasi laporan.
+func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
+	// 1. Ambil user_id dari JWT Token
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	userID := uint(userIDFloat)
+
+	// 2. Parse query parameters
+	period := c.Query("period", "bulanan") // harian, mingguan, bulanan
+	dateStr := c.Query("date")
+
+	var targetDate time.Time
+	var err error
+	if dateStr != "" {
+		targetDate, err = time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Format date tidak valid (gunakan: YYYY-MM-DD)",
+			})
+		}
+	} else {
+		targetDate = time.Now()
+	}
+
+	// 3. Panggil service
+	rekap, err := h.reportService.GetReportRecap(userID, period, targetDate)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Gagal mengambil rekap laporan: " + err.Error(),
+		})
+	}
+
+	// 4. Return response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Rekap laporan berhasil diambil",
+		"data":    rekap,
 	})
 }

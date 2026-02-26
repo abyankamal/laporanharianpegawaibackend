@@ -11,6 +11,7 @@ type ReviewRepository interface {
 	Create(review *domain.Penilaian) error
 	FindByUserID(userID int, limit int, offset int) ([]domain.Penilaian, int64, error)
 	FindByPenilaiID(penilaiID int) ([]domain.Penilaian, error)
+	CheckExistingReview(userID uint, bulan int, tahun int) (bool, error)
 }
 
 // reviewRepository adalah implementasi dari ReviewRepository.
@@ -78,4 +79,17 @@ func (r *reviewRepository) FindByPenilaiID(penilaiID int) ([]domain.Penilaian, e
 	}
 
 	return reviews, nil
+}
+
+// CheckExistingReview mengecek apakah user sudah dinilai pada bulan dan tahun tertentu.
+func (r *reviewRepository) CheckExistingReview(userID uint, bulan int, tahun int) (bool, error) {
+	var count int64
+	err := r.db.Model(&domain.Penilaian{}).
+		Where("user_id = ? AND bulan = ? AND tahun = ?", userID, bulan, tahun).
+		Count(&count).Error
+
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

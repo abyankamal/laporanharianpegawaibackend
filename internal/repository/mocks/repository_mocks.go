@@ -131,6 +131,14 @@ func (m *ReportRepositoryMock) GetFileByReportID(reportID uint) (*domain.FileLap
 	return args.Get(0).(*domain.FileLaporan), args.Error(1)
 }
 
+func (m *ReportRepositoryMock) GetReportRecap(userID uint, startDate time.Time, endDate time.Time) (*repository.ReportRecapResponse, error) {
+	args := m.Called(userID, startDate, endDate)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.ReportRecapResponse), args.Error(1)
+}
+
 // ============================================================
 // ReviewRepositoryMock
 // ============================================================
@@ -159,6 +167,11 @@ func (m *ReviewRepositoryMock) FindByPenilaiID(penilaiID int) ([]domain.Penilaia
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]domain.Penilaian), args.Error(1)
+}
+
+func (m *ReviewRepositoryMock) CheckExistingReview(userID uint, bulan int, tahun int) (bool, error) {
+	args := m.Called(userID, bulan, tahun)
+	return args.Bool(0), args.Error(1)
 }
 
 // ============================================================

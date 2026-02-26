@@ -19,6 +19,15 @@ type ReportFilter struct {
 	Offset    int
 }
 
+// ReportRecapResponse adalah struct rekapitulasi agregat laporan.
+type ReportRecapResponse struct {
+	TotalLaporan   int `json:"total_laporan" gorm:"column:total_laporan"`
+	TotalDisetujui int `json:"total_disetujui" gorm:"column:total_disetujui"`
+	TotalMenunggu  int `json:"total_menunggu" gorm:"column:total_menunggu"`
+	TotalDitolak   int `json:"total_ditolak" gorm:"column:total_ditolak"`
+	TotalJamKerja  int `json:"total_jam_kerja" gorm:"column:total_jam_kerja"`
+}
+
 // ReportRepository adalah interface untuk operasi database Laporan.
 type ReportRepository interface {
 	Create(laporan *domain.Laporan) error
@@ -27,6 +36,7 @@ type ReportRepository interface {
 	CheckIsHoliday(date time.Time) (bool, error)
 	GetAll(filter ReportFilter) ([]domain.Laporan, int64, error)
 	GetByID(id uint) (*domain.Laporan, error)
+	GetReportRecap(userID uint, startDate time.Time, endDate time.Time) (*ReportRecapResponse, error)
 }
 
 // reportRepository adalah implementasi dari ReportRepository.
@@ -160,4 +170,23 @@ func (r *reportRepository) GetFileByReportID(reportID uint) (*domain.FileLaporan
 		return nil, err
 	}
 	return &fileLaporan, nil
+}
+
+// GetReportRecap menghitung agregasi status dan jam kerja laporan.
+func (r *reportRepository) GetReportRecap(userID uint, startDate time.Time, endDate time.Time) (*ReportRecapResponse, error) {
+	var rekap ReportRecapResponse
+
+	err := r.db.Model(&domain.Laporan{}).
+		Select("COUNT(id) as total_laporan, "+
+			"SUM(CASE WHEN status = 'Disetujui' THEN 1 ELSE 0 END) as total_disetujui, "+
+			"SUM(CASE WHEN status = 'Menunggu' THEN 1 ELSE 0 END) as total_menunggu, "+
+			"SUM(CASE WHEN status = 'Ditolak' THEN 1 ELSE 0 END) as total_ditolak, "+
+			"COALESCE(SUM(jam_kerja), 0) as total_jam_kerja").
+		Where("user_id = ? AND waktu_pelaporan BETWEEN ? AND ?", userID, startDate, endDate).
+		Scan(&rekap).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return &rekap, nil
 }

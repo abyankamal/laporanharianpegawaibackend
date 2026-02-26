@@ -81,6 +81,8 @@ type Laporan struct {
 	AlamatLokasi   *string   `gorm:"column:alamat_lokasi;type:text" json:"alamat_lokasi"`
 	FotoURL        *string   `gorm:"column:foto_url;type:varchar(255)" json:"foto_url"`       // URL file foto lampiran (opsional)
 	DokumenURL     *string   `gorm:"column:dokumen_url;type:varchar(255)" json:"dokumen_url"` // URL file dokumen lampiran (opsional)
+	Status         string    `gorm:"column:status;type:varchar(50);default:'Menunggu'" json:"status"`
+	JamKerja       int       `gorm:"column:jam_kerja;default:0" json:"jam_kerja"`
 	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
@@ -112,10 +114,12 @@ func (FileLaporan) TableName() string {
 // Penilaian adalah tabel untuk menyimpan hasil penilaian kinerja pegawai.
 type Penilaian struct {
 	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID         *uint     `gorm:"column:user_id" json:"user_id"`
+	UserID         *uint     `gorm:"column:user_id;uniqueIndex:idx_user_bulan_tahun" json:"user_id"`
 	PenilaiID      *uint     `gorm:"column:penilai_id" json:"penilai_id"`
 	SkorID         *uint     `gorm:"column:skor_id" json:"skor_id"`
 	JenisPeriode   string    `gorm:"column:jenis_periode;type:varchar(50)" json:"jenis_periode"` // 'Harian', 'Mingguan', 'Bulanan', 'Custom'
+	Bulan          int       `gorm:"column:bulan;type:int;uniqueIndex:idx_user_bulan_tahun" json:"bulan"`
+	Tahun          int       `gorm:"column:tahun;type:int;uniqueIndex:idx_user_bulan_tahun" json:"tahun"`
 	TanggalMulai   time.Time `gorm:"column:tanggal_mulai;type:date" json:"tanggal_mulai"`
 	TanggalSelesai time.Time `gorm:"column:tanggal_selesai;type:date" json:"tanggal_selesai"`
 	Catatan        string    `gorm:"column:catatan;type:text" json:"catatan"`
