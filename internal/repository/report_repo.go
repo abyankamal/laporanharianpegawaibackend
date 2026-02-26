@@ -37,6 +37,7 @@ type ReportRepository interface {
 	GetAll(filter ReportFilter) ([]domain.Laporan, int64, error)
 	GetByID(id uint) (*domain.Laporan, error)
 	GetReportRecap(userID uint, startDate time.Time, endDate time.Time) (*ReportRecapResponse, error)
+	Update(laporan *domain.Laporan) error
 }
 
 // reportRepository adalah implementasi dari ReportRepository.
@@ -52,6 +53,11 @@ func NewReportRepository(db *gorm.DB) ReportRepository {
 // Create menyimpan data laporan ke database.
 func (r *reportRepository) Create(laporan *domain.Laporan) error {
 	return r.db.Create(laporan).Error
+}
+
+// Update memperbarui data laporan di database (misal status/komentar).
+func (r *reportRepository) Update(laporan *domain.Laporan) error {
+	return r.db.Save(laporan).Error
 }
 
 // CreateFileLaporan menyimpan data file laporan ke database.

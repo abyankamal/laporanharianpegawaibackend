@@ -267,6 +267,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		"waktu_pelaksanaan": laporan.WaktuPelaporan,
 		"lokasi":            laporan.AlamatLokasi,
 		"deskripsi_hasil":   laporan.DeskripsiHasil,
+		"komentar_atasan":   laporan.KomentarAtasan,
 		"foto_url":          laporan.FotoURL,
 		"dokumen_url":       laporan.DokumenURL,
 	}
@@ -344,5 +345,58 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 		"status":  "success",
 		"message": "Rekap laporan berhasil diambil",
 		"data":    rekap,
+	})
+}
+
+// EvaluateReportHandler memproses aksi atasan menyetujui/menolak laporan.
+func (h *ReportHandler) EvaluateReportHandler(c fiber.Ctx) error {
+	// 1. Ambil penilai_id dari JWT Token
+	assessorIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	assessorID := uint(assessorIDFloat)
+
+	assessorRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Role tidak ditemukan",
+		})
+	}
+
+	// 2. Parse request body
+	var req service.EvaluateReportRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid",
+		})
+	}
+
+	// 3. Panggil service logic
+	err := h.reportService.EvaluateReport(assessorID, assessorRole, req)
+	if err != nil {
+		status := fiber.StatusInternalServerError
+		if err.Error() == "laporan tidak ditemukan" {
+			status = fiber.StatusNotFound
+		} else if err.Error() == "Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini" || err.Error() == "akses ditolak" {
+			status = fiber.StatusForbidden
+		} else if err.Error() == "status evaluasi tidak valid (harus 'Disetujui' atau 'Ditolak')" {
+			status = fiber.StatusBadRequest
+		}
+		return c.Status(status).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// 4. Sukses
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Evaluasi laporan berhasil disimpan",
 	})
 }

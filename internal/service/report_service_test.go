@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository/mocks"
 )
 
@@ -167,5 +168,142 @@ func TestCreateReport_Fail_CheckHolidayError(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, laporan)
 		assert.Equal(t, "gagal mengecek status hari libur", err.Error())
+	})
+}
+
+// ============================================================
+// Test EvaluateReport (ReportService)
+// ============================================================
+
+func TestEvaluateReport_Success_Lurah(t *testing.T) {
+	t.Run("Sukses: Lurah bebas menyetujui laporan siapa saja", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo)
+
+		laporan := &domain.Laporan{
+			ID:     1,
+			UserID: func(i uint) *uint { return &i }(3),
+			User: &domain.User{
+				ID:   3,
+				Role: "staf",
+			},
+		}
+
+		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
+		mockReportRepo.On("Update", mock.Anything).Return(nil)
+
+		req := EvaluateReportRequest{
+			ReportID: 1,
+			Status:   "Disetujui",
+			Komentar: "Bagus",
+		}
+		err := reportSvc.EvaluateReport(1, "lurah", req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "Disetujui", laporan.Status)
+		assert.Equal(t, "Bagus", *laporan.KomentarAtasan)
+		mockReportRepo.AssertCalled(t, "Update", mock.Anything)
+	})
+}
+
+func TestEvaluateReport_Success_SekertarisToStaf(t *testing.T) {
+	t.Run("Sukses: Sekertaris menilai laporan Staf", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo)
+
+		laporan := &domain.Laporan{
+			ID:     2,
+			UserID: func(i uint) *uint { return &i }(4),
+			User: &domain.User{
+				ID:   4,
+				Role: "staf",
+			},
+		}
+
+		mockReportRepo.On("GetByID", uint(2)).Return(laporan, nil)
+		mockReportRepo.On("Update", mock.Anything).Return(nil)
+
+		req := EvaluateReportRequest{
+			ReportID: 2,
+			Status:   "Ditolak",
+			Komentar: "Perbaiki format",
+		}
+		err := reportSvc.EvaluateReport(2, "sekertaris", req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, "Ditolak", laporan.Status)
+		assert.Equal(t, "Perbaiki format", *laporan.KomentarAtasan)
+	})
+}
+
+func TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID(t *testing.T) {
+	t.Run("Gagal: Sekertaris menilai Kasi yang bukan bawahannya", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo)
+
+		laporan := &domain.Laporan{
+			ID:     3,
+			UserID: func(i uint) *uint { return &i }(5),
+			User: &domain.User{
+				ID:           5,
+				Role:         "kasi",
+				SupervisorID: func(i uint) *uint { return &i }(99), // bukan 2 (AssessorID)
+			},
+		}
+
+		mockReportRepo.On("GetByID", uint(3)).Return(laporan, nil)
+
+		req := EvaluateReportRequest{
+			ReportID: 3,
+			Status:   "Disetujui",
+		}
+		err := reportSvc.EvaluateReport(2, "sekertaris", req)
+
+		assert.Error(t, err)
+		assert.Equal(t, "Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini", err.Error())
+		mockReportRepo.AssertNotCalled(t, "Update")
+	})
+}
+
+func TestEvaluateReport_Fail_Kasi(t *testing.T) {
+	t.Run("Gagal: Kasi/Staf mencoba melakukan evaluasi", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo)
+
+		laporan := &domain.Laporan{
+			ID:     4,
+			UserID: func(i uint) *uint { return &i }(6),
+			User: &domain.User{
+				ID:   6,
+				Role: "staf",
+			},
+		}
+
+		mockReportRepo.On("GetByID", uint(4)).Return(laporan, nil)
+
+		req := EvaluateReportRequest{
+			ReportID: 4,
+			Status:   "Disetujui",
+		}
+		err := reportSvc.EvaluateReport(5, "kasi", req)
+
+		assert.Error(t, err)
+		assert.Equal(t, "akses ditolak", err.Error())
+	})
+}
+
+func TestEvaluateReport_Fail_InvalidStatus(t *testing.T) {
+	t.Run("Gagal: Status evaluasi selain Disetujui/Ditolak", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo)
+
+		req := EvaluateReportRequest{
+			ReportID: 1,
+			Status:   "Diterima", // Tidak Valid
+		}
+		err := reportSvc.EvaluateReport(1, "lurah", req)
+
+		assert.Error(t, err)
+		assert.Equal(t, "status evaluasi tidak valid (harus 'Disetujui' atau 'Ditolak')", err.Error())
 	})
 }

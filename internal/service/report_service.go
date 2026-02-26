@@ -30,12 +30,20 @@ type ReportInput struct {
 	FileDokumen    *multipart.FileHeader // File dokumen lampiran (opsional)
 }
 
+// EvaluateReportRequest adalah struct untuk input evaluasi laporan.
+type EvaluateReportRequest struct {
+	ReportID uint   `json:"report_id" validate:"required"`
+	Status   string `json:"status" validate:"required"` // 'Disetujui' atau 'Ditolak'
+	Komentar string `json:"komentar"`
+}
+
 // ReportService adalah interface untuk operasi bisnis Laporan.
 type ReportService interface {
 	CreateReport(input ReportInput) (*domain.Laporan, error)
 	GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error)
 	GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, error)
 	GetReportRecap(userID uint, period string, targetDate time.Time) (*repository.ReportRecapResponse, error)
+	EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error
 }
 
 // reportService adalah implementasi dari ReportService.
@@ -241,4 +249,57 @@ func (s *reportService) GetReportRecap(userID uint, period string, targetDate ti
 	}
 
 	return s.reportRepo.GetReportRecap(userID, startDate, endDate)
+}
+
+// EvaluateReport mengevaluasi laporan (Approve/Reject) berdasarkan RBAC.
+func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error {
+	if req.Status != "Disetujui" && req.Status != "Ditolak" {
+		return errors.New("status evaluasi tidak valid (harus 'Disetujui' atau 'Ditolak')")
+	}
+
+	// 1. Ambil data laporan beserta relasi User pengirimnya
+	laporan, err := s.reportRepo.GetByID(req.ReportID)
+	if err != nil {
+		return errors.New("laporan tidak ditemukan")
+	}
+
+	targetUser := laporan.User
+	if targetUser == nil {
+		return errors.New("data user pemilik laporan tidak valid")
+	}
+
+	// 2. Terapkan RBAC Hierarki Penilaian
+	switch assessorRole {
+	case "lurah":
+		// Bebas menilai laporan siapapun
+	case "sekertaris":
+		// Sekertaris hanya boleh menilai staf atau user yang SupervisorID-nya adalah dirinya
+		isStaf := targetUser.Role == "staf"
+		isDirectSubordinate := targetUser.SupervisorID != nil && *targetUser.SupervisorID == assessorID
+
+		if !isStaf && !isDirectSubordinate {
+			return errors.New("Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini")
+		}
+	case "kasi", "staf":
+		// Kasi / Staf tidak punya hak approve laporan general
+		return errors.New("akses ditolak")
+	default:
+		return errors.New("role tidak dikenali")
+	}
+
+	// 3. Update field
+	laporan.Status = req.Status
+	if req.Komentar != "" {
+		laporan.KomentarAtasan = &req.Komentar
+	} else {
+		laporan.KomentarAtasan = nil
+	}
+
+	// 4. Save ke database
+	err = s.reportRepo.Update(laporan)
+	if err != nil {
+		return fmt.Errorf("gagal mengevaluasi laporan: %v", err)
+	}
+
+	return nil
 }

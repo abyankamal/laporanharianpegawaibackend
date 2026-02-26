@@ -83,6 +83,7 @@ type Laporan struct {
 	DokumenURL     *string   `gorm:"column:dokumen_url;type:varchar(255)" json:"dokumen_url"` // URL file dokumen lampiran (opsional)
 	Status         string    `gorm:"column:status;type:varchar(50);default:'Menunggu'" json:"status"`
 	JamKerja       int       `gorm:"column:jam_kerja;default:0" json:"jam_kerja"`
+	KomentarAtasan *string   `gorm:"column:komentar_atasan;type:text" json:"komentar_atasan"`
 	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi

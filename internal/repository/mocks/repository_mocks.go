@@ -139,6 +139,11 @@ func (m *ReportRepositoryMock) GetReportRecap(userID uint, startDate time.Time, 
 	return args.Get(0).(*repository.ReportRecapResponse), args.Error(1)
 }
 
+func (m *ReportRepositoryMock) Update(laporan *domain.Laporan) error {
+	args := m.Called(laporan)
+	return args.Error(0)
+}
+
 // ============================================================
 // ReviewRepositoryMock
 // ============================================================
