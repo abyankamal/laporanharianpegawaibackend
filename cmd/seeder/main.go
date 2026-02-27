@@ -49,7 +49,7 @@ func main() {
 	fmt.Println("   - NIP: 198106152014102004 | Password: 123456 | Role: lurah")
 	fmt.Println("   - NIP: 198002012009061001 | Password: 123456 | Role: sekertaris")
 	fmt.Println("   - NIP: 197905172014101003 | Password: 123456 | Role: kasi")
-	fmt.Println("   - NIP: 198102252014111001 | Password: 123456 | Role: staf")
+	fmt.Println("   - NIP: 200112282025041006 | Password: 123456 | Role: staf")
 }
 
 // connectDatabase membuat koneksi ke MySQL
@@ -141,50 +141,47 @@ func seedUsers(db *gorm.DB) {
 		log.Fatalf("❌ Gagal hash password: %v", err)
 	}
 
-	// Ambil ID jabatan yang diperlukan
-	var jabLurah, jabSekertaris, jabKasi, jabStaf domain.RefJabatan
-	db.Where("nama_jabatan = ?", "Lurah").First(&jabLurah)
-	db.Where("nama_jabatan = ?", "Sekertaris").First(&jabSekertaris)
-	db.Where("nama_jabatan = ?", "Kasi Pemerintahan").First(&jabKasi)
-	db.Where("nama_jabatan = ?", "Pengadministrasi Perkantoran").First(&jabStaf)
-
-	// Data users
-	users := []domain.User{
-		{
-			NIP:       "198106152014102004",
-			Nama:      "Iis Yuniawardani, S.IP",
-			Password:  string(hashedPassword),
-			Role:      "lurah",
-			JabatanID: &jabLurah.ID,
-			CreatedAt: time.Now(),
-		},
-		{
-			NIP:       "198002012009061001",
-			Nama:      "Aep Saepudin, S.Kom",
-			Password:  string(hashedPassword),
-			Role:      "sekertaris",
-			JabatanID: &jabSekertaris.ID,
-			CreatedAt: time.Now(),
-		},
-		{
-			NIP:       "197905172014101003",
-			Nama:      "Cahyo Dirgantoro Priyawan, A.Md",
-			Password:  string(hashedPassword),
-			Role:      "kasi",
-			JabatanID: &jabKasi.ID,
-			CreatedAt: time.Now(),
-		},
-		{
-			NIP:       "198102252014111001",
-			Nama:      "Budi Budiansyah",
-			Password:  string(hashedPassword),
-			Role:      "staf",
-			JabatanID: &jabStaf.ID,
-			CreatedAt: time.Now(),
-		},
+	userData := []struct {
+		NIP           string
+		Nama          string
+		Role          string
+		JabatanName   string
+		SupervisorNIP string
+	}{
+		{"198106152014102004", "Iis Yuniawardani, S.IP", "lurah", "Lurah", ""},
+		{"198002012009061001", "Aep Saepudin, S.Kom", "sekertaris", "Sekertaris", "198106152014102004"},
+		{"197905172014101003", "Cahyo Dirgantoro Priyawan, A.Md", "kasi", "Kasi Ekonomi dan Pembangunan", "198106152014102004"},
+		{"198102252014111001", "Budi Budiansyah", "staf", "Pengadministrasi Perkantoran", "198002012009061001"},
+		{"200112282025041006", "Muhammad Abyan Kamal, S.Kom", "staf", "Penata Kelola Sistem dan Teknologi Informasi", "198002012009061001"},
+		{"198001022008011003", "Kustaman, S.E", "kasi", "Kasi Pemerintahan", "198106152014102004"},
+		{"196904051994031011", "Agus Haris", "kasi", "Kasi Kesejahteraan Masyarakat", "198106152014102004"},
+		{"198908152025212085", "Dewi Srimulyati", "staf", "Operator Layanan Operasional", "198002012009061001"},
+		{"198410022025212046", "Erlin Wili Aspiantiny", "staf", "Pengelola Aset", "198002012009061001"},
+		{"198205202025211085", "Tantan Kustandi", "staf", "Operator DTKS/DTSEN", "198002012009061001"},
 	}
 
-	for _, user := range users {
+	for _, data := range userData {
+		var jab domain.RefJabatan
+		db.Where("nama_jabatan = ?", data.JabatanName).First(&jab)
+
+		var supervisorID *uint
+		if data.SupervisorNIP != "" {
+			var supervisor domain.User
+			if err := db.Where("nip = ?", data.SupervisorNIP).First(&supervisor).Error; err == nil {
+				supervisorID = &supervisor.ID
+			}
+		}
+
+		user := domain.User{
+			NIP:          data.NIP,
+			Nama:         data.Nama,
+			Password:     string(hashedPassword),
+			Role:         data.Role,
+			JabatanID:    &jab.ID,
+			SupervisorID: supervisorID,
+			CreatedAt:    time.Now(),
+		}
+
 		var existing domain.User
 		result := db.Where("nip = ?", user.NIP).First(&existing)
 		if result.Error != nil {
@@ -192,10 +189,11 @@ func seedUsers(db *gorm.DB) {
 			db.Create(&user)
 			fmt.Printf("   ✅ User '%s' (NIP: %s, Role: %s) berhasil ditambahkan\n", user.Nama, user.NIP, user.Role)
 		} else {
-			// Jika sudah ada, update datanya (terutama jabatannya)
+			// Jika sudah ada, update datanya
 			existing.Nama = user.Nama
 			existing.Role = user.Role
 			existing.JabatanID = user.JabatanID
+			existing.SupervisorID = user.SupervisorID
 			db.Save(&existing)
 			fmt.Printf("   🔄 User '%s' sudah ada, data diperbarui\n", user.Nama)
 		}
