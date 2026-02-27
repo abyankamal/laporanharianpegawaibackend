@@ -154,9 +154,10 @@ func main() {
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
 	// ===================================================
 	reportRoutes := protected.Group("/reports")
-	reportRoutes.Post("/", reportHandler.Create)   // Semua role
-	reportRoutes.Get("/", reportHandler.GetAll)    // RBAC ditangani di service layer
-	reportRoutes.Get("/:id", reportHandler.GetOne) // Mengambil detail laporan
+	reportRoutes.Post("/", reportHandler.Create)      // Semua role
+	reportRoutes.Get("/", reportHandler.GetAll)       // RBAC ditangani di service layer
+	reportRoutes.Put("/evaluate", reportHandler.EvaluateReportHandler) // Evaluasi laporan (Lurah/Sekertaris)
+	reportRoutes.Get("/:id", reportHandler.GetOne)    // Mengambil detail laporan
 
 	// ===================================================
 	// D. PENILAIAN - Create hanya Lurah & Sekertaris

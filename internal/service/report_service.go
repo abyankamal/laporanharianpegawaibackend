@@ -92,7 +92,7 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	// 4. Proses upload file foto jika ada
 	var fotoURL *string
 	if input.FileFoto != nil {
-		uploadedPath, err := s.saveFile(input.FileFoto, "foto")
+		uploadedPath, err := s.saveFile(input.FileFoto, "images")
 		if err != nil {
 			return nil, fmt.Errorf("gagal menyimpan file foto: %v", err)
 		}
@@ -102,7 +102,7 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	// 5. Proses upload file dokumen jika ada
 	var dokumenURL *string
 	if input.FileDokumen != nil {
-		uploadedPath, err := s.saveFile(input.FileDokumen, "dokumen")
+		uploadedPath, err := s.saveFile(input.FileDokumen, "documents")
 		if err != nil {
 			return nil, fmt.Errorf("gagal menyimpan file dokumen: %v", err)
 		}
