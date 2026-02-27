@@ -188,44 +188,36 @@ type TaskRepositoryMock struct {
 	mock.Mock
 }
 
-func (m *TaskRepositoryMock) Create(task *domain.TugasPokok) error {
+func (m *TaskRepositoryMock) Create(task *domain.TugasOrganisasi) error {
 	args := m.Called(task)
 	return args.Error(0)
 }
 
-func (m *TaskRepositoryMock) FindByUserID(userID int) ([]domain.TugasPokok, error) {
+func (m *TaskRepositoryMock) FindByAssigneeID(userID int) ([]domain.TugasOrganisasi, error) {
 	args := m.Called(userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]domain.TugasPokok), args.Error(1)
+	return args.Get(0).([]domain.TugasOrganisasi), args.Error(1)
 }
 
-func (m *TaskRepositoryMock) FindByAssigneeID(userID int) ([]domain.TugasPokok, error) {
-	args := m.Called(userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]domain.TugasPokok), args.Error(1)
-}
-
-func (m *TaskRepositoryMock) FindAll() ([]domain.TugasPokok, error) {
+func (m *TaskRepositoryMock) FindAll() ([]domain.TugasOrganisasi, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]domain.TugasPokok), args.Error(1)
+	return args.Get(0).([]domain.TugasOrganisasi), args.Error(1)
 }
 
-func (m *TaskRepositoryMock) FindByID(id uint) (*domain.TugasPokok, error) {
+func (m *TaskRepositoryMock) FindByID(id uint) (*domain.TugasOrganisasi, error) {
 	args := m.Called(id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TugasPokok), args.Error(1)
+	return args.Get(0).(*domain.TugasOrganisasi), args.Error(1)
 }
 
-func (m *TaskRepositoryMock) Update(task *domain.TugasPokok) error {
+func (m *TaskRepositoryMock) Update(task *domain.TugasOrganisasi) error {
 	args := m.Called(task)
 	return args.Error(0)
 }

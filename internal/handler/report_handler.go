@@ -134,16 +134,16 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 
 	judulKegiatan := c.FormValue("judul_kegiatan")
 	deskripsiHasil := c.FormValue("deskripsi_hasil")
-	lokasiLat := c.FormValue("lokasi_lat")           // opsional
-	lokasiLong := c.FormValue("lokasi_long")         // opsional
-	alamatLokasi := c.FormValue("alamat_lokasi")     // opsional
-	tugasPokokIDStr := c.FormValue("tugas_pokok_id") // opsional (wajib jika tipe_laporan = pokok)
+	lokasiLat := c.FormValue("lokasi_lat")                     // opsional
+	lokasiLong := c.FormValue("lokasi_long")                   // opsional
+	alamatLokasi := c.FormValue("alamat_lokasi")               // opsional
+	tugasOrganisasiIDStr := c.FormValue("tugas_organisasi_id") // opsional (hanya jika link ke tugas organisasi)
 
-	var tugasPokokID *uint
-	if tugasPokokIDStr != "" {
-		if id, err := strconv.ParseUint(tugasPokokIDStr, 10, 32); err == nil {
+	var tugasOrganisasiID *uint
+	if tugasOrganisasiIDStr != "" {
+		if id, err := strconv.ParseUint(tugasOrganisasiIDStr, 10, 32); err == nil {
 			val := uint(id)
-			tugasPokokID = &val
+			tugasOrganisasiID = &val
 		}
 	}
 
@@ -177,17 +177,17 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 
 	// 6. Susun input untuk service
 	input := service.ReportInput{
-		UserID:         userID,
-		TipeLaporan:    tipeLaporan,
-		TugasPokokID:   tugasPokokID,
-		JudulKegiatan:  judulKegiatan,
-		DeskripsiHasil: deskripsiHasil,
-		WaktuPelaporan: waktuPelaporan,
-		LokasiLat:      lokasiLat,
-		LokasiLong:     lokasiLong,
-		AlamatLokasi:   alamatLokasi,
-		FileFoto:       fileFoto,
-		FileDokumen:    fileDokumen,
+		UserID:            userID,
+		TipeLaporan:       tipeLaporan,
+		TugasOrganisasiID: tugasOrganisasiID,
+		JudulKegiatan:     judulKegiatan,
+		DeskripsiHasil:    deskripsiHasil,
+		WaktuPelaporan:    waktuPelaporan,
+		LokasiLat:         lokasiLat,
+		LokasiLong:        lokasiLong,
+		AlamatLokasi:      alamatLokasi,
+		FileFoto:          fileFoto,
+		FileDokumen:       fileDokumen,
 	}
 
 	// 7. Panggil service
@@ -274,8 +274,8 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 
 	if laporan.TipeLaporan {
 		responseMap["jenis_tugas"] = "Tugas Pokok"
-		if laporan.TugasPokok != nil {
-			responseMap["jenis_tugas"] = laporan.TugasPokok.JudulTugas
+		if laporan.TugasOrganisasi != nil {
+			responseMap["jenis_tugas"] = laporan.TugasOrganisasi.JudulTugas
 		}
 	}
 

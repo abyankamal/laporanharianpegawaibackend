@@ -158,7 +158,7 @@ func (r *reportRepository) GetByID(id uint) (*domain.Laporan, error) {
 	err := r.db.
 		Preload("User").
 		Preload("User.Jabatan").
-		Preload("TugasPokok").
+		Preload("TugasOrganisasi").
 		Where("id = ?", id).
 		First(&laporan).Error
 

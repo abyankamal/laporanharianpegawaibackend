@@ -11,7 +11,7 @@ import (
 // DashboardRepository adalah interface untuk query statistik dashboard.
 type DashboardRepository interface {
 	CountLaporanByUserAndMonth(userID uint, year int, month int) (int64, error)
-	CountTugasPokokByUser(userID uint) (int64, error)
+	CountTugasOrganisasiByUser(userID uint) (int64, error)
 	CountLaporanHariIni() (int64, error)
 	CountLaporanHariIniByRole(role string) (int64, error)
 	CountTugasPendingHariIni(userID uint) (int64, error)
@@ -41,11 +41,12 @@ func (r *dashboardRepository) CountLaporanByUserAndMonth(userID uint, year int, 
 	return count, err
 }
 
-// CountTugasPokokByUser menghitung jumlah tugas pokok milik user.
-func (r *dashboardRepository) CountTugasPokokByUser(userID uint) (int64, error) {
+// CountTugasOrganisasiByUser menghitung jumlah tugas organisasi yang di-assign ke user.
+func (r *dashboardRepository) CountTugasOrganisasiByUser(userID uint) (int64, error) {
 	var count int64
-	err := r.db.Table("tugas_pokok").
-		Where("user_id = ?", userID).
+	err := r.db.Table("tugas_organisasi").
+		Joins("JOIN tugas_assignees ON tugas_assignees.tugas_organisasi_id = tugas_organisasi.id").
+		Where("tugas_assignees.user_id = ?", userID).
 		Count(&count).Error
 	return count, err
 }
@@ -73,7 +74,7 @@ func (r *dashboardRepository) CountLaporanHariIniByRole(role string) (int64, err
 	return count, err
 }
 
-// CountTugasPendingHariIni menghitung jumlah tugas pokok user
+// CountTugasPendingHariIni menghitung jumlah tugas organisasi user
 // yang belum memiliki laporan (tipe_laporan = true) pada hari ini.
 // Menggunakan LEFT JOIN + IS NULL untuk menemukan tugas tanpa laporan.
 func (r *dashboardRepository) CountTugasPendingHariIni(userID uint) (int64, error) {
@@ -82,9 +83,10 @@ func (r *dashboardRepository) CountTugasPendingHariIni(userID uint) (int64, erro
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 	todayEnd := todayStart.AddDate(0, 0, 1)
 
-	err := r.db.Table("tugas_pokok").
-		Joins("LEFT JOIN laporan ON laporan.tugas_pokok_id = tugas_pokok.id AND laporan.tipe_laporan = ? AND laporan.created_at >= ? AND laporan.created_at < ?", true, todayStart, todayEnd).
-		Where("tugas_pokok.user_id = ? AND laporan.id IS NULL", userID).
+	err := r.db.Table("tugas_organisasi").
+		Joins("JOIN tugas_assignees ON tugas_assignees.tugas_organisasi_id = tugas_organisasi.id").
+		Joins("LEFT JOIN laporan ON laporan.tugas_organisasi_id = tugas_organisasi.id AND laporan.user_id = tugas_assignees.user_id AND laporan.tipe_laporan = ? AND laporan.created_at >= ? AND laporan.created_at < ?", true, todayStart, todayEnd).
+		Where("tugas_assignees.user_id = ? AND laporan.id IS NULL", userID).
 		Count(&count).Error
 
 	return count, err

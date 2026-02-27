@@ -154,10 +154,10 @@ func main() {
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
 	// ===================================================
 	reportRoutes := protected.Group("/reports")
-	reportRoutes.Post("/", reportHandler.Create)      // Semua role
-	reportRoutes.Get("/", reportHandler.GetAll)       // RBAC ditangani di service layer
+	reportRoutes.Post("/", reportHandler.Create)                       // Semua role
+	reportRoutes.Get("/", reportHandler.GetAll)                        // RBAC ditangani di service layer
 	reportRoutes.Put("/evaluate", reportHandler.EvaluateReportHandler) // Evaluasi laporan (Lurah/Sekertaris)
-	reportRoutes.Get("/:id", reportHandler.GetOne)    // Mengambil detail laporan
+	reportRoutes.Get("/:id", reportHandler.GetOne)                     // Mengambil detail laporan
 
 	// ===================================================
 	// D. PENILAIAN - Create hanya Lurah & Sekertaris
@@ -170,15 +170,15 @@ func main() {
 	reviewManage.Get("/my-submissions", reviewHandler.GetMySubmittedReviews) // Hanya Lurah & Sekertaris
 
 	// ===================================================
-	// E. TUGAS POKOK - Create, Update, Delete hanya Lurah & Sekertaris
+	// E. TUGAS ORGANISASI - Create, Update, Delete hanya Lurah
 	// ===================================================
-	taskRoutes := protected.Group("/tasks", middleware.AllowRoles("lurah", "sekertaris"))
-	taskRoutes.Post("/", taskHandler.Create)      // Hanya Lurah & Sekertaris
-	taskRoutes.Get("/", taskHandler.GetAll)       // Hanya Lurah & Sekertaris
-	taskRoutes.Put("/:id", taskHandler.Update)    // Hanya Lurah & Sekertaris
-	taskRoutes.Delete("/:id", taskHandler.Delete) // Hanya Lurah & Sekertaris
+	taskRoutes := protected.Group("/tasks", middleware.AllowRoles("lurah"))
+	taskRoutes.Post("/", taskHandler.Create)      // Hanya Lurah
+	taskRoutes.Get("/", taskHandler.GetAll)       // Hanya Lurah
+	taskRoutes.Put("/:id", taskHandler.Update)    // Hanya Lurah
+	taskRoutes.Delete("/:id", taskHandler.Delete) // Hanya Lurah
 
-	// My Tasks - Semua role bisa melihat tugas pokok miliknya (untuk dropdown)
+	// My Tasks - Semua role bisa melihat tugas organisasi miliknya (untuk dropdown)
 	protected.Get("/my-tasks", taskHandler.GetMyTasks)
 
 	// ===================================================
@@ -228,14 +228,13 @@ func main() {
 	log.Println("   PUT    /api/users/:id                    - Update user")
 	log.Println("   DELETE /api/users/:id                    - Hapus user")
 	log.Println("")
-	log.Println("   [RBAC - Lurah & Sekertaris]")
-	log.Println("   POST   /api/reviews                      - Buat penilaian kinerja")
-	log.Println("   GET    /api/reviews/my-submissions        - History penilaian dibuat")
-	log.Println("   POST   /api/tasks                        - Buat tugas pokok")
-	log.Println("   GET    /api/tasks                        - Lihat semua tugas pokok")
-	log.Println("   PUT    /api/tasks/:id                    - Update tugas pokok")
-	log.Println("   DELETE /api/tasks/:id                    - Hapus tugas pokok")
-	log.Println("   GET    /api/my-tasks                     - Lihat tugas saya")
+	log.Println("   [RBAC - Lurah Only]")
+	log.Println("   POST   /api/tasks                        - Buat tugas organisasi")
+	log.Println("   GET    /api/tasks                        - Lihat seluruh tugas organisasi")
+	log.Println("   PUT    /api/tasks/:id                    - Update tugas organisasi")
+	log.Println("   DELETE /api/tasks/:id                    - Hapus tugas organisasi")
+	log.Println("   [RBAC - Semua Role]")
+	log.Println("   GET    /api/my-tasks                     - Lihat tugas organisasi saya")
 	log.Println("   [BACKGROUND JOBS]")
 	log.Println("   ⏰ Daily Reminder                         - Jam 15:00 hari kerja")
 	log.Println("================================================")

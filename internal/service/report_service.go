@@ -17,17 +17,17 @@ import (
 
 // ReportInput adalah struct untuk input pembuatan laporan.
 type ReportInput struct {
-	UserID         uint
-	TipeLaporan    bool  // true = pokok, false = tambahan
-	TugasPokokID   *uint // ID tugas pokok (wajib jika TipeLaporan = true)
-	JudulKegiatan  string
-	DeskripsiHasil string
-	WaktuPelaporan time.Time
-	LokasiLat      string                // opsional, bisa kosong
-	LokasiLong     string                // opsional, bisa kosong
-	AlamatLokasi   string                // opsional, bisa kosong
-	FileFoto       *multipart.FileHeader // File foto lampiran (opsional)
-	FileDokumen    *multipart.FileHeader // File dokumen lampiran (opsional)
+	UserID            uint
+	TipeLaporan       bool  // true = Pokok (linked or manual), false = Tambahan
+	TugasOrganisasiID *uint // ID tugas organisasi (optional, only for linked tasks)
+	JudulKegiatan     string
+	DeskripsiHasil    string
+	WaktuPelaporan    time.Time
+	LokasiLat         string                // opsional, bisa kosong
+	LokasiLong        string                // opsional, bisa kosong
+	AlamatLokasi      string                // opsional, bisa kosong
+	FileFoto          *multipart.FileHeader // File foto lampiran (opsional)
+	FileDokumen       *multipart.FileHeader // File dokumen lampiran (opsional)
 }
 
 // EvaluateReportRequest adalah struct untuk input evaluasi laporan.
@@ -112,19 +112,19 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	// 6. Buat struct Laporan
 	userID := input.UserID
 	laporan := &domain.Laporan{
-		UserID:         &userID,
-		TipeLaporan:    input.TipeLaporan,
-		TugasPokokID:   input.TugasPokokID,
-		JudulKegiatan:  input.JudulKegiatan,
-		DeskripsiHasil: input.DeskripsiHasil,
-		WaktuPelaporan: input.WaktuPelaporan,
-		IsOvertime:     isOvertime,
-		LokasiLat:      toStringPtr(input.LokasiLat),
-		LokasiLong:     toStringPtr(input.LokasiLong),
-		AlamatLokasi:   toStringPtr(input.AlamatLokasi),
-		FotoURL:        fotoURL,
-		DokumenURL:     dokumenURL,
-		CreatedAt:      now,
+		UserID:            &userID,
+		TipeLaporan:       input.TipeLaporan,
+		TugasOrganisasiID: input.TugasOrganisasiID,
+		JudulKegiatan:     input.JudulKegiatan,
+		DeskripsiHasil:    input.DeskripsiHasil,
+		WaktuPelaporan:    input.WaktuPelaporan,
+		IsOvertime:        isOvertime,
+		LokasiLat:         toStringPtr(input.LokasiLat),
+		LokasiLong:        toStringPtr(input.LokasiLong),
+		AlamatLokasi:      toStringPtr(input.AlamatLokasi),
+		FotoURL:           fotoURL,
+		DokumenURL:        dokumenURL,
+		CreatedAt:         now,
 	}
 
 	// 7. Simpan laporan ke database

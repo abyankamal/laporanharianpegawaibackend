@@ -45,50 +45,47 @@ func (RefSkorPenilaian) TableName() string {
 	return "ref_skor_penilaian"
 }
 
-// TugasPokok adalah tabel untuk menyimpan tugas pokok pegawai.
-type TugasPokok struct {
+// TugasOrganisasi adalah tabel untuk menyimpan tugas organisasi yang ditetapkan oleh Lurah.
+type TugasOrganisasi struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID     *uint     `gorm:"column:user_id" json:"user_id"`                                                      // Tetap untuk tugas individu
-	JenisTugas string    `gorm:"column:jenis_tugas;type:varchar(20);not null;default:'individu'" json:"jenis_tugas"` // "organisasi" | "individu"
-	FileBukti  *string   `gorm:"column:file_bukti;type:varchar(255)" json:"file_bukti"`                              // URL dokumen pendukung (opsional, untuk organisasi)
 	JudulTugas string    `gorm:"column:judul_tugas;type:varchar(255)" json:"judul_tugas"`
 	Deskripsi  string    `gorm:"column:deskripsi;type:text" json:"deskripsi"`
+	FileBukti  *string   `gorm:"column:file_bukti;type:varchar(255)" json:"file_bukti"` // URL dokumen pendukung
 	CreatedBy  *uint     `gorm:"column:created_by" json:"created_by"`
 	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
-	User      *User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Creator   *User  `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
-	Assignees []User `gorm:"many2many:tugas_assignees;" json:"assignees,omitempty"` // M2M untuk tugas organisasi
+	Assignees []User `gorm:"many2many:tugas_assignees;foreignKey:ID;joinForeignKey:TugasOrganisasiID;References:ID;joinReferences:UserID" json:"assignees,omitempty"`
 }
 
-func (TugasPokok) TableName() string {
-	return "tugas_pokok"
+func (TugasOrganisasi) TableName() string {
+	return "tugas_organisasi"
 }
 
 // Laporan adalah tabel untuk menyimpan laporan kinerja harian.
 type Laporan struct {
-	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID         *uint     `gorm:"column:user_id" json:"user_id"`
-	TipeLaporan    bool      `gorm:"column:tipe_laporan;type:boolean" json:"tipe_laporan"` // true = pokok, false = tambahan
-	TugasPokokID   *uint     `gorm:"column:tugas_pokok_id" json:"tugas_pokok_id"`          // nullable
-	JudulKegiatan  string    `gorm:"column:judul_kegiatan;type:varchar(255)" json:"judul_kegiatan"`
-	DeskripsiHasil string    `gorm:"column:deskripsi_hasil;type:text" json:"deskripsi_hasil"`
-	WaktuPelaporan time.Time `gorm:"column:waktu_pelaporan" json:"waktu_pelaporan"`
-	IsOvertime     bool      `gorm:"column:is_overtime;default:false" json:"is_overtime"`
-	LokasiLat      *string   `gorm:"column:lokasi_lat;type:varchar(50)" json:"lokasi_lat"`
-	LokasiLong     *string   `gorm:"column:lokasi_long;type:varchar(50)" json:"lokasi_long"`
-	AlamatLokasi   *string   `gorm:"column:alamat_lokasi;type:text" json:"alamat_lokasi"`
-	FotoURL        *string   `gorm:"column:foto_url;type:varchar(255)" json:"foto_url"`       // URL file foto lampiran (opsional)
-	DokumenURL     *string   `gorm:"column:dokumen_url;type:varchar(255)" json:"dokumen_url"` // URL file dokumen lampiran (opsional)
-	Status         string    `gorm:"column:status;type:varchar(50);default:'Menunggu'" json:"status"`
-	JamKerja       int       `gorm:"column:jam_kerja;default:0" json:"jam_kerja"`
-	KomentarAtasan *string   `gorm:"column:komentar_atasan;type:text" json:"komentar_atasan"`
-	CreatedAt      time.Time `gorm:"column:created_at" json:"created_at"`
+	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID            *uint     `gorm:"column:user_id" json:"user_id"`
+	TipeLaporan       bool      `gorm:"column:tipe_laporan;type:boolean" json:"tipe_laporan"`  // true = Pokok (linked or manual), false = Tambahan
+	TugasOrganisasiID *uint     `gorm:"column:tugas_organisasi_id" json:"tugas_organisasi_id"` // nullable, for linking to organizational tasks
+	JudulKegiatan     string    `gorm:"column:judul_kegiatan;type:varchar(255)" json:"judul_kegiatan"`
+	DeskripsiHasil    string    `gorm:"column:deskripsi_hasil;type:text" json:"deskripsi_hasil"`
+	WaktuPelaporan    time.Time `gorm:"column:waktu_pelaporan" json:"waktu_pelaporan"`
+	IsOvertime        bool      `gorm:"column:is_overtime;default:false" json:"is_overtime"`
+	LokasiLat         *string   `gorm:"column:lokasi_lat;type:varchar(50)" json:"lokasi_lat"`
+	LokasiLong        *string   `gorm:"column:lokasi_long;type:varchar(50)" json:"lokasi_long"`
+	AlamatLokasi      *string   `gorm:"column:alamat_lokasi;type:text" json:"alamat_lokasi"`
+	FotoURL           *string   `gorm:"column:foto_url;type:varchar(255)" json:"foto_url"`       // URL file foto lampiran (opsional)
+	DokumenURL        *string   `gorm:"column:dokumen_url;type:varchar(255)" json:"dokumen_url"` // URL file dokumen lampiran (opsional)
+	Status            string    `gorm:"column:status;type:varchar(50);default:'Menunggu'" json:"status"`
+	JamKerja          int       `gorm:"column:jam_kerja;default:0" json:"jam_kerja"`
+	KomentarAtasan    *string   `gorm:"column:komentar_atasan;type:text" json:"komentar_atasan"`
+	CreatedAt         time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
-	User       *User       `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	TugasPokok *TugasPokok `gorm:"foreignKey:TugasPokokID" json:"tugas_pokok,omitempty"`
+	User            *User            `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	TugasOrganisasi *TugasOrganisasi `gorm:"foreignKey:TugasOrganisasiID" json:"tugas_organisasi,omitempty"`
 }
 
 func (Laporan) TableName() string {

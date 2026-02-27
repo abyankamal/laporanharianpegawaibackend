@@ -9,7 +9,7 @@ import (
 	"laporanharianapi/internal/service"
 )
 
-// TaskHandler menangani request tugas pokok.
+// TaskHandler menangani request tugas organisasi.
 type TaskHandler struct {
 	taskService service.TaskService
 }
@@ -19,10 +19,9 @@ func NewTaskHandler(taskService service.TaskService) *TaskHandler {
 	return &TaskHandler{taskService: taskService}
 }
 
-// Create menangani pembuatan tugas pokok baru.
-// Mendukung dua jenis tugas: "organisasi" (Lurah, multi-assign) dan "individu" (self-assign).
+// Create menangani pembuatan tugas organisasi baru (Lurah only).
 func (h *TaskHandler) Create(c fiber.Ctx) error {
-	// 1. Ambil requester dari JWT Token (via Locals dari middleware)
+	// 1. Ambil requester dari JWT Token
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -41,7 +40,7 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	}
 
 	// 2. Parse JSON Body
-	var req service.CreateTaskRequest
+	var req service.CreateOrganizationalTaskRequest
 	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
@@ -50,16 +49,16 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	}
 
 	// 3. Validasi input wajib
-	if req.JenisTugas == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "jenis_tugas wajib diisi ('organisasi' atau 'individu')",
-		})
-	}
 	if req.JudulTugas == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
 			"message": "judul_tugas wajib diisi",
+		})
+	}
+	if len(req.TargetUserIDs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "target_user_ids wajib diisi",
 		})
 	}
 
@@ -72,41 +71,34 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 		})
 	}
 
-	// 5. Susun response berdasarkan jenis tugas
+	// 5. Susun response
 	responseData := fiber.Map{
 		"id":          tugas.ID,
-		"jenis_tugas": tugas.JenisTugas,
 		"judul_tugas": tugas.JudulTugas,
 		"deskripsi":   tugas.Deskripsi,
+		"file_bukti":  tugas.FileBukti,
 		"created_by":  tugas.CreatedBy,
 		"created_at":  tugas.CreatedAt,
 	}
 
-	if tugas.JenisTugas == "organisasi" {
-		// Sertakan daftar assignees
-		var assigneeList []fiber.Map
-		for _, a := range tugas.Assignees {
-			assigneeList = append(assigneeList, fiber.Map{
-				"id":   a.ID,
-				"nama": a.Nama,
-				"nip":  a.NIP,
-			})
-		}
-		responseData["assignees"] = assigneeList
-		responseData["file_bukti"] = tugas.FileBukti
-	} else {
-		responseData["user_id"] = tugas.UserID
+	var assigneeList []fiber.Map
+	for _, a := range tugas.Assignees {
+		assigneeList = append(assigneeList, fiber.Map{
+			"id":   a.ID,
+			"nama": a.Nama,
+			"nip":  a.NIP,
+		})
 	}
+	responseData["assignees"] = assigneeList
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Tugas pokok berhasil dibuat",
+		"message": "Tugas organisasi berhasil dibuat",
 		"data":    responseData,
 	})
 }
 
-// GetMyTasks menangani request pegawai untuk melihat daftar tugas pokok miliknya.
-// Menggabungkan tugas individu dan tugas organisasi yang di-assign ke user.
+// GetMyTasks menangani pegawai untuk melihat tugas organisasi yang di-assign padanya.
 func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
@@ -119,7 +111,7 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	userID := int(userIDFloat)
 
 	// 2. Panggil service
-	tasks, err := h.taskService.GetTasksByUserID(userID)
+	tasks, err := h.taskService.GetMyTasks(userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
@@ -133,12 +125,12 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Daftar tugas berhasil diambil",
+		"message": "Daftar tugas organisasi berhasil diambil",
 		"data":    responseData,
 	})
 }
 
-// GetAll menangani request atasan untuk melihat seluruh daftar tugas pokok.
+// GetAll menangani Lurah untuk melihat seluruh tugas organisasi.
 func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 	tasks, err := h.taskService.GetAllTasks()
 	if err != nil {
@@ -152,12 +144,12 @@ func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Daftar tugas berhasil diambil",
+		"message": "Daftar seluruh tugas organisasi berhasil diambil",
 		"data":    responseData,
 	})
 }
 
-// Update menangani request untuk mengubah tugas pokok.
+// Update menangani perubahaan tugas organisasi (Lurah only).
 func (h *TaskHandler) Update(c fiber.Ctx) error {
 	// 1. Ambil task ID dari URL parameter
 	taskID, err := strconv.Atoi(c.Params("id"))
@@ -187,7 +179,7 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 	}
 
 	// 3. Parse JSON Body
-	var req service.UpdateTaskRequest
+	var req service.UpdateOrganizationalTaskRequest
 	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
@@ -207,35 +199,30 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 	// 5. Susun response
 	responseData := fiber.Map{
 		"id":          updatedTask.ID,
-		"jenis_tugas": updatedTask.JenisTugas,
 		"judul_tugas": updatedTask.JudulTugas,
 		"deskripsi":   updatedTask.Deskripsi,
-		"created_by":  updatedTask.CreatedBy,
 		"file_bukti":  updatedTask.FileBukti,
+		"created_by":  updatedTask.CreatedBy,
 	}
 
-	if updatedTask.JenisTugas == "organisasi" {
-		var assigneeList []fiber.Map
-		for _, a := range updatedTask.Assignees {
-			assigneeList = append(assigneeList, fiber.Map{
-				"id":   a.ID,
-				"nama": a.Nama,
-				"nip":  a.NIP,
-			})
-		}
-		responseData["assignees"] = assigneeList
-	} else {
-		responseData["user_id"] = updatedTask.UserID
+	var assigneeList []fiber.Map
+	for _, a := range updatedTask.Assignees {
+		assigneeList = append(assigneeList, fiber.Map{
+			"id":   a.ID,
+			"nama": a.Nama,
+			"nip":  a.NIP,
+		})
 	}
+	responseData["assignees"] = assigneeList
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Tugas pokok berhasil diperbarui",
+		"message": "Tugas organisasi berhasil diperbarui",
 		"data":    responseData,
 	})
 }
 
-// Delete menangani request untuk menghapus tugas pokok.
+// Delete menangani penghapusan tugas organisasi (Lurah only).
 func (h *TaskHandler) Delete(c fiber.Ctx) error {
 	// 1. Ambil task ID dari URL parameter
 	taskID, err := strconv.Atoi(c.Params("id"))
@@ -275,17 +262,16 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
-		"message": "Tugas pokok berhasil dihapus",
+		"message": "Tugas organisasi berhasil dihapus",
 	})
 }
 
-// mapTasksToResponse mengonversi slice TugasPokok ke format response JSON yang flat.
-func (h *TaskHandler) mapTasksToResponse(tasks []domain.TugasPokok) []fiber.Map {
+// mapTasksToResponse mengonversi slice TugasOrganisasi ke format response JSON.
+func (h *TaskHandler) mapTasksToResponse(tasks []domain.TugasOrganisasi) []fiber.Map {
 	var responseData []fiber.Map
 	for _, t := range tasks {
 		item := fiber.Map{
 			"id":          t.ID,
-			"jenis_tugas": t.JenisTugas,
 			"judul_tugas": t.JudulTugas,
 			"deskripsi":   t.Deskripsi,
 			"file_bukti":  t.FileBukti,
@@ -304,36 +290,22 @@ func (h *TaskHandler) mapTasksToResponse(tasks []domain.TugasPokok) []fiber.Map 
 			}
 		}
 
-		if t.JenisTugas == "organisasi" {
-			// Tugas organisasi: sertakan daftar assignees
-			var assigneeList []fiber.Map
-			for _, a := range t.Assignees {
-				aMap := fiber.Map{
-					"id":   a.ID,
-					"nama": a.Nama,
-					"nip":  a.NIP,
-				}
-				if a.FotoPath != nil {
-					aMap["avatar"] = *a.FotoPath
-				} else {
-					aMap["avatar"] = ""
-				}
-				assigneeList = append(assigneeList, aMap)
+		// Sertakan daftar assignees
+		var assigneeList []fiber.Map
+		for _, a := range t.Assignees {
+			aMap := fiber.Map{
+				"id":   a.ID,
+				"nama": a.Nama,
+				"nip":  a.NIP,
 			}
-			item["assignees"] = assigneeList
-		} else {
-			// Tugas individu: sertakan info user tunggal
-			item["user_id"] = t.UserID
-			if t.User != nil {
-				item["assigned_to_name"] = t.User.Nama
-				item["assigned_to_nip"] = t.User.NIP
-				if t.User.FotoPath != nil {
-					item["assigned_to_avatar"] = *t.User.FotoPath
-				} else {
-					item["assigned_to_avatar"] = ""
-				}
+			if a.FotoPath != nil {
+				aMap["avatar"] = *a.FotoPath
+			} else {
+				aMap["avatar"] = ""
 			}
+			assigneeList = append(assigneeList, aMap)
 		}
+		item["assignees"] = assigneeList
 
 		responseData = append(responseData, item)
 	}

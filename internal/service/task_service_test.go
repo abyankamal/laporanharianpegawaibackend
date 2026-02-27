@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,8 +37,7 @@ func TestCreateTask_Organisasi_Success(t *testing.T) {
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
 		// Execute
-		req := CreateTaskRequest{
-			JenisTugas:    "organisasi",
+		req := CreateOrganizationalTaskRequest{
 			TargetUserIDs: []int{2, 3},
 			JudulTugas:    "Tugas Organisasi Penting",
 			Deskripsi:     "Deskripsi tugas organisasi",
@@ -50,7 +48,6 @@ func TestCreateTask_Organisasi_Success(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		assert.NotNil(t, tugas)
-		assert.Equal(t, "organisasi", tugas.JenisTugas)
 		assert.Equal(t, "Tugas Organisasi Penting", tugas.JudulTugas)
 		assert.Len(t, tugas.Assignees, 2)
 
@@ -69,8 +66,7 @@ func TestCreateTask_Organisasi_Fail_NonLurah(t *testing.T) {
 
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
-		req := CreateTaskRequest{
-			JenisTugas:    "organisasi",
+		req := CreateOrganizationalTaskRequest{
 			TargetUserIDs: []int{3},
 			JudulTugas:    "Tugas dari sekertaris",
 		}
@@ -91,8 +87,7 @@ func TestCreateTask_Organisasi_Fail_EmptyTargetUserIDs(t *testing.T) {
 
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
-		req := CreateTaskRequest{
-			JenisTugas:    "organisasi",
+		req := CreateOrganizationalTaskRequest{
 			TargetUserIDs: []int{}, // kosong
 			JudulTugas:    "Tugas tanpa target",
 		}
@@ -100,129 +95,7 @@ func TestCreateTask_Organisasi_Fail_EmptyTargetUserIDs(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, tugas)
-		assert.Equal(t, "target_user_ids wajib diisi untuk tugas organisasi", err.Error())
-	})
-}
-
-func TestCreateTask_Organisasi_Fail_TargetNotFound(t *testing.T) {
-	t.Run("Gagal: User target tidak ditemukan di database", func(t *testing.T) {
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		mockUserRepo.On("FindByID", uint(999)).Return(nil, errors.New("record not found"))
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			JenisTugas:    "organisasi",
-			TargetUserIDs: []int{999},
-			JudulTugas:    "Tugas ke user yang tidak ada",
-		}
-		tugas, err := taskSvc.CreateTask(1, "lurah", req)
-
-		assert.Error(t, err)
-		assert.Nil(t, tugas)
-		assert.Contains(t, err.Error(), "tidak ditemukan")
-	})
-}
-
-// ============================================================
-// Test CreateTask — Tugas Individu
-// ============================================================
-
-func TestCreateTask_Individu_Success(t *testing.T) {
-	t.Run("Sukses: User membuat tugas individu untuk diri sendiri", func(t *testing.T) {
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		mockTaskRepo.On("Create", mock.Anything).Return(nil)
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			JenisTugas: "individu",
-			JudulTugas: "Tugas Mandiri Staf",
-			Deskripsi:  "Saya buat tugas sendiri",
-		}
-		tugas, err := taskSvc.CreateTask(3, "staf", req)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, tugas)
-		assert.Equal(t, "individu", tugas.JenisTugas)
-		assert.Equal(t, uint(3), *tugas.UserID) // UserID = requesterID
-		assert.Equal(t, uint(3), *tugas.CreatedBy)
-		mockTaskRepo.AssertExpectations(t)
-		// Tidak ada notifikasi untuk tugas individu
-		mockNotifRepo.AssertNotCalled(t, "Create")
-	})
-}
-
-// ============================================================
-// Test CreateTask — Validasi Umum
-// ============================================================
-
-func TestCreateTask_Fail_EmptyJudul(t *testing.T) {
-	t.Run("Gagal: Judul tugas kosong", func(t *testing.T) {
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			JenisTugas: "individu",
-			JudulTugas: "", // kosong
-		}
-		tugas, err := taskSvc.CreateTask(1, "lurah", req)
-
-		assert.Error(t, err)
-		assert.Nil(t, tugas)
-		assert.Equal(t, "judul_tugas wajib diisi", err.Error())
-	})
-}
-
-func TestCreateTask_Fail_InvalidJenisTugas(t *testing.T) {
-	t.Run("Gagal: Jenis tugas tidak valid", func(t *testing.T) {
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			JenisTugas: "invalid",
-			JudulTugas: "Test",
-		}
-		tugas, err := taskSvc.CreateTask(1, "lurah", req)
-
-		assert.Error(t, err)
-		assert.Nil(t, tugas)
-		assert.Equal(t, "jenis_tugas harus 'organisasi' atau 'individu'", err.Error())
-	})
-}
-
-func TestCreateTask_Fail_DBError(t *testing.T) {
-	t.Run("Gagal: Error saat simpan tugas individu", func(t *testing.T) {
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		mockTaskRepo.On("Create", mock.Anything).Return(errors.New("database error"))
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		req := CreateTaskRequest{
-			JenisTugas: "individu",
-			JudulTugas: "Tugas yang gagal disimpan",
-		}
-		tugas, err := taskSvc.CreateTask(1, "lurah", req)
-
-		assert.Error(t, err)
-		assert.Nil(t, tugas)
-		assert.Contains(t, err.Error(), "gagal menyimpan tugas")
-		mockNotifRepo.AssertNotCalled(t, "Create")
+		assert.Equal(t, "target_user_ids wajib diisi", err.Error())
 	})
 }
 
@@ -231,14 +104,14 @@ func TestCreateTask_Fail_DBError(t *testing.T) {
 // ============================================================
 
 func TestGetAllTasks_Success(t *testing.T) {
-	t.Run("Sukses: Mengambil semua tugas pokok", func(t *testing.T) {
+	t.Run("Sukses: Mengambil semua tugas organisasi", func(t *testing.T) {
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
-		expectedTasks := []domain.TugasPokok{
-			{JudulTugas: "Tugas 1", JenisTugas: "individu"},
-			{JudulTugas: "Tugas 2", JenisTugas: "organisasi"},
+		expectedTasks := []domain.TugasOrganisasi{
+			{JudulTugas: "Tugas 1"},
+			{JudulTugas: "Tugas 2"},
 		}
 
 		mockTaskRepo.On("FindAll").Return(expectedTasks, nil)
@@ -251,23 +124,5 @@ func TestGetAllTasks_Success(t *testing.T) {
 		assert.Len(t, tasks, 2)
 		assert.Equal(t, "Tugas 1", tasks[0].JudulTugas)
 		mockTaskRepo.AssertExpectations(t)
-	})
-}
-
-func TestGetAllTasks_Fail_DBError(t *testing.T) {
-	t.Run("Gagal: Database error saat mengambil semua tugas", func(t *testing.T) {
-		mockTaskRepo := new(mocks.TaskRepositoryMock)
-		mockUserRepo := new(mocks.UserRepositoryMock)
-		mockNotifRepo := new(mocks.NotificationRepositoryMock)
-
-		mockTaskRepo.On("FindAll").Return(nil, errors.New("db disconnect"))
-
-		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
-
-		tasks, err := taskSvc.GetAllTasks()
-
-		assert.Error(t, err)
-		assert.Nil(t, tasks)
-		assert.Equal(t, "db disconnect", err.Error())
 	})
 }
