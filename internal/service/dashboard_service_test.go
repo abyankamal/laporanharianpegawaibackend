@@ -64,7 +64,7 @@ func TestGetSummary_Success_Lurah(t *testing.T) {
 
 		// Mock: ambil user
 		mockUserRepo.On("FindByID", uint(1)).Return(&domain.User{ID: 1, Nama: namaUser}, nil)
-		// Mock: 0 tugas pending (lurah tidak punya tugas pokok)
+		// Mock: 0 tugas pending (lurah tidak punya tugas organisasi)
 		mockDashboardRepo.On("CountTugasPendingHariIni", uint(1)).Return(int64(0), nil)
 		// Mock: 5 laporan bulan ini
 		mockDashboardRepo.On("CountLaporanByUserAndMonth", uint(1), now.Year(), int(now.Month())).Return(int64(5), nil)

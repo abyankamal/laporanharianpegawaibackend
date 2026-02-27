@@ -15,6 +15,7 @@ type ReportFilter struct {
 	UserID    int
 	JabatanID int
 	UserRole  string // Filter laporan berdasarkan role user (untuk RBAC)
+	OwnID     int    // Filter tambahan untuk melihat laporan milik sendiri (untuk Sekertaris)
 	Limit     int
 	Offset    int
 }
@@ -113,8 +114,14 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 	// Filter berdasarkan role user (untuk RBAC - misal sekertaris hanya lihat laporan staf)
 	if filter.UserRole != "" {
 		needsJoin = true
-		query = query.Joins("JOIN users ON users.id = laporan.user_id").
-			Where("users.role = ?", filter.UserRole)
+		if filter.OwnID > 0 {
+			// Jika ada OwnID (Sekertaris), tampilkan laporan staf OR laporan miliknya sendiri
+			query = query.Joins("JOIN users ON users.id = laporan.user_id").
+				Where("users.role = ? OR laporan.user_id = ?", filter.UserRole, filter.OwnID)
+		} else {
+			query = query.Joins("JOIN users ON users.id = laporan.user_id").
+				Where("users.role = ?", filter.UserRole)
+		}
 	}
 
 	// Filter berdasarkan jabatan_id (melalui join tabel users)

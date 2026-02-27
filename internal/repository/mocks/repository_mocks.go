@@ -273,7 +273,7 @@ func (m *DashboardRepositoryMock) CountLaporanByUserAndMonth(userID uint, year i
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *DashboardRepositoryMock) CountTugasPokokByUser(userID uint) (int64, error) {
+func (m *DashboardRepositoryMock) CountTugasOrganisasiByUser(userID uint) (int64, error) {
 	args := m.Called(userID)
 	return args.Get(0).(int64), args.Error(1)
 }

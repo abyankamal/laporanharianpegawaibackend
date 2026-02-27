@@ -145,8 +145,9 @@ func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterR
 	case "lurah":
 		// Lurah boleh melihat semua laporan — tidak ada filter tambahan
 	case "sekertaris":
-		// Sekertaris hanya boleh melihat laporan milik staf
+		// Sekertaris boleh melihat laporan miliknya sendiri ATAU milik staf
 		filter.UserRole = "staf"
+		filter.OwnID = int(requesterID)
 	case "kasi", "staf":
 		// Kasi & Staf hanya boleh melihat laporan diri sendiri
 		filter.UserID = int(requesterID)
@@ -170,8 +171,11 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 	case "lurah":
 		// Bebas akses
 	case "sekertaris":
-		if laporan.User != nil && laporan.User.Role != "staf" {
-			return nil, errors.New("akses ditolak: hanya dapat melihat laporan staf")
+		// Sekertaris boleh melihat laporan miliknya sendiri ATAU milik staf
+		isOwnReport := laporan.UserID != nil && *laporan.UserID == requesterID
+		isStaffReport := laporan.User != nil && laporan.User.Role == "staf"
+		if !isOwnReport && !isStaffReport {
+			return nil, errors.New("akses ditolak: hanya dapat melihat laporan staf atau milik sendiri")
 		}
 	case "kasi", "staf":
 		if laporan.UserID != nil && *laporan.UserID != requesterID {
@@ -270,15 +274,10 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 
 	// 2. Terapkan RBAC Hierarki Penilaian
 	switch assessorRole {
-	case "lurah":
-		// Bebas menilai laporan siapapun
 	case "sekertaris":
-		// Sekertaris hanya boleh menilai staf atau user yang SupervisorID-nya adalah dirinya
-		isStaf := targetUser.Role == "staf"
-		isDirectSubordinate := targetUser.SupervisorID != nil && *targetUser.SupervisorID == assessorID
-
-		if !isStaf && !isDirectSubordinate {
-			return errors.New("Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini")
+		// Sekertaris HANYA boleh menilai staf (Permintaan User: Staf dikomentari Sekertaris & Lurah)
+		if targetUser.Role != "staf" {
+			return errors.New("Sekertaris hanya memiliki hak untuk mengevaluasi laporan Staf")
 		}
 	case "kasi", "staf":
 		// Kasi / Staf tidak punya hak approve laporan general

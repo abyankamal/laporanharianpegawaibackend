@@ -76,15 +76,9 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 		}
 	}
 
-	// 4. Validasi: JenisPeriode harus valid
-	validPeriode := map[string]bool{
-		"Harian":   true,
-		"Mingguan": true,
-		"Bulanan":  true,
-		"Custom":   true,
-	}
-	if !validPeriode[req.JenisPeriode] {
-		return nil, errors.New("jenis_periode tidak valid (pilihan: Harian, Mingguan, Bulanan, Custom)")
+	// 4. Validasi: JenisPeriode harus 'Bulanan'
+	if req.JenisPeriode != "Bulanan" {
+		return nil, errors.New("hanya periode 'Bulanan' yang didukung untuk penilaian kinerja")
 	}
 
 	// 5. Parse dan validasi tanggal

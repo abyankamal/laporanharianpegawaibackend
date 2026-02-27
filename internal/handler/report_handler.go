@@ -270,6 +270,11 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		"komentar_atasan":   laporan.KomentarAtasan,
 		"foto_url":          laporan.FotoURL,
 		"dokumen_url":       laporan.DokumenURL,
+		"owner_role":        "", // Akan diisi di bawah
+	}
+
+	if laporan.User != nil {
+		responseMap["owner_role"] = laporan.User.Role
 	}
 
 	if laporan.TipeLaporan {

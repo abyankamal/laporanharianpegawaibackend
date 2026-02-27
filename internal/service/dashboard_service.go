@@ -52,7 +52,7 @@ func (s *dashboardService) GetSummary(userID uint, userRole string) (*DashboardS
 		return nil, err
 	}
 
-	// 2. Hitung tugas pokok yang belum dilaporkan hari ini
+	// 2. Hitung tugas organisasi yang belum dilaporkan hari ini
 	taskPending, err := s.dashboardRepo.CountTugasPendingHariIni(userID)
 	if err != nil {
 		return nil, err
