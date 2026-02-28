@@ -46,7 +46,7 @@ func main() {
 	// --- Report Module ---
 	reportRepo := repository.NewReportRepository(config.DB)
 	reportService := service.NewReportService(reportRepo)
-	reportHandler := handler.NewReportHandler(reportService)
+	reportHandler := handler.NewReportHandler(reportService, userService)
 
 	// --- Review (Penilaian) Module ---
 	reviewRepo := repository.NewReviewRepository(config.DB)
@@ -154,8 +154,11 @@ func main() {
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
 	// ===================================================
 	reportRoutes := protected.Group("/reports")
-	reportRoutes.Post("/", reportHandler.Create)                       // Semua role
-	reportRoutes.Get("/", reportHandler.GetAll)                        // RBAC ditangani di service layer
+	reportRoutes.Post("/", reportHandler.Create) // Semua role
+	reportRoutes.Get("/", reportHandler.GetAll)  // RBAC ditangani di service layer
+	reportRoutes.Get("/recap", reportHandler.GetReportRecapHandler)
+	reportRoutes.Get("/recap/export/excel", reportHandler.ExportReportRecapExcelHandler)
+	reportRoutes.Get("/recap/export/attachments", reportHandler.ExportReportAttachmentsHandler)
 	reportRoutes.Put("/evaluate", reportHandler.EvaluateReportHandler) // Evaluasi laporan (Lurah/Sekertaris)
 	reportRoutes.Get("/:id", reportHandler.GetOne)                     // Mengambil detail laporan
 

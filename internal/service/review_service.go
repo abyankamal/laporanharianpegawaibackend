@@ -82,12 +82,12 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 	}
 
 	// 5. Parse dan validasi tanggal
-	tanggalMulai, err := time.Parse("2006-01-02", req.TanggalMulai)
+	tanggalMulai, err := time.ParseInLocation("2006-01-02", req.TanggalMulai, time.Local)
 	if err != nil {
 		return nil, errors.New("format tanggal_mulai tidak valid (gunakan: YYYY-MM-DD)")
 	}
 
-	tanggalSelesai, err := time.Parse("2006-01-02", req.TanggalSelesai)
+	tanggalSelesai, err := time.ParseInLocation("2006-01-02", req.TanggalSelesai, time.Local)
 	if err != nil {
 		return nil, errors.New("format tanggal_selesai tidak valid (gunakan: YYYY-MM-DD)")
 	}
