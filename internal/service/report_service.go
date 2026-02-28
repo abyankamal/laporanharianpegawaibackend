@@ -42,7 +42,7 @@ type ReportService interface {
 	CreateReport(input ReportInput) (*domain.Laporan, error)
 	GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error)
 	GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, error)
-	GetReportRecap(userID uint, period string, targetDate time.Time) (*repository.ReportRecapResponse, error)
+	GetReportRecap(userID uint, startDate, endDate time.Time) (*repository.ReportRecapResponse, error)
 	EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error
 }
 
@@ -226,32 +226,7 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 }
 
 // GetReportRecap menghitung agregasi status dan total jam kerja laporan untuk rentang waktu tertentu.
-func (s *reportService) GetReportRecap(userID uint, period string, targetDate time.Time) (*repository.ReportRecapResponse, error) {
-	var startDate, endDate time.Time
-
-	switch period {
-	case "harian":
-		// Awal hari sampai akhir hari
-		startDate = time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
-		endDate = time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 23, 59, 59, 999999999, targetDate.Location())
-	case "mingguan":
-		// Cari hari Senin di pekan tersebut
-		offsetToMonday := int(time.Monday - targetDate.Weekday())
-		if offsetToMonday > 0 {
-			offsetToMonday = -6 // Jika target hari Minggu (0), mundur 6 hari
-		}
-		startDate = time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day()+offsetToMonday, 0, 0, 0, 0, targetDate.Location())
-		endDate = startDate.AddDate(0, 0, 6) // Tambah 6 hari ke depan (Minggu)
-		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, targetDate.Location())
-	case "bulanan":
-		// Tanggal 1 sampai akhir bulan
-		startDate = time.Date(targetDate.Year(), targetDate.Month(), 1, 0, 0, 0, 0, targetDate.Location())
-		endDate = startDate.AddDate(0, 1, -1) // Mundur 1 hari dari bulan depannya
-		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, targetDate.Location())
-	default:
-		return nil, errors.New("period tidak valid (harian, mingguan, bulanan)")
-	}
-
+func (s *reportService) GetReportRecap(userID uint, startDate, endDate time.Time) (*repository.ReportRecapResponse, error) {
 	return s.reportRepo.GetReportRecap(userID, startDate, endDate)
 }
 

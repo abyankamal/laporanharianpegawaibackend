@@ -327,25 +327,33 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 	userID := uint(userIDFloat)
 
 	// 2. Parse query parameters
-	period := c.Query("period", "bulanan") // harian, mingguan, bulanan
-	dateStr := c.Query("date")
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
 
-	var targetDate time.Time
+	var startDate, endDate time.Time
 	var err error
-	if dateStr != "" {
-		targetDate, err = time.ParseInLocation("2006-01-02", dateStr, time.Local)
+
+	if startDateStr != "" && endDateStr != "" {
+		startDate, err = time.ParseInLocation("2006-01-02", startDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Format date tidak valid (gunakan: YYYY-MM-DD)",
-			})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format start_date tidak valid"})
 		}
+		endDate, err = time.ParseInLocation("2006-01-02", endDateStr, time.Local)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
+		}
+		// Set end of day for endDate
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	} else {
-		targetDate = time.Now()
+		// Default to current month if not provided
+		now := time.Now()
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+		endDate = startDate.AddDate(0, 1, -1)
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	}
 
 	// 3. Panggil service
-	rekap, err := h.reportService.GetReportRecap(userID, period, targetDate)
+	rekap, err := h.reportService.GetReportRecap(userID, startDate, endDate)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
@@ -445,18 +453,27 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	}
 
 	// 2. Parse query parameters
-	period := c.Query("period", "bulanan")
-	dateStr := c.Query("date")
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
 
-	var targetDate time.Time
+	var startDate, endDate time.Time
 	var err error
-	if dateStr != "" {
-		targetDate, err = time.ParseInLocation("2006-01-02", dateStr, time.Local)
+
+	if startDateStr != "" && endDateStr != "" {
+		startDate, err = time.ParseInLocation("2006-01-02", startDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format date tidak valid"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format start_date tidak valid"})
 		}
+		endDate, err = time.ParseInLocation("2006-01-02", endDateStr, time.Local)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
+		}
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	} else {
-		targetDate = time.Now()
+		now := time.Now()
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+		endDate = startDate.AddDate(0, 1, -1)
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	}
 
 	// 3. Setup excelize
@@ -479,7 +496,7 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 
 	row := 2
 	for index, user := range targetUsers {
-		rekap, err := h.reportService.GetReportRecap(user.ID, period, targetDate)
+		rekap, err := h.reportService.GetReportRecap(user.ID, startDate, endDate)
 		if err != nil {
 			continue // skip error
 		}
@@ -503,7 +520,7 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 
 	// 4. Send to client as download
 	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=rekap_laporan_%s.xlsx", period))
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=rekap_laporan_%s_to_%s.xlsx", startDate.Format("20060102"), endDate.Format("20060102")))
 
 	buffer, err := f.WriteToBuffer()
 	if err != nil {
