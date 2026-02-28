@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -436,15 +437,23 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	requesterID := uint(requesterIDFloat)
 
 	var targetUsers []domain.User
-	if requesterRole == "pegawai" || requesterRole == "Pegawai" {
+	roleBase := strings.ToLower(requesterRole)
+	if roleBase == "staf" || roleBase == "kasi" || roleBase == "pegawai" {
 		// Only self
 		user, err := h.userService.GetUserByID(requesterID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
 		}
 		targetUsers = []domain.User{*user}
+	} else if roleBase == "sekertaris" || roleBase == "sekretaris" {
+		// Sendiri dan staf
+		users, err := h.userService.GetUsersByRoles([]string{"staf", "Staf", "sekertaris", "Sekertaris"})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+		}
+		targetUsers = users
 	} else {
-		// All users
+		// Lurah (All users)
 		users, err := h.userService.GetAllUsers()
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
@@ -522,17 +531,11 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=rekap_laporan_%s_to_%s.xlsx", startDate.Format("20060102"), endDate.Format("20060102")))
 
-	buffer, err := f.WriteToBuffer()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal generate excel"})
-	}
-
-	return c.SendStream(buffer)
+	return c.Type("xlsx").Send(buffer.Bytes())
 }
 
 // ExportReportAttachmentsHandler mendownload semua lampiran laporan dalam bentuk ZIP
 func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
-	// Gunakan logic GetAllReports untuk get list of reports berdasarkan filter period
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
@@ -551,6 +554,23 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 		userID, _ = strconv.Atoi(u)
 	}
 
+	roleBase := strings.ToLower(requesterRole)
+	if roleBase == "staf" || roleBase == "kasi" || roleBase == "pegawai" {
+		userID = int(requesterID)
+	} else if roleBase == "sekertaris" || roleBase == "sekretaris" {
+		// Validasi apakah target user bawahan atau staff jika userID beda dengan requester
+		if userID != 0 && userID != int(requesterID) {
+			targetUser, err := h.userService.GetUserByID(uint(userID))
+			if err != nil {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "User yang dipilih tidak ditemukan"})
+			}
+			targetRole := strings.ToLower(targetUser.Role)
+			if targetRole != "staf" {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"status": "error", "message": "Akses ditolak: Hanya dapat mengunduh laporan staf atau diri sendiri"})
+			}
+		}
+	} // Lurah tidak butuh validasi target user
+
 	if startDateStr == "" || endDateStr == "" {
 		// default to beginning and end of current month if not provided
 		now := time.Now()
@@ -561,7 +581,7 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 	filter := repository.ReportFilter{
 		StartDate: startDateStr,
 		EndDate:   endDateStr,
-		UserID:    userID,
+		UserID:    int(userID),
 		JabatanID: 0,
 		Limit:     100000, // get all without pagination
 		Offset:    0,
@@ -591,15 +611,9 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 				return
 			}
 
-			filename := filepath.Base(fileUrl)
-
-			var localPath string
-			// Cek apakah ekstensi dokumen atau foto karena base url bisa berbeda
-			if filepath.Base(filepath.Dir(fileUrl)) == "photos" {
-				localPath = filepath.Join(".", "uploads", "photos", filename)
-			} else {
-				localPath = filepath.Join(".", "uploads", "reports", filename)
-			}
+			// Di database, path sudah disimpan relatif (misal: uploads/reports/images/uuid.jpg)
+			// Kita tinggal gunakan path tersebut.
+			localPath := filepath.Join(".", fileUrl)
 
 			if _, err := os.Stat(localPath); err == nil {
 				f, err := os.Open(localPath)
@@ -608,6 +622,8 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 				}
 				defer f.Close()
 
+				// Nama file di dalam zip
+				filename := filepath.Base(fileUrl)
 				zipEntryPath := filepath.Join(folder, filename)
 				w, err := zipWriter.Create(zipEntryPath)
 				if err != nil {
@@ -630,8 +646,5 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal membuat zip"})
 	}
 
-	c.Set("Content-Type", "application/zip")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=lampiran_laporan_%s_to_%s.zip", startDateStr, endDateStr))
-
-	return c.SendStream(buf)
+	return c.Type("zip").Send(buf.Bytes())
 }

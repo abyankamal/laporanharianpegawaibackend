@@ -53,6 +53,7 @@ type UserService interface {
 	ChangePassword(userID uint, req ChangePasswordRequest) error
 	UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error)
 	GetSupervisors(roleFilter string) ([]domain.User, error)
+	GetUsersByRoles(roles []string) ([]domain.User, error)
 }
 
 // userService adalah implementasi dari UserService.
@@ -68,6 +69,11 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 // GetAllUsers mengambil semua user.
 func (s *userService) GetAllUsers() ([]domain.User, error) {
 	return s.userRepo.FindAll()
+}
+
+// GetUsersByRoles mengambil user berdasarkan roles.
+func (s *userService) GetUsersByRoles(roles []string) ([]domain.User, error) {
+	return s.userRepo.FindByRoles(roles)
 }
 
 // GetUserByID mengambil user berdasarkan ID.
