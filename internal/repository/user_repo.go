@@ -18,6 +18,7 @@ type UserRepository interface {
 	Delete(id uint) error
 	UpdatePassword(userID uint, newPasswordHash string) error
 	UpdateFoto(userID uint, fotoPath string) error
+	UpdateFCMToken(userID uint, token string) error
 	FindByRoles(roles []string) ([]domain.User, error)
 	FindSupervisors(roleFilter string) ([]domain.User, error)
 }
@@ -94,6 +95,18 @@ func (r *userRepository) UpdatePassword(userID uint, newPasswordHash string) err
 // UpdateFoto mengupdate foto profil user secara spesifik.
 func (r *userRepository) UpdateFoto(userID uint, fotoPath string) error {
 	result := r.db.Model(&domain.User{}).Where("id = ?", userID).Update("foto_path", fotoPath)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("user tidak ditemukan")
+	}
+	return nil
+}
+
+// UpdateFCMToken mengupdate fcm_token user secara spesifik.
+func (r *userRepository) UpdateFCMToken(userID uint, token string) error {
+	result := r.db.Model(&domain.User{}).Where("id = ?", userID).Update("fcm_token", token)
 	if result.Error != nil {
 		return result.Error
 	}

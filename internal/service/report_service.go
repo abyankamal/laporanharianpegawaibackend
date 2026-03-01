@@ -13,6 +13,7 @@ import (
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
+	"laporanharianapi/pkg/fcm"
 )
 
 // ReportInput adalah struct untuk input pembuatan laporan.
@@ -273,6 +274,16 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	err = s.reportRepo.Update(laporan)
 	if err != nil {
 		return fmt.Errorf("gagal mengevaluasi laporan: %v", err)
+	}
+
+	// 5. Trigger FCM Push Notification ke pembuat laporan
+	if targetUser.FCMToken != nil && *targetUser.FCMToken != "" {
+		title := fmt.Sprintf("Laporan %s", req.Status)
+		body := "Silakan cek catatan atasan pada laporan Anda."
+		if req.Komentar != "" {
+			body = fmt.Sprintf("Catatan: %s", req.Komentar)
+		}
+		go fcm.SendPushNotification(*targetUser.FCMToken, title, body)
 	}
 
 	return nil

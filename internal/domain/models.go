@@ -23,6 +23,7 @@ type User struct {
 	JabatanID    *uint     `gorm:"column:jabatan_id" json:"jabatan_id"`
 	SupervisorID *uint     `gorm:"column:supervisor_id" json:"supervisor_id"`
 	FotoPath     *string   `gorm:"column:foto_path;type:varchar(255)" json:"foto_path"`
+	FCMToken     *string   `gorm:"column:fcm_token;type:varchar(255)" json:"fcm_token"`
 	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi

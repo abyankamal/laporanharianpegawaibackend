@@ -67,6 +67,11 @@ func (m *UserRepositoryMock) UpdateFoto(userID uint, fotoPath string) error {
 	return args.Error(0)
 }
 
+func (m *UserRepositoryMock) UpdateFCMToken(userID uint, token string) error {
+	args := m.Called(userID, token)
+	return args.Error(0)
+}
+
 func (m *UserRepositoryMock) FindByRoles(roles []string) ([]domain.User, error) {
 	args := m.Called(roles)
 	if args.Get(0) == nil {

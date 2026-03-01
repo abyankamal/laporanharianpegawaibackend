@@ -431,3 +431,43 @@ func (h *UserHandler) GetSupervisors(c fiber.Ctx) error {
 		"data":    response,
 	})
 }
+
+// UpdateFCMToken memperbarui fcm_token untuk user yang sedang login.
+func (h *UserHandler) UpdateFCMToken(c fiber.Ctx) error {
+	// 1. Ambil user_id dari JWT Token
+	userIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	userID := uint(userIDFloat)
+
+	// 2. Parse request body
+	var req struct {
+		FCMToken string `json:"fcm_token"`
+	}
+
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid",
+		})
+	}
+
+	// 3. Panggil service
+	err := h.userService.UpdateFCMToken(userID, req.FCMToken)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// 4. Return response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "FCM Token berhasil diperbarui",
+	})
+}

@@ -8,6 +8,7 @@ import (
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
+	"laporanharianapi/pkg/fcm"
 )
 
 // CreateOrganizationalTaskRequest adalah struct input untuk membuat tugas organisasi baru.
@@ -117,6 +118,11 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 		}
 		if err := s.notifRepo.Create(notif); err != nil {
 			log.Printf("⚠️ Gagal membuat notifikasi untuk user %d: %v", user.ID, err)
+		}
+
+		// Trigger FCM Push Notification
+		if user.FCMToken != nil && *user.FCMToken != "" {
+			go fcm.SendPushNotification(*user.FCMToken, notif.Judul, notif.Pesan)
 		}
 	}
 

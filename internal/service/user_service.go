@@ -52,6 +52,7 @@ type UserService interface {
 	DeleteUser(id uint) error
 	ChangePassword(userID uint, req ChangePasswordRequest) error
 	UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error)
+	UpdateFCMToken(userID uint, token string) error
 	GetSupervisors(roleFilter string) ([]domain.User, error)
 	GetUsersByRoles(roles []string) ([]domain.User, error)
 }
@@ -314,4 +315,20 @@ func (s *userService) GetSupervisors(roleFilter string) ([]domain.User, error) {
 		return nil, errors.New("data atasan tidak ditemukan")
 	}
 	return supervisors, nil
+}
+
+// UpdateFCMToken memperbarui token FCM untuk pengguna tertentu
+func (s *userService) UpdateFCMToken(userID uint, token string) error {
+	// Validasi token tidak boleh kosong
+	if token == "" {
+		return errors.New("fcm token tidak boleh kosong")
+	}
+
+	// Update ke database
+	err := s.userRepo.UpdateFCMToken(userID, token)
+	if err != nil {
+		return errors.New("gagal mengupdate fcm token")
+	}
+
+	return nil
 }

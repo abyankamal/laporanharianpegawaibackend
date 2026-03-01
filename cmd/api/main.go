@@ -14,6 +14,7 @@ import (
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/internal/scheduler"
 	"laporanharianapi/internal/service"
+	"laporanharianapi/pkg/fcm"
 )
 
 func main() {
@@ -26,6 +27,11 @@ func main() {
 	// 2. Koneksi ke Database
 	config.ConnectDatabase()
 	log.Println("✅ Database terhubung")
+
+	// 2.5 Inisialisasi Firebase Admin SDK
+	if err := fcm.InitFirebase(); err != nil {
+		log.Printf("⚠️ Gagal inisialisasi Firebase (lihat log FCM): %v", err)
+	}
 
 	// =============================================
 	// 3. DEPENDENCY INJECTION (Wiring)
@@ -132,6 +138,7 @@ func main() {
 	protected.Get("/profile", userHandler.GetProfile)
 	protected.Put("/profile/change-password", userHandler.ChangePassword)
 	protected.Put("/profile/change-photo", userHandler.ChangePhoto)
+	protected.Put("/users/fcm-token", userHandler.UpdateFCMToken)
 	protected.Get("/dashboard/summary", dashboardHandler.GetSummary)
 	protected.Get("/jabatan", jabatanHandler.GetAll)
 
