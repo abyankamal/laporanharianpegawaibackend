@@ -259,6 +259,14 @@ func (m *NotificationRepositoryMock) MarkAsRead(notifID int, userID int) error {
 	return args.Error(0)
 }
 
+func (m *NotificationRepositoryMock) FindByID(id int, userID int) (*domain.Notification, error) {
+	args := m.Called(id, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Notification), args.Error(1)
+}
+
 // ============================================================
 // DashboardRepositoryMock
 // ============================================================
