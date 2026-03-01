@@ -438,21 +438,22 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 
 	var targetUsers []domain.User
 	roleBase := strings.ToLower(requesterRole)
-	if roleBase == "staf" || roleBase == "kasi" || roleBase == "pegawai" {
+	switch roleBase {
+	case "staf", "kasi":
 		// Only self
 		user, err := h.userService.GetUserByID(requesterID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
 		}
 		targetUsers = []domain.User{*user}
-	} else if roleBase == "sekertaris" || roleBase == "sekretaris" {
+	case "sekertaris", "sekretaris":
 		// Sendiri dan staf
 		users, err := h.userService.GetUsersByRoles([]string{"staf", "Staf", "sekertaris", "Sekertaris"})
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
 		}
 		targetUsers = users
-	} else {
+	default:
 		// Lurah (All users)
 		users, err := h.userService.GetAllUsers()
 		if err != nil {
@@ -528,9 +529,12 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	}
 
 	// 4. Send to client as download
-	c.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=rekap_laporan_%s_to_%s.xlsx", startDate.Format("20060102"), endDate.Format("20060102")))
+	buffer, err := f.WriteToBuffer()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal generate excel"})
+	}
 
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=rekap_laporan_%s_to_%s.xlsx", startDate.Format("20060102"), endDate.Format("20060102")))
 	return c.Type("xlsx").Send(buffer.Bytes())
 }
 
@@ -555,9 +559,10 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 	}
 
 	roleBase := strings.ToLower(requesterRole)
-	if roleBase == "staf" || roleBase == "kasi" || roleBase == "pegawai" {
+	switch roleBase {
+	case "staf", "kasi", "pegawai":
 		userID = int(requesterID)
-	} else if roleBase == "sekertaris" || roleBase == "sekretaris" {
+	case "sekertaris", "sekretaris":
 		// Validasi apakah target user bawahan atau staff jika userID beda dengan requester
 		if userID != 0 && userID != int(requesterID) {
 			targetUser, err := h.userService.GetUserByID(uint(userID))
@@ -646,5 +651,6 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal membuat zip"})
 	}
 
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=lampiran_laporan_%s_to_%s.zip", startDateStr, endDateStr))
 	return c.Type("zip").Send(buf.Bytes())
 }

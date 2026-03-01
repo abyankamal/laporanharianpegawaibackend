@@ -10,6 +10,7 @@ import (
 type NotificationRepository interface {
 	Create(notif *domain.Notification) error
 	FindByUserID(userID int) ([]domain.Notification, error)
+	FindByID(id int, userID int) (*domain.Notification, error)
 	MarkAsRead(notifID int, userID int) error
 }
 
@@ -38,6 +39,16 @@ func (r *notificationRepository) FindByUserID(userID int) ([]domain.Notification
 		return nil, err
 	}
 	return notifications, nil
+}
+
+// FindByID mengambil satu notifikasi spesifik milik user tertentu.
+func (r *notificationRepository) FindByID(id int, userID int) (*domain.Notification, error) {
+	var notif domain.Notification
+	err := r.db.Where("id = ? AND user_id = ?", id, userID).First(&notif).Error
+	if err != nil {
+		return nil, err
+	}
+	return &notif, nil
 }
 
 // MarkAsRead menandai notifikasi sebagai sudah dibaca.

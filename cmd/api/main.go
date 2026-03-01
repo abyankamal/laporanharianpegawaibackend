@@ -189,6 +189,7 @@ func main() {
 	// ===================================================
 	notifRoutes := protected.Group("/notifications")
 	notifRoutes.Get("/", notifHandler.GetMy)            // Ambil semua notifikasi saya
+	notifRoutes.Get("/:id", notifHandler.GetByID)       // Ambil detail notifikasi
 	notifRoutes.Put("/:id/read", notifHandler.MarkRead) // Tandai notifikasi sebagai dibaca
 
 	// =============================================
