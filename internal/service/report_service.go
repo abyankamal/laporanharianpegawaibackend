@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ import (
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/pkg/fcm"
+	"laporanharianapi/pkg/utils"
 )
 
 // ReportInput adalah struct untuk input pembuatan laporan.
@@ -189,7 +191,9 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 	return laporan, nil
 }
 
-// saveFile menyimpan file ke subfolder uploads/reports/<subDir>
+// saveFile menyimpan file ke subfolder uploads/reports/<subDir>.
+// Akan otomatis dikompres jika > 5MB dan tipenya gambar (disimpan dalam folder images).
+// Akan melempar error jika dokument (selain gambar) > 200MB.
 func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string) (string, error) {
 	// Pastikan folder uploads/reports/<subDir> ada
 	uploadDir := filepath.Join("./uploads/reports", subDir)
@@ -198,29 +202,44 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 		return "", err
 	}
 
-	// Generate nama file unik dengan UUID
 	ext := filepath.Ext(fileHeader.Filename)
+	extLower := filepath.Ext(fileHeader.Filename)
+	extLower = strings.ToLower(extLower)
+
 	newFileName := uuid.New().String() + ext
 	destPath := filepath.Join(uploadDir, newFileName)
 
-	// Buka source file
-	src, err := fileHeader.Open()
-	if err != nil {
-		return "", err
-	}
-	defer src.Close()
+	isImage := subDir == "images" || extLower == ".jpg" || extLower == ".jpeg" || extLower == ".png"
 
-	// Buat destination file
-	dst, err := os.Create(destPath)
-	if err != nil {
-		return "", err
-	}
-	defer dst.Close()
+	if isImage {
+		// Kompres gambar jika > 5MB, copy original jika <= 5MB
+		err = utils.CompressImage(fileHeader, destPath, 5)
+		if err != nil {
+			return "", fmt.Errorf("gagal memproses dan menyimpan gambar: %v", err)
+		}
+	} else {
+		// Dokumen/Lainnya: Check size (max 200MB)
+		if fileHeader.Size > 200*1024*1024 {
+			return "", errors.New("ukuran dokumen maksimal 200MB")
+		}
 
-	// Copy isi file
-	_, err = io.Copy(dst, src)
-	if err != nil {
-		return "", err
+		// Copy file biasa tanpa diproses image kompresi
+		src, err := fileHeader.Open()
+		if err != nil {
+			return "", err
+		}
+		defer src.Close()
+
+		dst, err := os.Create(destPath)
+		if err != nil {
+			return "", err
+		}
+		defer dst.Close()
+
+		_, err = io.Copy(dst, src)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return destPath, nil

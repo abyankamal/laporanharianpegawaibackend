@@ -78,7 +78,8 @@ func main() {
 	// 4. SETUP FIBER APP
 	// =============================================
 	app := fiber.New(fiber.Config{
-		AppName: "Laporan Harian API v1.0",
+		AppName:   "Laporan Harian API v1.0",
+		BodyLimit: 250 * 1024 * 1024, // 250 MB Limit
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

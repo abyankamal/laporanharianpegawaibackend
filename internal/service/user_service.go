@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -15,6 +14,7 @@ import (
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
+	"laporanharianapi/pkg/utils"
 )
 
 // CreateUserRequest adalah DTO untuk request pembuatan user baru.
@@ -259,9 +259,9 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 		return "", errors.New("format file tidak didukung, gunakan JPG/JPEG/PNG")
 	}
 
-	// 2. Validasi ukuran file (max 2MB)
-	if fileHeader.Size > 2*1024*1024 {
-		return "", errors.New("ukuran file maksimal 2MB")
+	// 2. Cek apakah ini file gambar
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+		return "", errors.New("format file tidak didukung, gunakan JPG/JPEG/PNG")
 	}
 
 	// 3. Ambil data user untuk cek foto lama
@@ -285,21 +285,10 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 	newFileName := uuid.New().String() + ext
 	destPath := filepath.Join(uploadDir, newFileName)
 
-	src, err := fileHeader.Open()
+	// Lakukan kompresi (jika > 5MB) atau sekadar copy (jika <= 5MB)
+	err = utils.CompressImage(fileHeader, destPath, 5)
 	if err != nil {
-		return "", fmt.Errorf("gagal membuka file: %v", err)
-	}
-	defer src.Close()
-
-	dst, err := os.Create(destPath)
-	if err != nil {
-		return "", fmt.Errorf("gagal menyimpan file: %v", err)
-	}
-	defer dst.Close()
-
-	_, err = io.Copy(dst, src)
-	if err != nil {
-		return "", fmt.Errorf("gagal menulis file: %v", err)
+		return "", fmt.Errorf("gagal memproses dan menyimpan foto: %v", err)
 	}
 
 	// 6. Update foto_path di database
