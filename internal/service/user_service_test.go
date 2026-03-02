@@ -233,3 +233,43 @@ func TestChangePassword_Fail_SameAsOldPassword(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "password baru tidak boleh sama dengan password lama", err.Error())
 }
+
+// ============================================================
+// Test DeleteUser (UserService)
+// ============================================================
+
+func TestDeleteUser_Success(t *testing.T) {
+	// Setup
+	mockUserRepo := new(mocks.UserRepositoryMock)
+	userSvc := NewUserService(mockUserRepo)
+
+	existingUser := &domain.User{ID: 1, NIP: "123"}
+	mockUserRepo.On("FindByID", uint(1)).Return(existingUser, nil)
+
+	// Mock returning related file paths
+	filePaths := []string{"uploads/photos/test.jpg", "uploads/reports/doc.pdf"}
+	mockUserRepo.On("DeleteWithCleanup", uint(1)).Return(filePaths, nil)
+
+	// Execute
+	err := userSvc.DeleteUser(1)
+
+	// Assert
+	assert.NoError(t, err)
+	mockUserRepo.AssertExpectations(t)
+}
+
+func TestDeleteUser_Fail_UserNotFound(t *testing.T) {
+	// Setup
+	mockUserRepo := new(mocks.UserRepositoryMock)
+	userSvc := NewUserService(mockUserRepo)
+
+	mockUserRepo.On("FindByID", uint(1)).Return(nil, errors.New("not found"))
+
+	// Execute
+	err := userSvc.DeleteUser(1)
+
+	// Assert
+	assert.Error(t, err)
+	assert.Equal(t, "user tidak ditemukan", err.Error())
+	mockUserRepo.AssertNotCalled(t, "DeleteWithCleanup")
+}

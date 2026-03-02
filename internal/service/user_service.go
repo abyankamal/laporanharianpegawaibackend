@@ -181,7 +181,7 @@ func (s *userService) UpdateUser(id uint, req UpdateUserRequest) (*domain.User, 
 	return user, nil
 }
 
-// DeleteUser menghapus user berdasarkan ID.
+// DeleteUser menghapus user berdasarkan ID beserta data terkait dan file fisik.
 func (s *userService) DeleteUser(id uint) error {
 	// Cek apakah user ada
 	_, err := s.userRepo.FindByID(id)
@@ -189,10 +189,18 @@ func (s *userService) DeleteUser(id uint) error {
 		return errors.New("user tidak ditemukan")
 	}
 
-	// Hapus user
-	err = s.userRepo.Delete(id)
+	// Hapus user dan data terkait di database
+	filePaths, err := s.userRepo.DeleteWithCleanup(id)
 	if err != nil {
-		return errors.New("gagal menghapus user")
+		return errors.New("gagal menghapus user dan data terkait")
+	}
+
+	// Hapus file fisik dari disk
+	for _, path := range filePaths {
+		if path != "" {
+			// Pastikan path menggunakan separator yang benar untuk OS
+			os.Remove(filepath.FromSlash(path))
+		}
 	}
 
 	return nil

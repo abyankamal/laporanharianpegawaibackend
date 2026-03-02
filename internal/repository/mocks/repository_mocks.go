@@ -57,6 +57,14 @@ func (m *UserRepositoryMock) Delete(id uint) error {
 	return args.Error(0)
 }
 
+func (m *UserRepositoryMock) DeleteWithCleanup(id uint) ([]string, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
+}
+
 func (m *UserRepositoryMock) UpdatePassword(userID uint, newPasswordHash string) error {
 	args := m.Called(userID, newPasswordHash)
 	return args.Error(0)
