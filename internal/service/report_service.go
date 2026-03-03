@@ -89,7 +89,7 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 
 	// 3. Cek jam kerja (07:00 - 16:00)
 	// Jika di luar jam kerja, tandai sebagai overtime
-	currentHour := now.Hour()
+	currentHour := input.WaktuPelaporan.Hour()
 	isOvertime := currentHour < 7 || currentHour >= 16
 
 	// 4. Proses upload file foto jika ada

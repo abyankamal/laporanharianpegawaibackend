@@ -271,7 +271,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 	responseMap := fiber.Map{
 		"id":                laporan.ID,
 		"status":            laporan.Status,
-		"jenis_tugas":       "Tugas Tambahan",
+		"jenis_tugas":       "Tugas Individu",
 		"judul_laporan":     laporan.JudulKegiatan,
 		"waktu_pelaksanaan": laporan.WaktuPelaporan,
 		"lokasi":            laporan.AlamatLokasi,
@@ -287,7 +287,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 	}
 
 	if laporan.TipeLaporan {
-		responseMap["jenis_tugas"] = "Tugas Pokok"
+		responseMap["jenis_tugas"] = "Tugas Organisasi"
 		if laporan.TugasOrganisasi != nil {
 			responseMap["jenis_tugas"] = laporan.TugasOrganisasi.JudulTugas
 		}
