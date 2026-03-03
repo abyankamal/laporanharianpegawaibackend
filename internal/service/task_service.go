@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"laporanharianapi/internal/domain"
@@ -161,6 +163,13 @@ func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID 
 	task.JudulTugas = req.JudulTugas
 	task.Deskripsi = req.Deskripsi
 
+	// Hapus file lama jika ada file baru atau file dihapus
+	if (req.FileBukti != "" && (task.FileBukti == nil || *task.FileBukti != req.FileBukti)) || (req.FileBukti == "" && task.FileBukti != nil) {
+		if task.FileBukti != nil && *task.FileBukti != "" {
+			os.Remove(filepath.FromSlash(*task.FileBukti))
+		}
+	}
+
 	if req.FileBukti != "" {
 		task.FileBukti = &req.FileBukti
 	} else {
@@ -205,12 +214,17 @@ func (s *taskService) DeleteTask(requesterID uint, requesterRole string, taskID 
 	}
 
 	// 2. Cari tugas berdasarkan ID
-	_, err := s.taskRepo.FindByID(taskID)
+	task, err := s.taskRepo.FindByID(taskID)
 	if err != nil {
 		return errors.New("tugas tidak ditemukan")
 	}
 
-	// 3. Hapus tugas (akan otomatis clear M2M di repository)
+	// 3. Hapus file fisik jika ada
+	if task.FileBukti != nil && *task.FileBukti != "" {
+		os.Remove(filepath.FromSlash(*task.FileBukti))
+	}
+
+	// 4. Hapus tugas (akan otomatis clear M2M di repository)
 	if err := s.taskRepo.Delete(taskID); err != nil {
 		return fmt.Errorf("gagal menghapus tugas: %v", err)
 	}

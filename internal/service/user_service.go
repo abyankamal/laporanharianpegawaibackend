@@ -259,11 +259,6 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 		return "", errors.New("format file tidak didukung, gunakan JPG/JPEG/PNG")
 	}
 
-	// 2. Cek apakah ini file gambar
-	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-		return "", errors.New("format file tidak didukung, gunakan JPG/JPEG/PNG")
-	}
-
 	// 3. Ambil data user untuk cek foto lama
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
@@ -272,7 +267,8 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 
 	// 4. Hapus foto lama jika ada
 	if user.FotoPath != nil && *user.FotoPath != "" {
-		os.Remove(*user.FotoPath)
+		// Gunakan FromSlash agar aman di Windows
+		os.Remove(filepath.FromSlash(*user.FotoPath))
 	}
 
 	// 5. Simpan file baru ke ./uploads/photos/
