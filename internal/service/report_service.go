@@ -203,26 +203,30 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 	}
 
 	ext := filepath.Ext(fileHeader.Filename)
-	extLower := filepath.Ext(fileHeader.Filename)
-	extLower = strings.ToLower(extLower)
+	extLower := strings.ToLower(ext)
 
-	newFileName := uuid.New().String() + ext
-	destPath := filepath.Join(uploadDir, newFileName)
-
-	isImage := subDir == "images" || extLower == ".jpg" || extLower == ".jpeg" || extLower == ".png"
-
-	if isImage {
-		// Kompres gambar jika > 5MB, copy original jika <= 5MB
-		err = utils.CompressImage(fileHeader, destPath, 5)
-		if err != nil {
-			return "", fmt.Errorf("gagal memproses dan menyimpan gambar: %v", err)
+	if subDir == "images" {
+		// Logika persis dengan UpdateProfilePhoto: Validasi ekstensi
+		if extLower != ".jpg" && extLower != ".jpeg" && extLower != ".png" {
+			return "", errors.New("format file foto tidak didukung, gunakan JPG/JPEG/PNG")
 		}
 	} else {
 		// Dokumen/Lainnya: Check size (max 200MB)
 		if fileHeader.Size > 200*1024*1024 {
 			return "", errors.New("ukuran dokumen maksimal 200MB")
 		}
+	}
 
+	newFileName := uuid.New().String() + ext
+	destPath := filepath.Join(uploadDir, newFileName)
+
+	if subDir == "images" {
+		// Kompres gambar jika > 5MB, copy original jika <= 5MB (Sesuai dengan logika foto profil)
+		err = utils.CompressImage(fileHeader, destPath, 5)
+		if err != nil {
+			return "", fmt.Errorf("gagal memproses dan menyimpan gambar: %v", err)
+		}
+	} else {
 		// Copy file biasa tanpa diproses image kompresi
 		src, err := fileHeader.Open()
 		if err != nil {
