@@ -206,9 +206,13 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 	extLower := strings.ToLower(ext)
 
 	if subDir == "images" {
-		// Logika persis dengan UpdateProfilePhoto: Validasi ekstensi
-		if extLower != ".jpg" && extLower != ".jpeg" && extLower != ".png" {
-			return "", errors.New("format file foto tidak didukung, gunakan JPG/JPEG/PNG")
+		// Validasi ekstensi (termasuk format kamera HP modern)
+		if extLower != ".jpg" && extLower != ".jpeg" && extLower != ".png" && extLower != ".webp" && extLower != ".heic" {
+			return "", errors.New("format file foto tidak didukung, gunakan JPG/JPEG/PNG/WEBP/HEIC")
+		}
+		// Validasi ukuran foto (max 50MB)
+		if fileHeader.Size > 50*1024*1024 {
+			return "", errors.New("ukuran foto maksimal 50MB")
 		}
 	} else {
 		// Dokumen/Lainnya: Check size (max 200MB)

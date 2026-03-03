@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -179,10 +180,16 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	}
 
 	// 4. Ambil file foto (opsional)
-	fileFoto, _ := c.FormFile("foto")
+	fileFoto, fotoErr := c.FormFile("foto")
+	if fotoErr != nil && fotoErr.Error() != "there is no uploaded file associated with the given key" {
+		log.Printf("⚠️ Error parsing file foto: %v", fotoErr)
+	}
 
 	// 5. Ambil file dokumen (opsional)
-	fileDokumen, _ := c.FormFile("dokumen")
+	fileDokumen, dokErr := c.FormFile("dokumen")
+	if dokErr != nil && dokErr.Error() != "there is no uploaded file associated with the given key" {
+		log.Printf("⚠️ Error parsing file dokumen: %v", dokErr)
+	}
 
 	// 6. Susun input untuk service
 	input := service.ReportInput{

@@ -253,10 +253,10 @@ func (s *userService) ChangePassword(userID uint, req ChangePasswordRequest) err
 
 // UpdateProfilePhoto mengubah foto profil user.
 func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error) {
-	// 1. Validasi tipe file (hanya jpg/jpeg/png)
+	// 1. Validasi tipe file (termasuk format kamera HP modern)
 	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
-	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-		return "", errors.New("format file tidak didukung, gunakan JPG/JPEG/PNG")
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" && ext != ".heic" {
+		return "", errors.New("format file tidak didukung, gunakan JPG/JPEG/PNG/WEBP/HEIC")
 	}
 
 	// 3. Ambil data user untuk cek foto lama
