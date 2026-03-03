@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/joho/godotenv"
 
 	"laporanharianapi/config"
@@ -95,6 +96,9 @@ func main() {
 	// =============================================
 	// 5. GLOBAL MIDDLEWARE
 	// =============================================
+
+	// Recover Middleware (menangkap panic dan mengubahnya menjadi HTTP 500)
+	app.Use(recover.New())
 
 	// CORS Middleware (agar bisa diakses dari HP/Web)
 	app.Use(cors.New(cors.Config{

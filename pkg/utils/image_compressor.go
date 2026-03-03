@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -34,24 +33,20 @@ func CompressImage(fileHeader *multipart.FileHeader, destPath string, maxSizeMB 
 
 	// --- Jika ukuran > maxSizeMB, lakukan kompresi ---
 
-	// Baca seluruh isi file ke memory untuk di-decode
-	fileBytes, err := io.ReadAll(src)
-	if err != nil {
-		return fmt.Errorf("gagal membaca file gambar: %w", err)
-	}
-
 	// Decode gambar (hanya support standard jpeg & png di sini, format ain butuh registrasi)
-	img, format, err := image.Decode(bytes.NewReader(fileBytes))
+	img, format, err := image.Decode(src)
 	if err != nil {
 		// Jika gagal decode (mungkin format tidak disupport atau korup), fallback simpan original
-		src.Seek(0, 0)
+		if seeker, ok := src.(io.Seeker); ok {
+			seeker.Seek(0, io.SeekStart)
+		}
 		return copyFileOriginal(src, destPath)
 	}
 
 	// Resize gambar.
 	// Kita tetapkan max width = 1920 (Full HD). Tingginya menyesuaikan aspek rasio secara otomatis (0).
-	// Lanczos3 adalah algoritma resizing berkualitas tinggi.
-	resizedImg := resize.Resize(1920, 0, img, resize.Lanczos3)
+	// Bilinear adalah algoritma resizing yang lebih cepat dan menghemat banyak memory dibanding Lanczos3
+	resizedImg := resize.Resize(1920, 0, img, resize.Bilinear)
 
 	// Buka file tujuan
 	dst, err := os.Create(destPath)
@@ -68,10 +63,6 @@ func CompressImage(fileHeader *multipart.FileHeader, destPath string, maxSizeMB 
 
 	options := &jpeg.Options{Quality: 75}
 	if format == "png" {
-		// Jika ingin dipertahankan transparent/PNG asli tanpa degradasi JPEG:
-		// Tapi perhatikan ukuran kompresi PNG tidak sebaik JPEG
-		// err = png.Encode(dst, resizedImg)
-
 		// KARENA objektif kita adalah kompresi radikal (turun dari misal 10MB ke >5MB),
 		// memaksa encode ke JPEG walau ekstensi filenya ".png" kadang bikin error di beberapa OS reader tua.
 		// Namun untuk web browser/Flutter biasanya tetap bisa render. Untuk amannya,
@@ -96,7 +87,7 @@ func CompressImage(fileHeader *multipart.FileHeader, destPath string, maxSizeMB 
 func copyFileOriginal(src io.Reader, destPath string) error {
 	// Pastikan reader mulai dari awal
 	if seeker, ok := src.(io.Seeker); ok {
-		seeker.Seek(0, 0)
+		seeker.Seek(0, io.SeekStart)
 	}
 
 	dst, err := os.Create(destPath)
