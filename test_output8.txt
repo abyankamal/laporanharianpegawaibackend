@@ -1,0 +1,36 @@
+--- FAIL: TestSubmitReview_Success_SekertarisToStaf (0.00s)
+    --- FAIL: TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf (0.00s)
+        review_service_test.go:102: 
+            	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:102
+            	Error:      	Received unexpected error:
+            	            	skor_id wajib diisi dan harus valid
+            	Test:       	TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
+        review_service_test.go:103: 
+            	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:103
+            	Error:      	Expected value not to be nil.
+            	Test:       	TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
+        review_service_test.go:104: 
+            	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:104
+            	Error:      	Not equal: 
+            	            	expected: 1
+            	            	actual  : 0
+            	Test:       	TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
+            	Messages:   	Expected number of calls (1) of method Create does not match the actual number of calls (0).
+--- FAIL: TestSubmitReview_Fail_InvalidDateRange (0.00s)
+    --- FAIL: TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai (0.00s)
+        review_service_test.go:163: 
+            	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:163
+            	Error:      	Not equal: 
+            	            	expected: "tanggal_mulai tidak boleh lebih besar dari tanggal_selesai"
+            	            	actual  : "hanya periode 'Bulanan' yang didukung untuk penilaian kinerja"
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1 +1 @@
+            	            	-tanggal_mulai tidak boleh lebih besar dari tanggal_selesai
+            	            	+hanya periode 'Bulanan' yang didukung untuk penilaian kinerja
+            	Test:       	TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai
+FAIL
+FAIL	laporanharianapi/internal/service	0.703s
+FAIL

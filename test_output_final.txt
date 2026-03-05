@@ -120,16 +120,45 @@
     --- PASS: TestSubmitReview_Success_LurahToSekertaris/Sukses:_Lurah_menilai_Sekertaris_+_notifikasi_terkirim (0.00s)
 === RUN   TestSubmitReview_Success_SekertarisToStaf
 === RUN   TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
---- PASS: TestSubmitReview_Success_SekertarisToStaf (0.00s)
-    --- PASS: TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf (0.00s)
+    review_service_test.go:102: 
+        	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:102
+        	Error:      	Received unexpected error:
+        	            	skor_id wajib diisi dan harus valid
+        	Test:       	TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
+    review_service_test.go:103: 
+        	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:103
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
+    review_service_test.go:104: 
+        	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:104
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
+        	Messages:   	Expected number of calls (1) of method Create does not match the actual number of calls (0).
+--- FAIL: TestSubmitReview_Success_SekertarisToStaf (0.00s)
+    --- FAIL: TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf (0.00s)
 === RUN   TestSubmitReview_Fail_SelfReview
 === RUN   TestSubmitReview_Fail_SelfReview/Gagal:_Tidak_boleh_menilai_diri_sendiri
 --- PASS: TestSubmitReview_Fail_SelfReview (0.00s)
     --- PASS: TestSubmitReview_Fail_SelfReview/Gagal:_Tidak_boleh_menilai_diri_sendiri (0.00s)
 === RUN   TestSubmitReview_Fail_InvalidDateRange
 === RUN   TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai
---- PASS: TestSubmitReview_Fail_InvalidDateRange (0.00s)
-    --- PASS: TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai (0.00s)
+    review_service_test.go:163: 
+        	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/review_service_test.go:163
+        	Error:      	Not equal: 
+        	            	expected: "tanggal_mulai tidak boleh lebih besar dari tanggal_selesai"
+        	            	actual  : "hanya periode 'Bulanan' yang didukung untuk penilaian kinerja"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-tanggal_mulai tidak boleh lebih besar dari tanggal_selesai
+        	            	+hanya periode 'Bulanan' yang didukung untuk penilaian kinerja
+        	Test:       	TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai
+--- FAIL: TestSubmitReview_Fail_InvalidDateRange (0.00s)
+    --- FAIL: TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai (0.00s)
 === RUN   TestSubmitReview_Fail_StafCannotReview
 === RUN   TestSubmitReview_Fail_StafCannotReview/Gagal:_Staf_tidak_boleh_melakukan_penilaian
 --- PASS: TestSubmitReview_Fail_StafCannotReview (0.00s)
@@ -163,13 +192,13 @@
 --- PASS: TestGetAllTasks_Success (0.00s)
     --- PASS: TestGetAllTasks_Success/Sukses:_Mengambil_semua_tugas_organisasi (0.00s)
 === RUN   TestLogin_Success
---- PASS: TestLogin_Success (0.10s)
+--- PASS: TestLogin_Success (0.11s)
 === RUN   TestLogin_Fail_NIPNotFound
 --- PASS: TestLogin_Fail_NIPNotFound (0.00s)
 === RUN   TestLogin_Fail_WrongPassword
 --- PASS: TestLogin_Fail_WrongPassword (0.10s)
 === RUN   TestChangePassword_Success
---- PASS: TestChangePassword_Success (0.15s)
+--- PASS: TestChangePassword_Success (0.16s)
 === RUN   TestChangePassword_Fail_WrongOldPassword
 --- PASS: TestChangePassword_Fail_WrongOldPassword (0.10s)
 === RUN   TestChangePassword_Fail_EmptyOldPassword
@@ -177,10 +206,11 @@
 === RUN   TestChangePassword_Fail_NewPasswordTooShort
 --- PASS: TestChangePassword_Fail_NewPasswordTooShort (0.00s)
 === RUN   TestChangePassword_Fail_SameAsOldPassword
---- PASS: TestChangePassword_Fail_SameAsOldPassword (0.10s)
+--- PASS: TestChangePassword_Fail_SameAsOldPassword (0.12s)
 === RUN   TestDeleteUser_Success
 --- PASS: TestDeleteUser_Success (0.00s)
 === RUN   TestDeleteUser_Fail_UserNotFound
 --- PASS: TestDeleteUser_Fail_UserNotFound (0.00s)
-PASS
-ok  	laporanharianapi/internal/service	0.736s
+FAIL
+FAIL	laporanharianapi/internal/service	0.747s
+FAIL

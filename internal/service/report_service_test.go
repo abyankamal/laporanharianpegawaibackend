@@ -279,7 +279,7 @@ func TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID(t *testing.T) {
 		err := reportSvc.EvaluateReport(2, "sekertaris", req)
 
 		assert.Error(t, err)
-		assert.Equal(t, "Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini", err.Error())
+		assert.Equal(t, "Sekertaris hanya memiliki hak untuk mengevaluasi laporan Staf", err.Error())
 		mockReportRepo.AssertNotCalled(t, "Update")
 	})
 }

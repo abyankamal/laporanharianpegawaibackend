@@ -1,0 +1,57 @@
+﻿
+--- FAIL: TestEvaluateR
+eport_Fail_SekertarisTo
+KasiWithoutSupervisorID
+ (0.00s)
+    --- FAIL: TestEvalu
+ateReport_Fail_Sekertar
+isToKasiWithoutSupervis
+orID/Gagal:_Sekertaris_
+menilai_Kasi_yang_bukan
+_bawahannya (0.00s)
+            	Test:     
+  	TestEvaluateReport_F
+ail_SekertarisToKasiWit
+houtSupervisorID/Gagal:
+_Sekertaris_menilai_Kas
+i_yang_bukan_bawahannya
+--- FAIL: TestSubmitRev
+iew_Success_SekertarisT
+oStaf (0.00s)
+    --- FAIL: TestSubmi
+tReview_Success_Sekerta
+risToStaf/Sukses:_Seker
+taris_menilai_Staf 
+(0.00s)
+--- FAIL: TestSubmitRev
+iew_Fail_InvalidDateRan
+ge (0.00s)
+    --- FAIL: TestSubmi
+tReview_Fail_InvalidDat
+eRange/Gagal:_Tanggal_m
+ulai_lebih_besar_dari_t
+anggal_selesai (0.00s)
+            	Test:     
+  	TestSubmitReview_Fai
+l_InvalidDateRange/Gaga
+l:_Tanggal_mulai_lebih_
+besar_dari_tanggal_sele
+sai
+--- FAIL: TestSubmitRev
+iew_Fail_InvalidPeriode
+ (0.00s)
+    --- FAIL: TestSubmi
+tReview_Fail_InvalidPer
+iode/Gagal:_JenisPeriod
+e_tidak_valid (0.00s)
+            	Test:     
+  	TestSubmitReview_Fai
+l_InvalidPeriode/Gagal:
+_JenisPeriode_tidak_val
+id
+FAIL
+FAIL	laporanharianapi/i
+nternal/service	0.713s
+FAIL
+
+

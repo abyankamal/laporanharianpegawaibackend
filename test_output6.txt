@@ -1,0 +1,356 @@
+﻿
+=== RUN   TestGetSummar
+y_Fail_UserNotFound
+=== RUN   TestGetSummar
+y_Fail_UserNotFound/Gag
+al:_User_tidak_ditemuka
+n
+--- PASS: TestGetSummar
+y_Fail_UserNotFound 
+(0.00s)
+    --- PASS: TestGetSu
+mmary_Fail_UserNotFound
+/Gagal:_User_tidak_dite
+mukan (0.00s)
+=== RUN   TestGetSummar
+y_Fail_CountPendingErro
+r
+=== RUN   TestGetSummar
+y_Fail_CountPendingErro
+r/Gagal:_Error_saat_hit
+ung_tugas_pending
+--- PASS: TestGetSummar
+y_Fail_CountPendingErro
+r (0.00s)
+    --- PASS: TestGetSu
+mmary_Fail_CountPending
+Error/Gagal:_Error_saat
+_hitung_tugas_pending 
+(0.00s)
+=== RUN   TestGetSummar
+y_Fail_CountLaporanBula
+nError
+=== RUN   TestGetSummar
+y_Fail_CountLaporanBula
+nError/Gagal:_Error_saa
+t_hitung_laporan_bulan_
+ini
+--- PASS: TestGetSummar
+y_Fail_CountLaporanBula
+nError (0.00s)
+    --- PASS: TestGetSu
+mmary_Fail_CountLaporan
+BulanError/Gagal:_Error
+_saat_hitung_laporan_bu
+lan_ini (0.00s)
+=== RUN   TestGetMyNoti
+fications_Fail_DBError
+=== RUN   TestGetMyNoti
+fications_Fail_DBError/
+Gagal:_Error_database_s
+aat_query_notifikasi
+--- PASS: TestGetMyNoti
+fications_Fail_DBError 
+(0.00s)
+    --- PASS: TestGetMy
+Notifications_Fail_DBEr
+ror/Gagal:_Error_databa
+se_saat_query_notifikas
+i (0.00s)
+=== RUN   TestReadNotif
+ication_Fail_NotFound
+=== RUN   TestReadNotif
+ication_Fail_NotFound/G
+agal:_Notifikasi_tidak_
+ditemukan_atau_bukan_mi
+lik_user
+--- PASS: TestReadNotif
+ication_Fail_NotFound 
+(0.00s)
+    --- PASS: TestReadN
+otification_Fail_NotFou
+nd/Gagal:_Notifikasi_ti
+dak_ditemukan_atau_buka
+n_milik_user (0.00s)
+=== RUN   TestCreateRep
+ort_Fail_Holiday
+=== RUN   TestCreateRep
+ort_Fail_Holiday/Gagal_
+membuat_laporan_pada_ha
+ri_libur
+--- PASS: TestCreateRep
+ort_Fail_Holiday 
+(0.00s)
+    --- PASS: TestCreat
+eReport_Fail_Holiday/Ga
+gal_membuat_laporan_pad
+a_hari_libur (0.00s)
+=== RUN   TestCreateRep
+ort_Fail_MissingJudulFo
+rTambahan
+=== RUN   TestCreateRep
+ort_Fail_MissingJudulFo
+rTambahan/Gagal_membuat
+_laporan_tambahan_tanpa
+_judul_kegiatan
+--- PASS: TestCreateRep
+ort_Fail_MissingJudulFo
+rTambahan (0.00s)
+    --- PASS: TestCreat
+eReport_Fail_MissingJud
+ulForTambahan/Gagal_mem
+buat_laporan_tambahan_t
+anpa_judul_kegiatan 
+(0.00s)
+=== RUN   TestCreateRep
+ort_Fail_CheckHolidayEr
+ror
+=== RUN   TestCreateRep
+ort_Fail_CheckHolidayEr
+ror/Gagal_ketika_pengec
+ekan_hari_libur_error
+--- PASS: TestCreateRep
+ort_Fail_CheckHolidayEr
+ror (0.00s)
+    --- PASS: TestCreat
+eReport_Fail_CheckHolid
+ayError/Gagal_ketika_pe
+ngecekan_hari_libur_err
+or (0.00s)
+=== RUN   TestEvaluateR
+eport_Fail_SekertarisTo
+KasiWithoutSupervisorID
+=== RUN   TestEvaluateR
+eport_Fail_SekertarisTo
+KasiWithoutSupervisorID
+/Gagal:_Sekertaris_meni
+lai_Kasi_yang_bukan_baw
+ahannya
+        	Test:       	T
+estEvaluateReport_Fail_
+SekertarisToKasiWithout
+SupervisorID/Gagal:_Sek
+ertaris_menilai_Kasi_ya
+ng_bukan_bawahannya
+--- FAIL: TestEvaluateR
+eport_Fail_SekertarisTo
+KasiWithoutSupervisorID
+ (0.00s)
+    --- FAIL: TestEvalu
+ateReport_Fail_Sekertar
+isToKasiWithoutSupervis
+orID/Gagal:_Sekertaris_
+menilai_Kasi_yang_bukan
+_bawahannya (0.00s)
+=== RUN   TestEvaluateR
+eport_Fail_Kasi
+=== RUN   TestEvaluateR
+eport_Fail_Kasi/Gagal:_
+Kasi/Staf_mencoba_melak
+ukan_evaluasi
+--- PASS: TestEvaluateR
+eport_Fail_Kasi (0.00s)
+    --- PASS: TestEvalu
+ateReport_Fail_Kasi/Gag
+al:_Kasi/Staf_mencoba_m
+elakukan_evaluasi 
+(0.00s)
+=== RUN   TestEvaluateR
+eport_Fail_InvalidStatu
+s
+=== RUN   TestEvaluateR
+eport_Fail_InvalidStatu
+s/Gagal:_Status_evaluas
+i_selain_Disetujui/Dito
+lak
+--- PASS: TestEvaluateR
+eport_Fail_InvalidStatu
+s (0.00s)
+    --- PASS: TestEvalu
+ateReport_Fail_InvalidS
+tatus/Gagal:_Status_eva
+luasi_selain_Disetujui/
+Ditolak (0.00s)
+--- FAIL: TestSubmitRev
+iew_Success_SekertarisT
+oStaf (0.00s)
+    --- FAIL: TestSubmi
+tReview_Success_Sekerta
+risToStaf/Sukses:_Seker
+taris_menilai_Staf 
+(0.00s)
+=== RUN   TestSubmitRev
+iew_Fail_SelfReview
+=== RUN   TestSubmitRev
+iew_Fail_SelfReview/Gag
+al:_Tidak_boleh_menilai
+_diri_sendiri
+--- PASS: TestSubmitRev
+iew_Fail_SelfReview 
+(0.00s)
+    --- PASS: TestSubmi
+tReview_Fail_SelfReview
+/Gagal:_Tidak_boleh_men
+ilai_diri_sendiri 
+(0.00s)
+=== RUN   TestSubmitRev
+iew_Fail_InvalidDateRan
+ge
+=== RUN   TestSubmitRev
+iew_Fail_InvalidDateRan
+ge/Gagal:_Tanggal_mulai
+_lebih_besar_dari_tangg
+al_selesai
+        	Test:       	T
+estSubmitReview_Fail_In
+validDateRange/Gagal:_T
+anggal_mulai_lebih_besa
+r_dari_tanggal_selesai
+--- FAIL: TestSubmitRev
+iew_Fail_InvalidDateRan
+ge (0.00s)
+    --- FAIL: TestSubmi
+tReview_Fail_InvalidDat
+eRange/Gagal:_Tanggal_m
+ulai_lebih_besar_dari_t
+anggal_selesai (0.00s)
+=== RUN   TestSubmitRev
+iew_Fail_StafCannotRevi
+ew
+=== RUN   TestSubmitRev
+iew_Fail_StafCannotRevi
+ew/Gagal:_Staf_tidak_bo
+leh_melakukan_penilaian
+--- PASS: TestSubmitRev
+iew_Fail_StafCannotRevi
+ew (0.00s)
+    --- PASS: TestSubmi
+tReview_Fail_StafCannot
+Review/Gagal:_Staf_tida
+k_boleh_melakukan_penil
+aian (0.00s)
+=== RUN   TestSubmitRev
+iew_Fail_InvalidPeriode
+=== RUN   TestSubmitRev
+iew_Fail_InvalidPeriode
+/Gagal:_JenisPeriode_ti
+dak_valid
+        	Test:       	T
+estSubmitReview_Fail_In
+validPeriode/Gagal:_Jen
+isPeriode_tidak_valid
+--- FAIL: TestSubmitRev
+iew_Fail_InvalidPeriode
+ (0.00s)
+    --- FAIL: TestSubmi
+tReview_Fail_InvalidPer
+iode/Gagal:_JenisPeriod
+e_tidak_valid (0.00s)
+=== RUN   TestSubmitRev
+iew_Fail_LurahToStaf
+=== RUN   TestSubmitRev
+iew_Fail_LurahToStaf/Ga
+gal:_Lurah_tidak_boleh_
+langsung_menilai_Staf
+--- PASS: TestSubmitRev
+iew_Fail_LurahToStaf 
+(0.00s)
+    --- PASS: TestSubmi
+tReview_Fail_LurahToSta
+f/Gagal:_Lurah_tidak_bo
+leh_langsung_menilai_St
+af (0.00s)
+=== RUN   TestSubmitRev
+iew_Fail_DBError_NoNoti
+fication
+=== RUN   TestSubmitRev
+iew_Fail_DBError_NoNoti
+fication/Gagal:_DB_erro
+r_saat_simpan_ΓÇö_notif
+ikasi_tidak_terkirim
+--- PASS: TestSubmitRev
+iew_Fail_DBError_NoNoti
+fication (0.00s)
+    --- PASS: TestSubmi
+tReview_Fail_DBError_No
+Notification/Gagal:_DB_
+error_saat_simpan_ΓÇö_n
+otifikasi_tidak_terkiri
+m (0.00s)
+=== RUN   TestCreateTas
+k_Organisasi_Fail_NonLu
+rah
+=== RUN   TestCreateTas
+k_Organisasi_Fail_NonLu
+rah/Gagal:_Sekertaris_t
+idak_boleh_membuat_tuga
+s_organisasi
+--- PASS: TestCreateTas
+k_Organisasi_Fail_NonLu
+rah (0.00s)
+    --- PASS: TestCreat
+eTask_Organisasi_Fail_N
+onLurah/Gagal:_Sekertar
+is_tidak_boleh_membuat_
+tugas_organisasi 
+(0.00s)
+=== RUN   TestCreateTas
+k_Organisasi_Fail_Empty
+TargetUserIDs
+=== RUN   TestCreateTas
+k_Organisasi_Fail_Empty
+TargetUserIDs/Gagal:_Tu
+gas_organisasi_tanpa_ta
+rget_user_ids
+--- PASS: TestCreateTas
+k_Organisasi_Fail_Empty
+TargetUserIDs (0.00s)
+    --- PASS: TestCreat
+eTask_Organisasi_Fail_E
+mptyTargetUserIDs/Gagal
+:_Tugas_organisasi_tanp
+a_target_user_ids 
+(0.00s)
+=== RUN   TestLogin_Fai
+l_NIPNotFound
+--- PASS: TestLogin_Fai
+l_NIPNotFound (0.00s)
+=== RUN   TestLogin_Fai
+l_WrongPassword
+--- PASS: TestLogin_Fai
+l_WrongPassword (0.10s)
+=== RUN   TestChangePas
+sword_Fail_WrongOldPass
+word
+--- PASS: TestChangePas
+sword_Fail_WrongOldPass
+word (0.11s)
+=== RUN   TestChangePas
+sword_Fail_EmptyOldPass
+word
+--- PASS: TestChangePas
+sword_Fail_EmptyOldPass
+word (0.00s)
+=== RUN   TestChangePas
+sword_Fail_NewPasswordT
+ooShort
+--- PASS: TestChangePas
+sword_Fail_NewPasswordT
+ooShort (0.00s)
+=== RUN   TestChangePas
+sword_Fail_SameAsOldPas
+sword
+--- PASS: TestChangePas
+sword_Fail_SameAsOldPas
+sword (0.11s)
+=== RUN   TestDeleteUse
+r_Fail_UserNotFound
+--- PASS: TestDeleteUse
+r_Fail_UserNotFound 
+(0.00s)
+FAIL
+FAIL	laporanharianapi/i
+nternal/service	0.741s
+FAIL
+
+

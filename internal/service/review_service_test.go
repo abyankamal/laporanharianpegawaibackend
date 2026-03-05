@@ -91,13 +91,14 @@ func TestSubmitReview_Success_SekertarisToStaf(t *testing.T) {
 		req := CreateReviewRequest{
 			TargetUserID:   3,
 			SkorID:         3,
-			JenisPeriode:   "Harian",
+			JenisPeriode:   "Bulanan",
 			Bulan:          2,
 			Tahun:          2026,
 			TanggalMulai:   "2026-02-20",
 			TanggalSelesai: "2026-02-20",
 			Catatan:        "Sangat rajin hari ini",
 		}
+
 		penilaian, err := reviewSvc.SubmitReview(2, "sekertaris", req)
 
 		assert.NoError(t, err)
@@ -151,7 +152,7 @@ func TestSubmitReview_Fail_InvalidDateRange(t *testing.T) {
 		req := CreateReviewRequest{
 			TargetUserID:   2,
 			SkorID:         2,
-			JenisPeriode:   "Custom",
+			JenisPeriode:   "Bulanan", // Must be Bulanan to reach Date validation
 			Bulan:          2,
 			Tahun:          2026,
 			TanggalMulai:   "2026-02-28", // lebih besar
@@ -215,7 +216,7 @@ func TestSubmitReview_Fail_InvalidPeriode(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, penilaian)
-		assert.Equal(t, "jenis_periode tidak valid (pilihan: Harian, Mingguan, Bulanan, Custom)", err.Error())
+		assert.Equal(t, "hanya periode 'Bulanan' yang didukung untuk penilaian kinerja", err.Error())
 	})
 }
 
