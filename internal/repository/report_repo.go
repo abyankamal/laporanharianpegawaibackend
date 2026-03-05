@@ -34,7 +34,6 @@ type ReportRepository interface {
 	Create(laporan *domain.Laporan) error
 	CreateFileLaporan(file *domain.FileLaporan) error
 	GetFileByReportID(reportID uint) (*domain.FileLaporan, error)
-	CheckIsHoliday(date time.Time) (bool, error)
 	GetAll(filter ReportFilter) ([]domain.Laporan, int64, error)
 	GetByID(id uint) (*domain.Laporan, error)
 	GetReportRecap(userID uint, startDate time.Time, endDate time.Time) (*ReportRecapResponse, error)
@@ -64,25 +63,6 @@ func (r *reportRepository) Update(laporan *domain.Laporan) error {
 // CreateFileLaporan menyimpan data file laporan ke database.
 func (r *reportRepository) CreateFileLaporan(file *domain.FileLaporan) error {
 	return r.db.Create(file).Error
-}
-
-// CheckIsHoliday mengecek apakah tanggal tertentu adalah hari libur.
-// CATATAN: Fungsi ini memerlukan tabel hari_libur aktif di database.
-func (r *reportRepository) CheckIsHoliday(date time.Time) (bool, error) {
-	var count int64
-	// Format tanggal untuk query (hanya tanggal, tanpa jam)
-	dateOnly := date.Format("2006-01-02")
-
-	err := r.db.Table("hari_libur").
-		Where("tanggal = ?", dateOnly).
-		Count(&count).Error
-
-	if err != nil {
-		// Jika tabel tidak ada atau error, asumsikan bukan hari libur
-		return false, nil
-	}
-
-	return count > 0, nil
 }
 
 // GetAll mengambil semua laporan berdasarkan filter yang diberikan.

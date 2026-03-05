@@ -51,9 +51,20 @@ func main() {
 	notifService := service.NewNotificationService(notifRepo)
 	notifHandler := handler.NewNotificationHandler(notifService)
 
+	// --- Settings & Vacation Modules ---
+	pengaturanRepo := repository.NewPengaturanRepository(config.DB)
+	pengaturanService := service.NewPengaturanService(pengaturanRepo)
+	pengaturanHandler := handler.NewPengaturanHandler(pengaturanService)
+
+	pengaturanRepo.SeedDefault()
+
+	hariLiburRepo := repository.NewHariLiburRepository(config.DB)
+	hariLiburService := service.NewHariLiburService(hariLiburRepo)
+	hariLiburHandler := handler.NewHariLiburHandler(hariLiburService)
+
 	// --- Report Module ---
 	reportRepo := repository.NewReportRepository(config.DB)
-	reportService := service.NewReportService(reportRepo)
+	reportService := service.NewReportService(reportRepo, hariLiburRepo, pengaturanRepo)
 	reportHandler := handler.NewReportHandler(reportService, userService)
 
 	// --- Review (Penilaian) Module ---
@@ -167,6 +178,16 @@ func main() {
 	userRoutesWrite.Post("/", userHandler.Create)
 	userRoutesWrite.Put("/:id", userHandler.Update)
 	userRoutesWrite.Delete("/:id", userHandler.Delete)
+
+	// ===================================================
+	// APP SETTINGS - Hanya Sekertaris dan Lurah
+	// ===================================================
+	adminRoutes := protected.Group("/admin", middleware.AllowRoles("lurah", "sekertaris", "Sekertaris"))
+	adminRoutes.Get("/pengaturan", pengaturanHandler.GetPengaturan)
+	adminRoutes.Put("/pengaturan", pengaturanHandler.UpdatePengaturan)
+	adminRoutes.Get("/hari-libur", hariLiburHandler.GetHariLibur)
+	adminRoutes.Post("/hari-libur", hariLiburHandler.CreateHariLibur)
+	adminRoutes.Delete("/hari-libur/:id", hariLiburHandler.DeleteHariLibur)
 
 	// ===================================================
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)

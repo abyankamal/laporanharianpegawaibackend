@@ -52,12 +52,22 @@ type ReportService interface {
 
 // reportService adalah implementasi dari ReportService.
 type reportService struct {
-	reportRepo repository.ReportRepository
+	reportRepo     repository.ReportRepository
+	hariLiburRepo  repository.HariLiburRepository
+	pengaturanRepo repository.PengaturanRepository
 }
 
 // NewReportService membuat instance baru ReportService.
-func NewReportService(reportRepo repository.ReportRepository) ReportService {
-	return &reportService{reportRepo: reportRepo}
+func NewReportService(
+	reportRepo repository.ReportRepository,
+	hariLiburRepo repository.HariLiburRepository,
+	pengaturanRepo repository.PengaturanRepository,
+) ReportService {
+	return &reportService{
+		reportRepo:     reportRepo,
+		hariLiburRepo:  hariLiburRepo,
+		pengaturanRepo: pengaturanRepo,
+	}
 }
 
 // toStringPtr mengkonversi string ke pointer. Mengembalikan nil jika string kosong.
@@ -72,8 +82,8 @@ func toStringPtr(s string) *string {
 func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error) {
 	now := time.Now()
 
-	// 1. Validasi: Cek apakah hari ini adalah hari libur
-	isHoliday, err := s.reportRepo.CheckIsHoliday(now)
+	// 1. Validasi: Cek apakah hari ini adalah hari libur di tabel HariLibur
+	isHoliday, err := s.hariLiburRepo.CheckIsHoliday(now)
 	if err != nil {
 		return nil, errors.New("gagal mengecek status hari libur")
 	}
@@ -88,10 +98,36 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 		return nil, errors.New("judul kegiatan wajib diisi untuk laporan tambahan")
 	}
 
-	// 3. Cek jam kerja (07:00 - 16:00)
-	// Jika di luar jam kerja, tandai sebagai overtime
-	currentHour := input.WaktuPelaporan.Hour()
-	isOvertime := currentHour < 7 || currentHour >= 16
+	// 3. Cek jam kerja dari tabel Pengaturan
+	pengaturan, err := s.pengaturanRepo.Get()
+	if err != nil {
+		return nil, errors.New("gagal mengambil data pengaturan jam kerja")
+	}
+
+	// Parse jam_pulang dari form (misal "18:00")
+	// Kita gunakan Dummy Date untuk diparse bersama jam agar bisa membandingkan jamnya
+	dummyDate := "2006-01-02"
+	formatParsing := "2006-01-02 15:04"
+
+	// Default jam pulang jika gagal parse adalah jam 16:00
+	parsedJamPulang, errParse := time.Parse(formatParsing, dummyDate+" "+pengaturan.JamPulang)
+
+	isOvertime := false
+	if errParse == nil {
+		// Buat objek waktu WaktuPelaporan dengan tanggal dummy yang sama
+		jamKirimDummy, _ := time.Parse(formatParsing, fmt.Sprintf("%s %02d:%02d", dummyDate, input.WaktuPelaporan.Hour(), input.WaktuPelaporan.Minute()))
+
+		// Jika WaktuPelaporan (jam kirim) LEBIH BESAR DARI setting jam pulang -> lembur
+		if jamKirimDummy.After(parsedJamPulang) {
+			isOvertime = true
+		}
+	} else {
+		// Fallback seperti aturan lama jika parse gagal
+		currentHour := input.WaktuPelaporan.Hour()
+		if currentHour < 7 || currentHour >= 16 {
+			isOvertime = true
+		}
+	}
 
 	// 4. Proses upload file foto jika ada
 	var fotoURL *string

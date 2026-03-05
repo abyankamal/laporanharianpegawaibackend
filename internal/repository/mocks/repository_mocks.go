@@ -115,11 +115,6 @@ func (m *ReportRepositoryMock) CreateFileLaporan(file *domain.FileLaporan) error
 	return args.Error(0)
 }
 
-func (m *ReportRepositoryMock) CheckIsHoliday(date time.Time) (bool, error) {
-	args := m.Called(date)
-	return args.Bool(0), args.Error(1)
-}
-
 func (m *ReportRepositoryMock) GetAll(filter repository.ReportFilter) ([]domain.Laporan, int64, error) {
 	args := m.Called(filter)
 	if args.Get(0) == nil {
@@ -320,4 +315,61 @@ func (m *DashboardRepositoryMock) GetRecentLaporan(userID uint, limit int) ([]do
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]domain.Laporan), args.Error(1)
+}
+
+// ============================================================
+// PengaturanRepositoryMock
+// ============================================================
+
+type PengaturanRepositoryMock struct {
+	mock.Mock
+}
+
+func (m *PengaturanRepositoryMock) Get() (*domain.Pengaturan, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Pengaturan), args.Error(1)
+}
+
+func (m *PengaturanRepositoryMock) Update(pengaturan *domain.Pengaturan) error {
+	args := m.Called(pengaturan)
+	return args.Error(0)
+}
+
+func (m *PengaturanRepositoryMock) SeedDefault() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+// ============================================================
+// HariLiburRepositoryMock
+// ============================================================
+
+type HariLiburRepositoryMock struct {
+	mock.Mock
+}
+
+func (m *HariLiburRepositoryMock) GetAll() ([]domain.HariLibur, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.HariLibur), args.Error(1)
+}
+
+func (m *HariLiburRepositoryMock) Create(hariLibur *domain.HariLibur) error {
+	args := m.Called(hariLibur)
+	return args.Error(0)
+}
+
+func (m *HariLiburRepositoryMock) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func (m *HariLiburRepositoryMock) CheckIsHoliday(date time.Time) (bool, error) {
+	args := m.Called(date)
+	return args.Bool(0), args.Error(1)
 }
