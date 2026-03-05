@@ -37,8 +37,7 @@ type ReportInput struct {
 // EvaluateReportRequest adalah struct untuk input evaluasi laporan.
 type EvaluateReportRequest struct {
 	ReportID uint   `json:"report_id" validate:"required"`
-	Status   string `json:"status" validate:"required"` // 'Disetujui' atau 'Ditolak'
-	Komentar string `json:"komentar"`
+	Komentar string `json:"komentar" validate:"required"`
 }
 
 // ReportService adalah interface untuk operasi bisnis Laporan.
@@ -295,11 +294,8 @@ func (s *reportService) GetReportRecap(userID uint, startDate, endDate time.Time
 	return s.reportRepo.GetReportRecap(userID, startDate, endDate)
 }
 
-// EvaluateReport mengevaluasi laporan (Approve/Reject) berdasarkan RBAC.
+// EvaluateReport mengevaluasi laporan (Memberikan Masukan) berdasarkan RBAC.
 func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error {
-	if req.Status != "Disetujui" && req.Status != "Ditolak" {
-		return errors.New("status evaluasi tidak valid (harus 'Disetujui' atau 'Ditolak')")
-	}
 
 	// 1. Ambil data laporan beserta relasi User pengirimnya
 	laporan, err := s.reportRepo.GetByID(req.ReportID)
@@ -329,12 +325,8 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	}
 
 	// 3. Update field
-	laporan.Status = req.Status
-	if req.Komentar != "" {
-		laporan.KomentarAtasan = &req.Komentar
-	} else {
-		laporan.KomentarAtasan = nil
-	}
+	laporan.Status = "sudah_direview"
+	laporan.KomentarAtasan = &req.Komentar
 
 	// 4. Save ke database
 	err = s.reportRepo.Update(laporan)
@@ -344,11 +336,8 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 
 	// 5. Trigger FCM Push Notification ke pembuat laporan
 	if targetUser.FCMToken != nil && *targetUser.FCMToken != "" {
-		title := fmt.Sprintf("Laporan %s", req.Status)
-		body := "Silakan cek catatan atasan pada laporan Anda."
-		if req.Komentar != "" {
-			body = fmt.Sprintf("Catatan: %s", req.Komentar)
-		}
+		title := "Laporan Sudah Direview"
+		body := fmt.Sprintf("Masukan Atasan: %s", req.Komentar)
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {

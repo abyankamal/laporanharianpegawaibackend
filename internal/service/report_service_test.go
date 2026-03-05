@@ -209,13 +209,12 @@ func TestEvaluateReport_Success_Lurah(t *testing.T) {
 
 		req := EvaluateReportRequest{
 			ReportID: 1,
-			Status:   "Disetujui",
 			Komentar: "Bagus",
 		}
 		err := reportSvc.EvaluateReport(1, "lurah", req)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "Disetujui", laporan.Status)
+		assert.Equal(t, "sudah_direview", laporan.Status)
 		assert.Equal(t, "Bagus", *laporan.KomentarAtasan)
 		mockReportRepo.AssertCalled(t, "Update", mock.Anything)
 	})
@@ -242,13 +241,12 @@ func TestEvaluateReport_Success_SekertarisToStaf(t *testing.T) {
 
 		req := EvaluateReportRequest{
 			ReportID: 2,
-			Status:   "Ditolak",
 			Komentar: "Perbaiki format",
 		}
 		err := reportSvc.EvaluateReport(2, "sekertaris", req)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "Ditolak", laporan.Status)
+		assert.Equal(t, "sudah_direview", laporan.Status)
 		assert.Equal(t, "Perbaiki format", *laporan.KomentarAtasan)
 	})
 }
@@ -274,7 +272,7 @@ func TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID(t *testing.T) {
 
 		req := EvaluateReportRequest{
 			ReportID: 3,
-			Status:   "Disetujui",
+			Komentar: "Mantap",
 		}
 		err := reportSvc.EvaluateReport(2, "sekertaris", req)
 
@@ -304,29 +302,11 @@ func TestEvaluateReport_Fail_Kasi(t *testing.T) {
 
 		req := EvaluateReportRequest{
 			ReportID: 4,
-			Status:   "Disetujui",
+			Komentar: "Tes",
 		}
 		err := reportSvc.EvaluateReport(5, "kasi", req)
 
 		assert.Error(t, err)
 		assert.Equal(t, "akses ditolak", err.Error())
-	})
-}
-
-func TestEvaluateReport_Fail_InvalidStatus(t *testing.T) {
-	t.Run("Gagal: Status evaluasi selain Disetujui/Ditolak", func(t *testing.T) {
-		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
-		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
-
-		req := EvaluateReportRequest{
-			ReportID: 1,
-			Status:   "Diterima", // Tidak Valid
-		}
-		err := reportSvc.EvaluateReport(1, "lurah", req)
-
-		assert.Error(t, err)
-		assert.Equal(t, "status evaluasi tidak valid (harus 'Disetujui' atau 'Ditolak')", err.Error())
 	})
 }

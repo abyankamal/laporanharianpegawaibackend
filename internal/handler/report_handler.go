@@ -439,8 +439,6 @@ func (h *ReportHandler) EvaluateReportHandler(c fiber.Ctx) error {
 			status = fiber.StatusNotFound
 		} else if err.Error() == "Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini" || err.Error() == "akses ditolak" {
 			status = fiber.StatusForbidden
-		} else if err.Error() == "status evaluasi tidak valid (harus 'Disetujui' atau 'Ditolak')" {
-			status = fiber.StatusBadRequest
 		}
 		return c.Status(status).JSON(fiber.Map{
 			"status":  "error",
@@ -524,7 +522,7 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	sheetName := "Rekap Laporan"
 	f.SetSheetName("Sheet1", sheetName)
 
-	headers := []string{"No", "NIP", "Nama Pegawai", "Jabatan", "Total Laporan", "Disetujui", "Menunggu", "Ditolak", "Total Jam Kerja"}
+	headers := []string{"No", "NIP", "Nama Pegawai", "Jabatan", "Total Laporan", "Sudah Direview", "Menunggu Review", "Total Jam Kerja"}
 	for i, head := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheetName, cell, head)
@@ -553,10 +551,9 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 		}
 
 		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), rekap.TotalLaporan)
-		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), rekap.TotalDisetujui)
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), rekap.TotalSudahDireview)
 		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), rekap.TotalMenunggu)
-		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), rekap.TotalDitolak)
-		f.SetCellValue(sheetName, fmt.Sprintf("I%d", row), rekap.TotalJamKerja)
+		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), rekap.TotalJamKerja)
 		row++
 	}
 

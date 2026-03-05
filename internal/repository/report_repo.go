@@ -22,11 +22,10 @@ type ReportFilter struct {
 
 // ReportRecapResponse adalah struct rekapitulasi agregat laporan.
 type ReportRecapResponse struct {
-	TotalLaporan   int `json:"total_laporan" gorm:"column:total_laporan"`
-	TotalDisetujui int `json:"total_disetujui" gorm:"column:total_disetujui"`
-	TotalMenunggu  int `json:"total_menunggu" gorm:"column:total_menunggu"`
-	TotalDitolak   int `json:"total_ditolak" gorm:"column:total_ditolak"`
-	TotalJamKerja  int `json:"total_jam_kerja" gorm:"column:total_jam_kerja"`
+	TotalLaporan       int `json:"total_laporan" gorm:"column:total_laporan"`
+	TotalSudahDireview int `json:"total_sudah_direview" gorm:"column:total_sudah_direview"`
+	TotalMenunggu      int `json:"total_menunggu" gorm:"column:total_menunggu"`
+	TotalJamKerja      int `json:"total_jam_kerja" gorm:"column:total_jam_kerja"`
 }
 
 // ReportRepository adalah interface untuk operasi database Laporan.
@@ -171,9 +170,8 @@ func (r *reportRepository) GetReportRecap(userID uint, startDate time.Time, endD
 
 	err := r.db.Model(&domain.Laporan{}).
 		Select("COUNT(id) as total_laporan, "+
-			"SUM(CASE WHEN status = 'Disetujui' THEN 1 ELSE 0 END) as total_disetujui, "+
-			"SUM(CASE WHEN status = 'Menunggu' THEN 1 ELSE 0 END) as total_menunggu, "+
-			"SUM(CASE WHEN status = 'Ditolak' THEN 1 ELSE 0 END) as total_ditolak, "+
+			"SUM(CASE WHEN status = 'sudah_direview' THEN 1 ELSE 0 END) as total_sudah_direview, "+
+			"SUM(CASE WHEN status = 'menunggu_review' THEN 1 ELSE 0 END) as total_menunggu, "+
 			"COALESCE(SUM(jam_kerja), 0) as total_jam_kerja").
 		Where("user_id = ? AND waktu_pelaporan BETWEEN ? AND ?", userID, startDate, endDate).
 		Scan(&rekap).Error
