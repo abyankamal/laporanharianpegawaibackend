@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -157,18 +156,30 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 		}
 	}
 
-	// Parse waktu pelaporan
+	// Parse waktu pelaporan dengan berbagai format (ISO8601, MySQL, etc)
 	waktuPelaporanStr := c.FormValue("waktu_pelaporan")
-	waktuPelaporan, err := time.ParseInLocation("2006-01-02 15:04:05", waktuPelaporanStr, time.Local)
-	if err != nil {
-		// Coba format lain
-		waktuPelaporan, err = time.ParseInLocation("2006-01-02T15:04:05", waktuPelaporanStr, time.Local)
-		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Format waktu_pelaporan tidak valid (gunakan: YYYY-MM-DD HH:mm:ss)",
-			})
+	var waktuPelaporan time.Time
+	var parseErr error
+
+	formats := []string{
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+		time.RFC3339,
+		"2006-01-02",
+	}
+
+	for _, fmtStr := range formats {
+		waktuPelaporan, parseErr = time.ParseInLocation(fmtStr, waktuPelaporanStr, time.Local)
+		if parseErr == nil {
+			break
 		}
+	}
+
+	if parseErr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": fmt.Sprintf("Format waktu_pelaporan tidak valid: %s. Gunakan format YYYY-MM-DD HH:mm:ss", waktuPelaporanStr),
+		})
 	}
 
 	// 3. Validasi input sederhana
@@ -181,14 +192,28 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 
 	// 4. Ambil file foto (opsional)
 	fileFoto, fotoErr := c.FormFile("foto")
-	if fotoErr != nil && fotoErr.Error() != "there is no uploaded file associated with the given key" {
-		log.Printf("⚠️ Error parsing file foto: %v", fotoErr)
+	if fotoErr != nil {
+		// Jika errornya bukan karena file tidak ada, return error
+		if fotoErr.Error() != "there is no uploaded file associated with the given key" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": fmt.Sprintf("Gagal membaca file foto: %v", fotoErr),
+			})
+		}
+		// Jika tidak ada file, biarkan nil
+		fileFoto = nil
 	}
 
 	// 5. Ambil file dokumen (opsional)
 	fileDokumen, dokErr := c.FormFile("dokumen")
-	if dokErr != nil && dokErr.Error() != "there is no uploaded file associated with the given key" {
-		log.Printf("⚠️ Error parsing file dokumen: %v", dokErr)
+	if dokErr != nil {
+		if dokErr.Error() != "there is no uploaded file associated with the given key" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": fmt.Sprintf("Gagal membaca file dokumen: %v", dokErr),
+			})
+		}
+		fileDokumen = nil
 	}
 
 	// 6. Susun input untuk service

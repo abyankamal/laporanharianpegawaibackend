@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/valyala/fasthttp"
 	"golang.org/x/crypto/bcrypt"
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
-	"laporanharianapi/pkg/utils"
 )
 
 // CreateUserRequest adalah DTO untuk request pembuatan user baru.
@@ -281,8 +281,8 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 	newFileName := uuid.New().String() + ext
 	destPath := filepath.Join(uploadDir, newFileName)
 
-	// Lakukan kompresi (jika > 5MB) atau sekadar copy (jika <= 5MB)
-	err = utils.CompressImage(fileHeader, destPath, 5)
+	// Lakukan simpan langsung dengan fasthttp.SaveMultipartFile
+	err = fasthttp.SaveMultipartFile(fileHeader, destPath)
 	if err != nil {
 		return "", fmt.Errorf("gagal memproses dan menyimpan foto: %v", err)
 	}

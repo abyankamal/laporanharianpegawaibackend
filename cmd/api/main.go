@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -79,8 +80,13 @@ func main() {
 	// 4. SETUP FIBER APP
 	// =============================================
 	app := fiber.New(fiber.Config{
-		AppName:   "Laporan Harian API v1.0",
-		BodyLimit: 250 * 1024 * 1024, // 250 MB Limit
+		AppName:         "Laporan Harian API v1.0",
+		BodyLimit:       300 * 1024 * 1024, // Increase to 300 MB
+		ReadTimeout:     60 * time.Second,  // Give more time for slow mobile uploads
+		WriteTimeout:    60 * time.Second,
+		IdleTimeout:     120 * time.Second,
+		ReadBufferSize:  16 * 1024, // 16KB buff
+		WriteBufferSize: 16 * 1024,
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {

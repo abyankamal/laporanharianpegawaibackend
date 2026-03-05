@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -11,11 +12,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/valyala/fasthttp"
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/pkg/fcm"
-	"laporanharianapi/pkg/utils"
 )
 
 // ReportInput adalah struct untuk input pembuatan laporan.
@@ -225,10 +226,10 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 	destPath := filepath.Join(uploadDir, newFileName)
 
 	if subDir == "images" {
-		// Kompres gambar jika > 5MB, copy original jika <= 5MB (Sesuai dengan logika foto profil)
-		err = utils.CompressImage(fileHeader, destPath, 5)
+		// Simpan langsung menggunakan fasthttp.SaveMultipartFile
+		err = fasthttp.SaveMultipartFile(fileHeader, destPath)
 		if err != nil {
-			return "", fmt.Errorf("gagal memproses dan menyimpan gambar: %v", err)
+			return "", fmt.Errorf("gagal menyimpan file foto: %w", err)
 		}
 	} else {
 		// Copy file biasa tanpa diproses image kompresi
@@ -282,6 +283,8 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 		if targetUser.Role != "staf" {
 			return errors.New("Sekertaris hanya memiliki hak untuk mengevaluasi laporan Staf")
 		}
+	case "lurah":
+		// Lurah boleh menilai semua role
 	case "kasi", "staf":
 		// Kasi / Staf tidak punya hak approve laporan general
 		return errors.New("akses ditolak")
@@ -310,7 +313,14 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 		if req.Komentar != "" {
 			body = fmt.Sprintf("Catatan: %s", req.Komentar)
 		}
-		go fcm.SendPushNotification(*targetUser.FCMToken, title, body)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("⚠️ Recovered from panic in FCM goroutine: %v", r)
+				}
+			}()
+			fcm.SendPushNotification(*targetUser.FCMToken, title, body)
+		}()
 	}
 
 	return nil
