@@ -26,7 +26,7 @@ func ConnectDatabase() {
 	dbName := os.Getenv("DB_NAME")
 
 	// Buat Data Source Name (DSN) untuk MySQL
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Asia%%2FJakarta",
 		user, password, host, port, dbName,
 	)
 

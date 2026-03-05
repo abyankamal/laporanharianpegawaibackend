@@ -74,9 +74,8 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 		return nil, errors.New("target_user_ids wajib diisi")
 	}
 
-	// 3.5 Parse Deadline (Gunakan Asia/Jakarta agar sesuai WIB)
-	loc, _ := time.LoadLocation("Asia/Jakarta")
-	parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, loc)
+	// 3.5 Parse Deadline (Sudah menggunakan time.Local WIB dari main.go)
+	parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, time.Local)
 	if err != nil {
 		// Coba format RFC3339 (ISO8601) jika format di atas gagal
 		parsedDeadline, err = time.Parse(time.RFC3339, req.Deadline)
@@ -202,9 +201,8 @@ func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID 
 		return nil, errors.New("judul_tugas wajib diisi")
 	}
 
-	// 3.5 Parse Deadline (Gunakan Asia/Jakarta)
-	loc, _ := time.LoadLocation("Asia/Jakarta")
-	parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, loc)
+	// 3.5 Parse Deadline (Sudah menggunakan time.Local)
+	parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, time.Local)
 	if err != nil {
 		// Coba format RFC3339
 		parsedDeadline, err = time.Parse(time.RFC3339, req.Deadline)

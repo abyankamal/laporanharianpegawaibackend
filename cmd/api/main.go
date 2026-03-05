@@ -20,8 +20,17 @@ import (
 )
 
 func main() {
+	// 0. Set Global Timezone to WIB (Asia/Jakarta)
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		log.Printf("⚠️ Gagal memuat lokasi waktu Asia/Jakarta: %v", err)
+	} else {
+		time.Local = loc
+		log.Println("🌍 Timezone diatur ke Asia/Jakarta (WIB)")
+	}
+
 	// 1. Load environment variables dari file .env
-	err := godotenv.Load()
+	err = godotenv.Load()
 	if err != nil {
 		log.Println("⚠️  File .env tidak ditemukan, menggunakan environment variables sistem")
 	}
