@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 
 	"laporanharianapi/internal/domain"
@@ -32,21 +34,23 @@ func (r *taskRepository) Create(task *domain.TugasOrganisasi) error {
 	return r.db.Omit("Creator", "Assignees").Create(task).Error
 }
 
-// FindByAssigneeID mengambil tugas organisasi yang di-assign ke user tertentu (via M2M).
+// FindByAssigneeID mengambil tugas organisasi yang di-assign ke user tertentu (via M2M), yang belum lewat deadline.
 func (r *taskRepository) FindByAssigneeID(userID int) ([]domain.TugasOrganisasi, error) {
 	var tasks []domain.TugasOrganisasi
 	err := r.db.Preload("Creator").Preload("Assignees").Preload("Assignees.Jabatan").
 		Joins("JOIN tugas_assignees ON tugas_assignees.tugas_organisasi_id = tugas_organisasi.id").
 		Where("tugas_assignees.user_id = ?", userID).
+		Where("tugas_organisasi.deadline IS NULL OR tugas_organisasi.deadline >= ?", time.Now()).
 		Order("tugas_organisasi.created_at DESC").
 		Find(&tasks).Error
 	return tasks, err
 }
 
-// FindAll mengambil semua tugas organisasi dari database.
+// FindAll mengambil semua tugas organisasi dari database, yang belum lewat deadline.
 func (r *taskRepository) FindAll() ([]domain.TugasOrganisasi, error) {
 	var tasks []domain.TugasOrganisasi
 	err := r.db.Preload("Creator").Preload("Assignees").Preload("Assignees.Jabatan").
+		Where("deadline IS NULL OR deadline >= ?", time.Now()).
 		Order("created_at DESC").
 		Find(&tasks).Error
 	return tasks, err

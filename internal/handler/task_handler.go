@@ -149,6 +149,78 @@ func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 	})
 }
 
+// GetByID menangani pengambilan detail tugas organisasi berdasarkan ID.
+func (h *TaskHandler) GetByID(c fiber.Ctx) error {
+	taskID, err := strconv.Atoi(c.Params("id"))
+	if err != nil || taskID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID tugas tidak valid",
+		})
+	}
+
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	requesterID := uint(requesterIDFloat)
+
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Role tidak ditemukan",
+		})
+	}
+
+	task, err := h.taskService.GetTaskByID(requesterID, requesterRole, uint(taskID))
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// Format response detail penugasan
+	creatorName := ""
+	if task.Creator != nil {
+		creatorName = task.Creator.Nama
+	}
+
+	var deadline string
+	if task.Deadline != nil {
+		deadline = task.Deadline.Format("2006-01-02 15:04:05")
+	}
+
+	responseData := fiber.Map{
+		"judul_tugas":        task.JudulTugas,
+		"deskripsi":          task.Deskripsi,
+		"file_pendukung":     task.FileBukti,
+		"deadline":           deadline,
+		"nama_pemberi_tugas": creatorName,
+	}
+
+	// Optional: add assignees to detail for completeness (though not explicitly requested, helpful for tracing)
+	var assigneeList []fiber.Map
+	for _, a := range task.Assignees {
+		assigneeList = append(assigneeList, fiber.Map{
+			"id":   a.ID,
+			"nama": a.Nama,
+			"nip":  a.NIP,
+		})
+	}
+	responseData["assignees"] = assigneeList
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Detail tugas berhasil diambil",
+		"data":    responseData,
+	})
+}
+
 // Update menangani perubahaan tugas organisasi (Lurah only).
 func (h *TaskHandler) Update(c fiber.Ctx) error {
 	// 1. Ambil task ID dari URL parameter
@@ -270,13 +342,20 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 func (h *TaskHandler) mapTasksToResponse(tasks []domain.TugasOrganisasi) []fiber.Map {
 	var responseData []fiber.Map
 	for _, t := range tasks {
+		var deadline string
+		if t.Deadline != nil {
+			deadline = t.Deadline.Format("2006-01-02 15:04:05")
+		}
+
 		item := fiber.Map{
-			"id":          t.ID,
-			"judul_tugas": t.JudulTugas,
-			"deskripsi":   t.Deskripsi,
-			"file_bukti":  t.FileBukti,
-			"created_by":  t.CreatedBy,
-			"date":        t.CreatedAt.Format("2006-01-02"),
+			"id":             t.ID,
+			"judul_tugas":    t.JudulTugas,
+			"deskripsi":      t.Deskripsi,
+			"file_pendukung": t.FileBukti, // Adjust name as requested for detail API, or keep both
+			"file_bukti":     t.FileBukti, // keep for backward compatibility
+			"deadline":       deadline,
+			"created_by":     t.CreatedBy,
+			"date":           t.CreatedAt.Format("2006-01-02"),
 		}
 
 		// Info creator

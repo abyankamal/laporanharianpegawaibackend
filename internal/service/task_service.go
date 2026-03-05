@@ -18,7 +18,8 @@ type CreateOrganizationalTaskRequest struct {
 	TargetUserIDs []int  `json:"target_user_ids" validate:"required"`
 	JudulTugas    string `json:"judul_tugas" validate:"required"`
 	Deskripsi     string `json:"deskripsi"`
-	FileBukti     string `json:"file_bukti"` // Opsional, URL dokumen pendukung
+	FileBukti     string `json:"file_bukti"`                   // Opsional, URL dokumen pendukung
+	Deadline      string `json:"deadline" validate:"required"` // Format YYYY-MM-DD HH:mm:ss
 }
 
 // UpdateOrganizationalTaskRequest adalah struct input untuk mengubah tugas organisasi.
@@ -26,7 +27,8 @@ type UpdateOrganizationalTaskRequest struct {
 	TargetUserIDs []int  `json:"target_user_ids" validate:"required"`
 	JudulTugas    string `json:"judul_tugas" validate:"required"`
 	Deskripsi     string `json:"deskripsi"`
-	FileBukti     string `json:"file_bukti"` // Opsional
+	FileBukti     string `json:"file_bukti"`                   // Opsional
+	Deadline      string `json:"deadline" validate:"required"` // Format YYYY-MM-DD HH:mm:ss
 }
 
 // TaskService adalah interface untuk operasi bisnis Tugas Organisasi.
@@ -34,6 +36,7 @@ type TaskService interface {
 	CreateTask(requesterID uint, requesterRole string, req CreateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error)
 	GetMyTasks(userID int) ([]domain.TugasOrganisasi, error)
 	GetAllTasks() ([]domain.TugasOrganisasi, error)
+	GetTaskByID(requesterID uint, requesterRole string, taskID uint) (*domain.TugasOrganisasi, error)
 	UpdateTask(requesterID uint, requesterRole string, taskID uint, req UpdateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error)
 	DeleteTask(requesterID uint, requesterRole string, taskID uint) error
 }
@@ -71,6 +74,17 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 		return nil, errors.New("target_user_ids wajib diisi")
 	}
 
+	// 3.5 Parse Deadline (Gunakan Asia/Jakarta agar sesuai WIB)
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, loc)
+	if err != nil {
+		// Coba format RFC3339 (ISO8601) jika format di atas gagal
+		parsedDeadline, err = time.Parse(time.RFC3339, req.Deadline)
+		if err != nil {
+			return nil, errors.New("format deadline tidak valid. Gunakan YYYY-MM-DD HH:mm:ss")
+		}
+	}
+
 	// 4. Validasi semua target user ada di database
 	var assignees []domain.User
 	for _, uid := range req.TargetUserIDs {
@@ -91,6 +105,7 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 		FileBukti:  fileBukti,
 		JudulTugas: req.JudulTugas,
 		Deskripsi:  req.Deskripsi,
+		Deadline:   &parsedDeadline,
 		CreatedBy:  &requesterID,
 		CreatedAt:  time.Now(),
 	}
@@ -141,6 +156,34 @@ func (s *taskService) GetAllTasks() ([]domain.TugasOrganisasi, error) {
 	return s.taskRepo.FindAll()
 }
 
+// GetTaskByID mengambil detail tugas organisasi
+func (s *taskService) GetTaskByID(requesterID uint, requesterRole string, taskID uint) (*domain.TugasOrganisasi, error) {
+	task, err := s.taskRepo.FindByID(taskID)
+	if err != nil {
+		return nil, errors.New("tugas tidak ditemukan")
+	}
+
+	// Validasi Otorisasi: Lurah bisa lihat semua tugas
+	if requesterRole == "lurah" {
+		return task, nil
+	}
+
+	// Jika bukan Lurah, pastikan requester adalah assignee dari tugas ini
+	isAssignee := false
+	for _, assignee := range task.Assignees {
+		if assignee.ID == requesterID {
+			isAssignee = true
+			break
+		}
+	}
+
+	if !isAssignee {
+		return nil, errors.New("anda tidak memiliki akses untuk melihat detail tugas ini")
+	}
+
+	return task, nil
+}
+
 // UpdateTask mengubah tugas organisasi. Hanya Lurah yang dapat mengubahnya.
 func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID uint, req UpdateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error) {
 	// 1. Validasi otorisasi: Hanya Lurah yang boleh mengedit
@@ -159,9 +202,21 @@ func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID 
 		return nil, errors.New("judul_tugas wajib diisi")
 	}
 
+	// 3.5 Parse Deadline (Gunakan Asia/Jakarta)
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, loc)
+	if err != nil {
+		// Coba format RFC3339
+		parsedDeadline, err = time.Parse(time.RFC3339, req.Deadline)
+		if err != nil {
+			return nil, errors.New("format deadline tidak valid. Gunakan YYYY-MM-DD HH:mm:ss")
+		}
+	}
+
 	// 4. Update field utama
 	task.JudulTugas = req.JudulTugas
 	task.Deskripsi = req.Deskripsi
+	task.Deadline = &parsedDeadline
 
 	// Hapus file lama jika ada file baru atau file dihapus
 	if (req.FileBukti != "" && (task.FileBukti == nil || *task.FileBukti != req.FileBukti)) || (req.FileBukti == "" && task.FileBukti != nil) {

@@ -223,6 +223,9 @@ func main() {
 	// My Tasks - Semua role bisa melihat tugas organisasi miliknya (untuk dropdown)
 	protected.Get("/my-tasks", taskHandler.GetMyTasks)
 
+	// Detail Tugas - Bisa dilihat oleh Lurah maupun assignee
+	protected.Get("/tasks/:id", taskHandler.GetByID)
+
 	// ===================================================
 	// F. NOTIFIKASI - Semua role yang sudah login
 	// ===================================================

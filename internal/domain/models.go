@@ -48,12 +48,13 @@ func (RefSkorPenilaian) TableName() string {
 
 // TugasOrganisasi adalah tabel untuk menyimpan tugas organisasi yang ditetapkan oleh Lurah.
 type TugasOrganisasi struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	JudulTugas string    `gorm:"column:judul_tugas;type:varchar(255)" json:"judul_tugas"`
-	Deskripsi  string    `gorm:"column:deskripsi;type:text" json:"deskripsi"`
-	FileBukti  *string   `gorm:"column:file_bukti;type:varchar(255)" json:"file_bukti"` // URL dokumen pendukung
-	CreatedBy  *uint     `gorm:"column:created_by" json:"created_by"`
-	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
+	ID         uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	JudulTugas string     `gorm:"column:judul_tugas;type:varchar(255)" json:"judul_tugas"`
+	Deskripsi  string     `gorm:"column:deskripsi;type:text" json:"deskripsi"`
+	FileBukti  *string    `gorm:"column:file_bukti;type:varchar(255)" json:"file_bukti"` // URL dokumen pendukung
+	Deadline   *time.Time `gorm:"column:deadline;type:timestamp" json:"deadline"`
+	CreatedBy  *uint      `gorm:"column:created_by" json:"created_by"`
+	CreatedAt  time.Time  `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
 	Creator   *User  `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
