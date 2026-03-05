@@ -207,8 +207,9 @@ func main() {
 	reportRoutes.Get("/recap", reportHandler.GetReportRecapHandler)
 	reportRoutes.Get("/recap/export/excel", reportHandler.ExportReportRecapExcelHandler)
 	reportRoutes.Get("/recap/export/attachments", reportHandler.ExportReportAttachmentsHandler)
-	reportRoutes.Put("/evaluate", reportHandler.EvaluateReportHandler) // Evaluasi laporan (Lurah/Sekertaris)
-	reportRoutes.Get("/:id", reportHandler.GetOne)                     // Mengambil detail laporan
+	reportRoutes.Get("/recap/export/pdf", reportHandler.ExportReportPDFHandler) // Ekspor PDF laporan harian
+	reportRoutes.Put("/evaluate", reportHandler.EvaluateReportHandler)          // Evaluasi laporan (Lurah/Sekertaris)
+	reportRoutes.Get("/:id", reportHandler.GetOne)                              // Mengambil detail laporan
 
 	// ===================================================
 	// D. PENILAIAN - Create hanya Lurah & Sekertaris

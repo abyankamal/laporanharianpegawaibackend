@@ -4,6 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"math"
 	"os"
@@ -12,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-pdf/fpdf"
 	"github.com/gofiber/fiber/v3"
 	"github.com/xuri/excelize/v2"
 
@@ -682,4 +686,375 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=lampiran_laporan_%s_to_%s.zip", startDateStr, endDateStr))
 	return c.Type("zip").Send(buf.Bytes())
+}
+
+// ExportReportPDFHandler mengekspor laporan harian menjadi file PDF berformat F4.
+// - Staf/Kasi   : hanya laporan diri sendiri
+// - Lurah/Sekertaris : gabungan semua pegawai yang relevan, tapi bisa difilter per user_id
+func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
+	}
+	requesterID := uint(requesterIDFloat)
+
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Role tidak ditemukan"})
+	}
+	roleBase := strings.ToLower(requesterRole)
+
+	// 1. Tentukan target users berdasarkan RBAC
+	targetUserIDStr := c.Query("user_id") // Lurah/Sekertaris bisa filter per user
+	targetUserID, _ := strconv.Atoi(targetUserIDStr)
+
+	var targetUsers []domain.User
+
+	switch roleBase {
+	case "staf", "kasi":
+		// Hanya diri sendiri, tidak bisa memilih user lain
+		user, err := h.userService.GetUserByID(requesterID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+		}
+		targetUsers = []domain.User{*user}
+
+	case "sekertaris", "sekretaris":
+		if targetUserID > 0 {
+			// Filter ke 1 user tertentu (diri sendiri atau staf)
+			user, err := h.userService.GetUserByID(uint(targetUserID))
+			if err != nil {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "User tidak ditemukan"})
+			}
+			targetUsers = []domain.User{*user}
+		} else {
+			// Gabungan semua staf dan sekertaris
+			users, err := h.userService.GetUsersByRoles([]string{"staf", "Staf", "kasi", "Kasi", "sekertaris", "Sekertaris"})
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+			}
+			targetUsers = users
+		}
+
+	default: // Lurah
+		if targetUserID > 0 {
+			// Filter ke 1 user tertentu
+			user, err := h.userService.GetUserByID(uint(targetUserID))
+			if err != nil {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "User tidak ditemukan"})
+			}
+			targetUsers = []domain.User{*user}
+		} else {
+			// Semua user
+			users, err := h.userService.GetAllUsers()
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+			}
+			targetUsers = users
+		}
+	}
+
+	// 2. Parse tanggal
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+
+	var startDate, endDate time.Time
+	var err error
+	if startDateStr != "" && endDateStr != "" {
+		startDate, err = time.ParseInLocation("2006-01-02", startDateStr, time.Local)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format start_date tidak valid"})
+		}
+		endDate, err = time.ParseInLocation("2006-01-02", endDateStr, time.Local)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
+		}
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
+	} else {
+		now := time.Now()
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+		endDate = startDate.AddDate(0, 1, -1)
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
+	}
+
+	// 3. Setup PDF (F4 = 215.9mm x 330.2mm)
+	pdf := fpdf.New("P", "mm", "A4", "") // akan di-override ke F4
+	pdf.AddPageFormat("P", fpdf.SizeType{Wd: 215.9, Ht: 330.2})
+
+	// Hapus halaman A4 default yang ditambahkan New()
+	// Kita manggil AddPage di loop user, jadi kita tidak perlu halaman default
+
+	// Lebar halaman efektif setelah margin (L:15, R:15)
+	marginL, marginR := 15.0, 15.0
+	pdf.SetMargins(marginL, 20, marginR)
+	pageW := 215.9 - marginL - marginR // 185.9mm
+
+	// Lebar kolom: No | Tanggal | Jenis | Judul | Deskripsi | Foto
+	colW := []float64{8, 22, 28, 35, 47, 45.9}
+	colHeaders := []string{"No", "Tanggal", "Jenis\nLaporan", "Judul\nLaporan", "Deskripsi", "Foto"}
+
+	// Warna header tabel
+	headerBgR, headerBgG, headerBgB := 31, 73, 125 // Biru tua
+	headerFgR, headerFgG, headerFgB := 255, 255, 255
+
+	// Fungsi draw header tabel
+	drawTableHeader := func() {
+		pdf.SetFont("Helvetica", "B", 8)
+		pdf.SetFillColor(headerBgR, headerBgG, headerBgB)
+		pdf.SetTextColor(headerFgR, headerFgG, headerFgB)
+		pdf.SetDrawColor(200, 200, 200)
+		for i, w := range colW {
+			pdf.CellFormat(w, 10, colHeaders[i], "1", 0, "C", true, 0, "")
+		}
+		pdf.Ln(-1)
+		pdf.SetTextColor(0, 0, 0)
+		pdf.SetFillColor(255, 255, 255)
+	}
+
+	// Fungsi helper untuk menghitung tinggi teks multi-baris (agar bisa menentukan tinggi baris)
+	calcTextRows := func(text string, colWidth float64, fontSize float64) int {
+		if text == "" {
+			return 1
+		}
+		// estimasi jumlah karakter per baris (kasar: lebar/fontSize * 1.8)
+		charsPerLine := int((colWidth / fontSize) * 1.9)
+		if charsPerLine < 1 {
+			charsPerLine = 1
+		}
+		lineCount := 0
+		words := strings.Fields(text)
+		currentLen := 0
+		for _, w := range words {
+			if currentLen+len(w)+1 > charsPerLine {
+				lineCount++
+				currentLen = len(w)
+			} else {
+				currentLen += len(w) + 1
+			}
+		}
+		lineCount++ // Baris terakhir
+		return lineCount
+	}
+
+	rowFillAlt := false // Warna baris bergantian
+
+	// Fungsi helper menambah satu baris laporan ke PDF
+	addReportRow := func(no int, laporan domain.Laporan) {
+		lineH := 4.5 // tinggi per baris teks
+
+		// Hitung tinggi minimum dari kolom teks
+		jenis := "Tambahan"
+		if laporan.TipeLaporan {
+			jenis = "Pokok"
+			if laporan.TugasOrganisasi != nil {
+				jenis = "Pokok\n" + laporan.TugasOrganisasi.JudulTugas
+			}
+		}
+
+		judul := laporan.JudulKegiatan
+		desc := laporan.DeskripsiHasil
+		tanggal := laporan.WaktuPelaporan.Format("02/01/2006\n15:04")
+
+		// Hitung jumlah baris per kolom
+		rowsJenis := calcTextRows(jenis, colW[2], 7)
+		rowsJudul := calcTextRows(judul, colW[3], 7)
+		rowsDesc := calcTextRows(desc, colW[4], 7)
+		rowsTanggal := 2
+
+		// Tinggi minimum dari konten teks
+		maxTextRows := rowsJenis
+		if rowsJudul > maxTextRows {
+			maxTextRows = rowsJudul
+		}
+		if rowsDesc > maxTextRows {
+			maxTextRows = rowsDesc
+		}
+		if rowsTanggal > maxTextRows {
+			maxTextRows = rowsTanggal
+		}
+		rowH := float64(maxTextRows)*lineH + 4
+
+		// Cek apakah ada foto dan hitung dimensinya
+		photoH := 0.0
+		photoW := 0.0
+		photoPath := ""
+		photoType := ""
+
+		if laporan.FotoURL != nil && *laporan.FotoURL != "" {
+			localPath := filepath.Join(".", *laporan.FotoURL)
+			if _, statErr := os.Stat(localPath); statErr == nil {
+				// Cek dimensi gambar
+				f, openErr := os.Open(localPath)
+				if openErr == nil {
+					imgCfg, _, decErr := image.DecodeConfig(f)
+					f.Close()
+					if decErr == nil {
+						// Max lebar foto di tabel = colW[5] - 2mm padding
+						maxW := colW[5] - 2
+						maxH := 50.0 // Max tinggi foto dalam sel
+
+						imgRatio := float64(imgCfg.Height) / float64(imgCfg.Width)
+						scaledW := maxW
+						scaledH := scaledW * imgRatio
+
+						// Perperkecil jika tinggi melebihi maxH
+						if scaledH > maxH {
+							scaledH = maxH
+							scaledW = scaledH / imgRatio
+						}
+
+						photoW = scaledW
+						photoH = scaledH
+						photoPath = localPath
+						ext := strings.ToLower(filepath.Ext(localPath))
+						if ext == ".jpg" || ext == ".jpeg" {
+							photoType = "JPG"
+						} else if ext == ".png" {
+							photoType = "PNG"
+						}
+					}
+				}
+			}
+		}
+
+		// Tinggi baris final: maks antara teks dan foto
+		if photoH+4 > rowH {
+			rowH = photoH + 4
+		}
+		if rowH < 12 {
+			rowH = 12
+		}
+
+		// Cek apakah cukup ruang di halaman
+		_, pageH := pdf.GetPageSize()
+		bottomMargin := 20.0
+		if pdf.GetY()+rowH > pageH-bottomMargin {
+			pdf.AddPage()
+			drawTableHeader()
+		}
+
+		// Posisi awal baris
+		startX := pdf.GetX()
+		startY := pdf.GetY()
+
+		// Warna baris bergantian
+		if rowFillAlt {
+			pdf.SetFillColor(240, 245, 255)
+		} else {
+			pdf.SetFillColor(255, 255, 255)
+		}
+		rowFillAlt = !rowFillAlt
+
+		pdf.SetFont("Helvetica", "", 7.5)
+		pdf.SetDrawColor(200, 200, 200)
+
+		// Sel: No
+		pdf.SetXY(startX, startY)
+		pdf.CellFormat(colW[0], rowH, strconv.Itoa(no), "1", 0, "C", true, 0, "")
+
+		// Sel: Tanggal
+		pdf.SetXY(startX+colW[0], startY)
+		pdf.MultiCell(colW[1], lineH, tanggal, "1", "C", true)
+		pdf.SetXY(startX+colW[0]+colW[1], startY)
+
+		// Sel: Jenis Laporan
+		pdf.SetXY(startX+colW[0]+colW[1], startY)
+		pdf.MultiCell(colW[2], lineH, jenis, "1", "C", true)
+
+		// Sel: Judul
+		pdf.SetXY(startX+colW[0]+colW[1]+colW[2], startY)
+		pdf.MultiCell(colW[3], lineH, judul, "1", "L", true)
+
+		// Sel: Deskripsi
+		pdf.SetXY(startX+colW[0]+colW[1]+colW[2]+colW[3], startY)
+		pdf.MultiCell(colW[4], lineH, desc, "1", "L", true)
+
+		// Sel: Foto (kotak kosong dulu, lalu gambar di-overlay)
+		fotoX := startX + colW[0] + colW[1] + colW[2] + colW[3] + colW[4]
+		pdf.SetXY(fotoX, startY)
+		pdf.CellFormat(colW[5], rowH, "", "1", 0, "C", true, 0, "")
+
+		// Overlay gambar di dalam sel foto
+		if photoPath != "" && photoType != "" {
+			// Hitung posisi agar gambar terpusat di dalam sel
+			imgX := fotoX + (colW[5]-photoW)/2
+			imgY := startY + (rowH-photoH)/2
+			opt := fpdf.ImageOptions{ImageType: photoType, ReadDpi: false}
+			pdf.ImageOptions(photoPath, imgX, imgY, photoW, photoH, false, opt, 0, "")
+		} else if laporan.FotoURL != nil && *laporan.FotoURL != "" {
+			// File tidak ditemukan, tulis keterangan teks
+			pdf.SetXY(fotoX, startY+(rowH/2)-2)
+			pdf.SetFont("Helvetica", "I", 6)
+			pdf.CellFormat(colW[5], 4, "File tdk ditemukan", "", 0, "C", false, 0, "")
+		} else {
+			// Tidak ada foto
+			pdf.SetXY(fotoX, startY+(rowH/2)-2)
+			pdf.SetFont("Helvetica", "I", 6)
+			pdf.CellFormat(colW[5], 4, "- Tanpa Foto -", "", 0, "C", false, 0, "")
+		}
+
+		// Reset posisi ke bawah baris
+		pdf.SetXY(startX, startY+rowH)
+	}
+
+	// 4. Generate PDF per user
+	for uIdx, user := range targetUsers {
+		filter := repository.ReportFilter{
+			UserID:    int(user.ID),
+			Limit:     100000,
+			Offset:    0,
+			StartDate: startDate.Format("2006-01-02"),
+			EndDate:   endDate.Format("2006-01-02"),
+		}
+
+		reports, _, err := h.reportService.GetAllReports(filter, "lurah", requesterID) // role lurah agar dapat semua
+		if err != nil || len(reports) == 0 {
+			continue
+		}
+
+		pdf.AddPage()
+
+		// --- Kop halaman ---
+		pdf.SetFont("Helvetica", "B", 12)
+		pdf.CellFormat(pageW, 8, "Laporan Harian Pegawai", "", 1, "C", false, 0, "")
+		pdf.SetFont("Helvetica", "", 9)
+
+		nameStr := user.Nama
+		if user.Jabatan != nil {
+			nameStr += " — " + user.Jabatan.NamaJabatan
+		}
+		pdf.CellFormat(pageW, 6, nameStr, "", 1, "C", false, 0, "")
+		pdf.CellFormat(pageW, 6,
+			fmt.Sprintf("Periode: %s s/d %s", startDate.Format("02 Jan 2006"), endDate.Format("02 Jan 2006")),
+			"", 1, "C", false, 0, "")
+		pdf.Ln(2)
+
+		drawTableHeader()
+
+		rowFillAlt = false
+		rowCounter := 1
+		for _, laporan := range reports {
+			addReportRow(rowCounter, laporan)
+			rowCounter++
+		}
+
+		// Halaman baru jika masih ada user lagi
+		_ = uIdx
+	}
+
+	// Cek jika tidak ada data
+	if pdf.PageCount() == 0 {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Tidak ada laporan dalam periode tersebut"})
+	}
+
+	// 5. Tulis ke buffer dan kirim
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal generate PDF: " + err.Error()})
+	}
+
+	filename := fmt.Sprintf("laporan_harian_%s_sd_%s.pdf", startDate.Format("20060102"), endDate.Format("20060102"))
+	c.Set("Content-Disposition", "attachment; filename="+filename)
+	c.Set("Content-Type", "application/pdf")
+	return c.Send(buf.Bytes())
 }
