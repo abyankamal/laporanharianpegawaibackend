@@ -8,19 +8,19 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// HariLiburHandler menangani API kelola jadwal hari libur.
-type HariLiburHandler struct {
-	service service.HariLiburService
+// HolidayHandler menangani API kelola jadwal hari libur.
+type HolidayHandler struct {
+	service service.HolidayService
 }
 
-// NewHariLiburHandler membuat instance baru HariLiburHandler.
-func NewHariLiburHandler(service service.HariLiburService) *HariLiburHandler {
-	return &HariLiburHandler{service: service}
+// NewHolidayHandler membuat instance baru HolidayHandler.
+func NewHolidayHandler(service service.HolidayService) *HolidayHandler {
+	return &HolidayHandler{service: service}
 }
 
-// GetHariLibur mengambil semua tanggal merah/hari libur.
-func (h *HariLiburHandler) GetHariLibur(c fiber.Ctx) error {
-	hariLibur, err := h.service.GetHariLibur()
+// GetHolidays mengambil semua tanggal merah/hari libur.
+func (h *HolidayHandler) GetHolidays(c fiber.Ctx) error {
+	holidays, err := h.service.GetHolidays()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",
@@ -31,19 +31,19 @@ func (h *HariLiburHandler) GetHariLibur(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Daftar hari libur berhasil diambil",
-		"data":    hariLibur,
+		"data":    holidays,
 	})
 }
 
-// CreateHariLiburRequest adalah struct untuk request create hari libur.
-type CreateHariLiburRequest struct {
+// CreateHolidayRequest adalah struct untuk request create hari libur.
+type CreateHolidayRequest struct {
 	Tanggal    string `json:"tanggal"`
 	Keterangan string `json:"keterangan"`
 }
 
-// CreateHariLibur menyimpan data hari libur baru.
-func (h *HariLiburHandler) CreateHariLibur(c fiber.Ctx) error {
-	var req CreateHariLiburRequest
+// CreateHoliday menyimpan data hari libur baru.
+func (h *HolidayHandler) CreateHoliday(c fiber.Ctx) error {
+	var req CreateHolidayRequest
 	if err := c.Bind().JSON(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
@@ -51,7 +51,7 @@ func (h *HariLiburHandler) CreateHariLibur(c fiber.Ctx) error {
 		})
 	}
 
-	hariLibur, err := h.service.CreateHariLibur(req.Tanggal, req.Keterangan)
+	holiday, err := h.service.CreateHoliday(req.Tanggal, req.Keterangan)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
@@ -62,12 +62,12 @@ func (h *HariLiburHandler) CreateHariLibur(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Hari libur berhasil ditambahkan",
-		"data":    hariLibur,
+		"data":    holiday,
 	})
 }
 
-// DeleteHariLibur menghapus hari libur tertentu.
-func (h *HariLiburHandler) DeleteHariLibur(c fiber.Ctx) error {
+// DeleteHoliday menghapus hari libur tertentu.
+func (h *HolidayHandler) DeleteHoliday(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
@@ -77,7 +77,7 @@ func (h *HariLiburHandler) DeleteHariLibur(c fiber.Ctx) error {
 		})
 	}
 
-	err = h.service.DeleteHariLibur(uint(id))
+	err = h.service.DeleteHoliday(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status":  "error",

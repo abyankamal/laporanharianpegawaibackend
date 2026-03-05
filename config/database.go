@@ -59,8 +59,8 @@ func ConnectDatabase() {
 		&domain.Penilaian{},
 		&domain.RefSkorPenilaian{},
 		&domain.Notification{},
-		&domain.HariLibur{},
-		&domain.Pengaturan{},
+		&domain.Holiday{},
+		&domain.WorkHour{},
 	)
 	if err != nil {
 		log.Fatalf("Gagal melakukan auto migration: %v", err)

@@ -318,58 +318,58 @@ func (m *DashboardRepositoryMock) GetRecentLaporan(userID uint, limit int) ([]do
 }
 
 // ============================================================
-// PengaturanRepositoryMock
+// WorkHourRepositoryMock
 // ============================================================
 
-type PengaturanRepositoryMock struct {
+type WorkHourRepositoryMock struct {
 	mock.Mock
 }
 
-func (m *PengaturanRepositoryMock) Get() (*domain.Pengaturan, error) {
+func (m *WorkHourRepositoryMock) Get() (*domain.WorkHour, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.Pengaturan), args.Error(1)
+	return args.Get(0).(*domain.WorkHour), args.Error(1)
 }
 
-func (m *PengaturanRepositoryMock) Update(pengaturan *domain.Pengaturan) error {
-	args := m.Called(pengaturan)
+func (m *WorkHourRepositoryMock) Update(workHour *domain.WorkHour) error {
+	args := m.Called(workHour)
 	return args.Error(0)
 }
 
-func (m *PengaturanRepositoryMock) SeedDefault() error {
+func (m *WorkHourRepositoryMock) SeedDefault() error {
 	args := m.Called()
 	return args.Error(0)
 }
 
 // ============================================================
-// HariLiburRepositoryMock
+// HolidayRepositoryMock
 // ============================================================
 
-type HariLiburRepositoryMock struct {
+type HolidayRepositoryMock struct {
 	mock.Mock
 }
 
-func (m *HariLiburRepositoryMock) GetAll() ([]domain.HariLibur, error) {
+func (m *HolidayRepositoryMock) GetAll() ([]domain.Holiday, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]domain.HariLibur), args.Error(1)
+	return args.Get(0).([]domain.Holiday), args.Error(1)
 }
 
-func (m *HariLiburRepositoryMock) Create(hariLibur *domain.HariLibur) error {
-	args := m.Called(hariLibur)
+func (m *HolidayRepositoryMock) Create(holiday *domain.Holiday) error {
+	args := m.Called(holiday)
 	return args.Error(0)
 }
 
-func (m *HariLiburRepositoryMock) Delete(id uint) error {
+func (m *HolidayRepositoryMock) Delete(id uint) error {
 	args := m.Called(id)
 	return args.Error(0)
 }
 
-func (m *HariLiburRepositoryMock) CheckIsHoliday(date time.Time) (bool, error) {
+func (m *HolidayRepositoryMock) CheckIsHoliday(date time.Time) (bool, error) {
 	args := m.Called(date)
 	return args.Bool(0), args.Error(1)
 }

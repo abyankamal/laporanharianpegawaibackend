@@ -20,17 +20,17 @@ func TestCreateReport_Success_DocumentMode(t *testing.T) {
 	t.Run("Sukses membuat laporan mode dokumen (tanpa lokasi, tanpa file)", func(t *testing.T) {
 		// Setup
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
 
 		// Mock: Bukan hari libur
-		mockHariLiburRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
+		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
 		// Mock: Pengaturan jam kerja default
-		mockPengaturanRepo.On("Get").Return(&domain.Pengaturan{JamPulang: "16:00"}, nil)
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
 		// Mock: Simpan laporan berhasil
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		// Execute: input tanpa lokasi (mode dokumen dari meja kantor)
 		input := ReportInput{
@@ -62,14 +62,14 @@ func TestCreateReport_Success_WithLocation(t *testing.T) {
 	t.Run("Sukses membuat laporan dengan data lokasi", func(t *testing.T) {
 		// Setup
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
 
-		mockHariLiburRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
-		mockPengaturanRepo.On("Get").Return(&domain.Pengaturan{JamPulang: "16:00"}, nil)
+		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		// Execute: input dengan lokasi lengkap
 		input := ReportInput{
@@ -100,13 +100,13 @@ func TestCreateReport_Fail_Holiday(t *testing.T) {
 	t.Run("Gagal membuat laporan pada hari libur", func(t *testing.T) {
 		// Setup
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
 
 		// Mock: Hari ini adalah hari libur
-		mockHariLiburRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(true, nil)
+		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(true, nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		input := ReportInput{
 			UserID:         1,
@@ -130,12 +130,12 @@ func TestCreateReport_Fail_MissingJudulForTambahan(t *testing.T) {
 	t.Run("Gagal membuat laporan tambahan tanpa judul kegiatan", func(t *testing.T) {
 		// Setup
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
 
-		mockHariLiburRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
+		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		// Execute: tipe laporan = tambahan (false) tapi judul kegiatan kosong
 		input := ReportInput{
@@ -160,13 +160,13 @@ func TestCreateReport_Fail_CheckHolidayError(t *testing.T) {
 	t.Run("Gagal ketika pengecekan hari libur error", func(t *testing.T) {
 		// Setup
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
 
 		// Mock: CheckIsHoliday mengembalikan error
-		mockHariLiburRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, errors.New("db error"))
+		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, errors.New("db error"))
 
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		input := ReportInput{
 			UserID:         1,
@@ -191,9 +191,9 @@ func TestCreateReport_Fail_CheckHolidayError(t *testing.T) {
 func TestEvaluateReport_Success_Lurah(t *testing.T) {
 	t.Run("Sukses: Lurah bebas menyetujui laporan siapa saja", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		laporan := &domain.Laporan{
 			ID:     1,
@@ -224,9 +224,9 @@ func TestEvaluateReport_Success_Lurah(t *testing.T) {
 func TestEvaluateReport_Success_SekertarisToStaf(t *testing.T) {
 	t.Run("Sukses: Sekertaris menilai laporan Staf", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		laporan := &domain.Laporan{
 			ID:     2,
@@ -256,9 +256,9 @@ func TestEvaluateReport_Success_SekertarisToStaf(t *testing.T) {
 func TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID(t *testing.T) {
 	t.Run("Gagal: Sekertaris menilai Kasi yang bukan bawahannya", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		laporan := &domain.Laporan{
 			ID:     3,
@@ -287,9 +287,9 @@ func TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID(t *testing.T) {
 func TestEvaluateReport_Fail_Kasi(t *testing.T) {
 	t.Run("Gagal: Kasi/Staf mencoba melakukan evaluasi", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		laporan := &domain.Laporan{
 			ID:     4,
@@ -316,9 +316,9 @@ func TestEvaluateReport_Fail_Kasi(t *testing.T) {
 func TestEvaluateReport_Fail_InvalidStatus(t *testing.T) {
 	t.Run("Gagal: Status evaluasi selain Disetujui/Ditolak", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		mockHariLiburRepo := new(mocks.HariLiburRepositoryMock)
-		mockPengaturanRepo := new(mocks.PengaturanRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHariLiburRepo, mockPengaturanRepo)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
 
 		req := EvaluateReportRequest{
 			ReportID: 1,

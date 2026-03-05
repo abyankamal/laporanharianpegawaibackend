@@ -151,24 +151,24 @@ func (Notification) TableName() string {
 	return "notifications"
 }
 
-// HariLibur adalah tabel untuk menyimpan data hari libur.
-type HariLibur struct {
+// Holiday adalah tabel untuk menyimpan data hari libur.
+type Holiday struct {
 	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Tanggal    time.Time `gorm:"column:tanggal;type:date;unique" json:"tanggal"`
 	Keterangan string    `gorm:"column:keterangan;type:varchar(255)" json:"keterangan"`
 }
 
-func (HariLibur) TableName() string {
-	return "hari_libur"
+func (Holiday) TableName() string {
+	return "holiday"
 }
 
-// Pengaturan adalah tabel untuk menyimpan pengaturan sistem seperti jam kerja (hanya 1 record/baris).
-type Pengaturan struct {
+// WorkHour adalah tabel untuk menyimpan pengaturan sistem seperti jam kerja (hanya 1 record/baris).
+type WorkHour struct {
 	ID        uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	JamMasuk  string `gorm:"column:jam_masuk;type:varchar(5)" json:"jam_masuk"`   // Format HH:mm
 	JamPulang string `gorm:"column:jam_pulang;type:varchar(5)" json:"jam_pulang"` // Format HH:mm
 }
 
-func (Pengaturan) TableName() string {
-	return "pengaturan"
+func (WorkHour) TableName() string {
+	return "work_hour"
 }

@@ -52,21 +52,21 @@ type ReportService interface {
 
 // reportService adalah implementasi dari ReportService.
 type reportService struct {
-	reportRepo     repository.ReportRepository
-	hariLiburRepo  repository.HariLiburRepository
-	pengaturanRepo repository.PengaturanRepository
+	reportRepo   repository.ReportRepository
+	holidayRepo  repository.HolidayRepository
+	workHourRepo repository.WorkHourRepository
 }
 
 // NewReportService membuat instance baru ReportService.
 func NewReportService(
 	reportRepo repository.ReportRepository,
-	hariLiburRepo repository.HariLiburRepository,
-	pengaturanRepo repository.PengaturanRepository,
+	holidayRepo repository.HolidayRepository,
+	workHourRepo repository.WorkHourRepository,
 ) ReportService {
 	return &reportService{
-		reportRepo:     reportRepo,
-		hariLiburRepo:  hariLiburRepo,
-		pengaturanRepo: pengaturanRepo,
+		reportRepo:   reportRepo,
+		holidayRepo:  holidayRepo,
+		workHourRepo: workHourRepo,
 	}
 }
 
@@ -82,8 +82,8 @@ func toStringPtr(s string) *string {
 func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error) {
 	now := time.Now()
 
-	// 1. Validasi: Cek apakah hari ini adalah hari libur di tabel HariLibur
-	isHoliday, err := s.hariLiburRepo.CheckIsHoliday(now)
+	// 1. Validasi: Cek apakah hari ini adalah hari libur di tabel Holiday
+	isHoliday, err := s.holidayRepo.CheckIsHoliday(now)
 	if err != nil {
 		return nil, errors.New("gagal mengecek status hari libur")
 	}
@@ -98,8 +98,8 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 		return nil, errors.New("judul kegiatan wajib diisi untuk laporan tambahan")
 	}
 
-	// 3. Cek jam kerja dari tabel Pengaturan
-	pengaturan, err := s.pengaturanRepo.Get()
+	// 3. Cek jam kerja dari tabel WorkHour
+	workHour, err := s.workHourRepo.Get()
 	if err != nil {
 		return nil, errors.New("gagal mengambil data pengaturan jam kerja")
 	}
@@ -110,7 +110,7 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	formatParsing := "2006-01-02 15:04"
 
 	// Default jam pulang jika gagal parse adalah jam 16:00
-	parsedJamPulang, errParse := time.Parse(formatParsing, dummyDate+" "+pengaturan.JamPulang)
+	parsedJamPulang, errParse := time.Parse(formatParsing, dummyDate+" "+workHour.JamPulang)
 
 	isOvertime := false
 	if errParse == nil {

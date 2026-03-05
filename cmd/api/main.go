@@ -51,20 +51,20 @@ func main() {
 	notifService := service.NewNotificationService(notifRepo)
 	notifHandler := handler.NewNotificationHandler(notifService)
 
-	// --- Settings & Vacation Modules ---
-	pengaturanRepo := repository.NewPengaturanRepository(config.DB)
-	pengaturanService := service.NewPengaturanService(pengaturanRepo)
-	pengaturanHandler := handler.NewPengaturanHandler(pengaturanService)
+	// --- Work Hour & Holiday Modules ---
+	workHourRepo := repository.NewWorkHourRepository(config.DB)
+	workHourService := service.NewWorkHourService(workHourRepo)
+	workHourHandler := handler.NewWorkHourHandler(workHourService)
 
-	pengaturanRepo.SeedDefault()
+	workHourRepo.SeedDefault()
 
-	hariLiburRepo := repository.NewHariLiburRepository(config.DB)
-	hariLiburService := service.NewHariLiburService(hariLiburRepo)
-	hariLiburHandler := handler.NewHariLiburHandler(hariLiburService)
+	holidayRepo := repository.NewHolidayRepository(config.DB)
+	holidayService := service.NewHolidayService(holidayRepo)
+	holidayHandler := handler.NewHolidayHandler(holidayService)
 
 	// --- Report Module ---
 	reportRepo := repository.NewReportRepository(config.DB)
-	reportService := service.NewReportService(reportRepo, hariLiburRepo, pengaturanRepo)
+	reportService := service.NewReportService(reportRepo, holidayRepo, workHourRepo)
 	reportHandler := handler.NewReportHandler(reportService, userService)
 
 	// --- Review (Penilaian) Module ---
@@ -183,11 +183,11 @@ func main() {
 	// APP SETTINGS - Hanya Sekertaris dan Lurah
 	// ===================================================
 	adminRoutes := protected.Group("/admin", middleware.AllowRoles("lurah", "sekertaris", "Sekertaris"))
-	adminRoutes.Get("/pengaturan", pengaturanHandler.GetPengaturan)
-	adminRoutes.Put("/pengaturan", pengaturanHandler.UpdatePengaturan)
-	adminRoutes.Get("/hari-libur", hariLiburHandler.GetHariLibur)
-	adminRoutes.Post("/hari-libur", hariLiburHandler.CreateHariLibur)
-	adminRoutes.Delete("/hari-libur/:id", hariLiburHandler.DeleteHariLibur)
+	adminRoutes.Get("/pengaturan", workHourHandler.GetWorkHour)
+	adminRoutes.Put("/pengaturan", workHourHandler.UpdateWorkHour)
+	adminRoutes.Get("/hari-libur", holidayHandler.GetHolidays)
+	adminRoutes.Post("/hari-libur", holidayHandler.CreateHoliday)
+	adminRoutes.Delete("/hari-libur/:id", holidayHandler.DeleteHoliday)
 
 	// ===================================================
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
