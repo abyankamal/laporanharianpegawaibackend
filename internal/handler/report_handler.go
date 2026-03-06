@@ -779,7 +779,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 
 	// 3. Setup PDF (F4 = 215.9mm x 330.2mm)
 	pdf := fpdf.New("P", "mm", "A4", "") // akan di-override ke F4
-	pdf.AddPageFormat("P", fpdf.SizeType{Wd: 215.9, Ht: 330.2})
+	f4Size := fpdf.SizeType{Wd: 215.9, Ht: 330.2}
 
 	// Hapus halaman A4 default yang ditambahkan New()
 	// Kita manggil AddPage di loop user, jadi kita tidak perlu halaman default
@@ -929,7 +929,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		_, pageH := pdf.GetPageSize()
 		bottomMargin := 20.0
 		if pdf.GetY()+rowH > pageH-bottomMargin {
-			pdf.AddPage()
+			pdf.AddPageFormat("P", f4Size)
 			drawTableHeader()
 		}
 
@@ -1012,18 +1012,18 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 			continue
 		}
 
-		pdf.AddPage()
+		pdf.AddPageFormat("P", f4Size)
 
 		// --- Kop halaman ---
 		pdf.SetFont("Helvetica", "B", 12)
 		pdf.CellFormat(pageW, 8, "Laporan Harian Pegawai", "", 1, "C", false, 0, "")
-		pdf.SetFont("Helvetica", "", 9)
+		pdf.SetFont("Helvetica", "B", 10)
+		pdf.CellFormat(pageW, 6, user.Nama, "", 1, "C", false, 0, "")
 
-		nameStr := user.Nama
+		pdf.SetFont("Helvetica", "", 9)
 		if user.Jabatan != nil {
-			nameStr += " — " + user.Jabatan.NamaJabatan
+			pdf.CellFormat(pageW, 6, user.Jabatan.NamaJabatan, "", 1, "C", false, 0, "")
 		}
-		pdf.CellFormat(pageW, 6, nameStr, "", 1, "C", false, 0, "")
 		pdf.CellFormat(pageW, 6,
 			fmt.Sprintf("Periode: %s s/d %s", startDate.Format("02 Jan 2006"), endDate.Format("02 Jan 2006")),
 			"", 1, "C", false, 0, "")

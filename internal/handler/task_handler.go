@@ -190,9 +190,11 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 		creatorName = task.Creator.Nama
 	}
 
-	var deadline string
+	var deadline interface{}
 	if task.Deadline != nil {
 		deadline = task.Deadline.Format("2006-01-02 15:04:05")
+	} else {
+		deadline = nil
 	}
 
 	responseData := fiber.Map{
@@ -342,9 +344,11 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 func (h *TaskHandler) mapTasksToResponse(tasks []domain.TugasOrganisasi) []fiber.Map {
 	var responseData []fiber.Map
 	for _, t := range tasks {
-		var deadline string
+		var deadline interface{}
 		if t.Deadline != nil {
 			deadline = t.Deadline.Format("2006-01-02 15:04:05")
+		} else {
+			deadline = nil
 		}
 
 		item := fiber.Map{
