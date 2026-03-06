@@ -3,7 +3,9 @@ package service
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,24 +13,28 @@ import (
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/pkg/fcm"
+
+	"github.com/google/uuid"
 )
 
 // CreateOrganizationalTaskRequest adalah struct input untuk membuat tugas organisasi baru.
 type CreateOrganizationalTaskRequest struct {
-	TargetUserIDs []int  `json:"target_user_ids" validate:"required"`
-	JudulTugas    string `json:"judul_tugas" validate:"required"`
-	Deskripsi     string `json:"deskripsi"`
-	FileBukti     string `json:"file_bukti"`                   // Opsional, URL dokumen pendukung
-	Deadline      string `json:"deadline" validate:"required"` // Format YYYY-MM-DD HH:mm:ss
+	TargetUserIDs []int                 `json:"target_user_ids" validate:"required"`
+	JudulTugas    string                `json:"judul_tugas" validate:"required"`
+	Deskripsi     string                `json:"deskripsi"`
+	FileBukti     string                `json:"file_bukti"`                   // Path file jika dikirim via JSON (Base64/URL)
+	FileHeader    *multipart.FileHeader `json:"-"`                            // File fisik jika dikirim via Multipart
+	Deadline      string                `json:"deadline" validate:"required"` // Format YYYY-MM-DD HH:mm:ss
 }
 
 // UpdateOrganizationalTaskRequest adalah struct input untuk mengubah tugas organisasi.
 type UpdateOrganizationalTaskRequest struct {
-	TargetUserIDs []int  `json:"target_user_ids" validate:"required"`
-	JudulTugas    string `json:"judul_tugas" validate:"required"`
-	Deskripsi     string `json:"deskripsi"`
-	FileBukti     string `json:"file_bukti"`                   // Opsional
-	Deadline      string `json:"deadline" validate:"required"` // Format YYYY-MM-DD HH:mm:ss
+	TargetUserIDs []int                 `json:"target_user_ids" validate:"required"`
+	JudulTugas    string                `json:"judul_tugas" validate:"required"`
+	Deskripsi     string                `json:"deskripsi"`
+	FileBukti     string                `json:"file_bukti"`
+	FileHeader    *multipart.FileHeader `json:"-"`
+	Deadline      string                `json:"deadline" validate:"required"` // Format YYYY-MM-DD HH:mm:ss
 }
 
 // TaskService adalah interface untuk operasi bisnis Tugas Organisasi.
@@ -96,7 +102,14 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 
 	// 5. Buat struct TugasOrganisasi
 	var fileBukti *string
-	if req.FileBukti != "" {
+	if req.FileHeader != nil {
+		// Simpan file fisik
+		uploadedPath, err := s.saveTaskFile(req.FileHeader)
+		if err != nil {
+			return nil, fmt.Errorf("gagal menyimpan file bukti: %v", err)
+		}
+		fileBukti = &uploadedPath
+	} else if req.FileBukti != "" {
 		fileBukti = &req.FileBukti
 	}
 
@@ -216,16 +229,29 @@ func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID 
 	task.Deskripsi = req.Deskripsi
 	task.Deadline = &parsedDeadline
 
-	// Hapus file lama jika ada file baru atau file dihapus
-	if (req.FileBukti != "" && (task.FileBukti == nil || *task.FileBukti != req.FileBukti)) || (req.FileBukti == "" && task.FileBukti != nil) {
+	// Handle File update
+	if req.FileHeader != nil {
+		// Hapus file lama jika ada
 		if task.FileBukti != nil && *task.FileBukti != "" {
 			os.Remove(filepath.FromSlash(*task.FileBukti))
 		}
-	}
-
-	if req.FileBukti != "" {
-		task.FileBukti = &req.FileBukti
-	} else {
+		// Simpan file baru
+		uploadedPath, err := s.saveTaskFile(req.FileHeader)
+		if err != nil {
+			return nil, fmt.Errorf("gagal menyimpan file bukti baru: %v", err)
+		}
+		task.FileBukti = &uploadedPath
+	} else if req.FileBukti != "" {
+		// Update path jika dikirim string (Base64 atau manual link)
+		if task.FileBukti == nil || *task.FileBukti != req.FileBukti {
+			if task.FileBukti != nil && *task.FileBukti != "" {
+				os.Remove(filepath.FromSlash(*task.FileBukti))
+			}
+			task.FileBukti = &req.FileBukti
+		}
+	} else if req.FileBukti == "" && req.FileHeader == nil && task.FileBukti != nil {
+		// Jika dikirim kosong dan memang ada file lama, asumsikan ingin dihapus
+		os.Remove(filepath.FromSlash(*task.FileBukti))
 		task.FileBukti = nil
 	}
 
@@ -283,4 +309,43 @@ func (s *taskService) DeleteTask(requesterID uint, requesterRole string, taskID 
 	}
 
 	return nil
+}
+
+// saveTaskFile menyimpan file bukti tugas ke folder uploads/reports/documents.
+// Reuse folder yang sama dengan laporan agar mudah diakses.
+func (s *taskService) saveTaskFile(fileHeader *multipart.FileHeader) (string, error) {
+	uploadDir := filepath.Join("./uploads/reports", "documents")
+	err := os.MkdirAll(uploadDir, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+
+	ext := filepath.Ext(fileHeader.Filename)
+	// Max 200MB (sama dengan laporan)
+	if fileHeader.Size > 200*1024*1024 {
+		return "", errors.New("ukuran file bukti maksimal 200MB")
+	}
+
+	newFileName := "task-" + uuid.New().String() + ext
+	destPath := filepath.Join(uploadDir, newFileName)
+
+	src, err := fileHeader.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(destPath)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", err
+	}
+
+	// Kembalikan path dengan slash agar konsisten di semua platform/DB
+	return filepath.ToSlash(destPath), nil
 }

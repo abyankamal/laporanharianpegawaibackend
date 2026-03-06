@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -39,13 +40,38 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 		})
 	}
 
-	// 2. Parse JSON Body
+	// 2. Parse Body (Mendukung JSON dan Multipart/Form)
 	var req service.CreateOrganizationalTaskRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid: " + err.Error(),
-		})
+	contentType := string(c.Get("Content-Type"))
+
+	if strings.Contains(contentType, "application/json") {
+		if err := c.Bind().JSON(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Format request tidak valid: " + err.Error(),
+			})
+		}
+	} else {
+		// Multipart/Form data
+		req.JudulTugas = c.FormValue("judul_tugas")
+		req.Deskripsi = c.FormValue("deskripsi")
+		req.Deadline = c.FormValue("deadline")
+		req.FileBukti = c.FormValue("file_bukti")
+
+		// Handle TargetUserIDs (slice)
+		form, err := c.MultipartForm()
+		if err == nil {
+			ids := form.Value["target_user_ids"]
+			for _, idStr := range ids {
+				if id, err := strconv.Atoi(idStr); err == nil {
+					req.TargetUserIDs = append(req.TargetUserIDs, id)
+				}
+			}
+		}
+
+		// Handle File
+		file, _ := c.FormFile("file_bukti")
+		req.FileHeader = file
 	}
 
 	// 3. Validasi input wajib
@@ -252,13 +278,38 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 		})
 	}
 
-	// 3. Parse JSON Body
+	// 3. Parse Body (Mendukung JSON dan Multipart/Form)
 	var req service.UpdateOrganizationalTaskRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid: " + err.Error(),
-		})
+	contentType := string(c.Get("Content-Type"))
+
+	if strings.Contains(contentType, "application/json") {
+		if err := c.Bind().JSON(&req); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Format request tidak valid: " + err.Error(),
+			})
+		}
+	} else {
+		// Multipart/Form data
+		req.JudulTugas = c.FormValue("judul_tugas")
+		req.Deskripsi = c.FormValue("deskripsi")
+		req.Deadline = c.FormValue("deadline")
+		req.FileBukti = c.FormValue("file_bukti")
+
+		// Handle TargetUserIDs (slice)
+		form, err := c.MultipartForm()
+		if err == nil {
+			ids := form.Value["target_user_ids"]
+			for _, idStr := range ids {
+				if id, err := strconv.Atoi(idStr); err == nil {
+					req.TargetUserIDs = append(req.TargetUserIDs, id)
+				}
+			}
+		}
+
+		// Handle File
+		file, _ := c.FormFile("file_bukti")
+		req.FileHeader = file
 	}
 
 	// 4. Panggil service

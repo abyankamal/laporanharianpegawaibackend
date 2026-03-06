@@ -353,20 +353,30 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 
 // GetReportRecapHandler mengambil rekapitulasi agregasi laporan.
 func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
-	// 1. Ambil user_id dari JWT Token
-	userIDFloat, ok := c.Locals("user_id").(float64)
+	// 1. Ambil requester data dari JWT Token
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
 	}
-	userID := uint(userIDFloat)
+	requesterID := uint(requesterIDFloat)
+	requesterRole, _ := c.Locals("role").(string)
+	roleBase := strings.ToLower(requesterRole)
 
-	// 2. Parse query parameters
+	// 2. Tentukan target userID (dari query param atau default ke diri sendiri)
+	targetUserIDStr := c.Query("user_id")
+	targetUserID := requesterID // Default ke diri sendiri
+
+	if targetUserIDStr != "" {
+		parsedID, _ := strconv.Atoi(targetUserIDStr)
+		// Hanya Lurah/Sekertaris yang boleh ganti targetUserID
+		if roleBase == "lurah" || roleBase == "sekertaris" || roleBase == "sekretaris" {
+			targetUserID = uint(parsedID)
+		}
+	}
+
+	// 3. Parse query parameters (tanggal)
 	startDateStr := c.Query("start_date")
 	endDateStr := c.Query("end_date")
-
 	var startDate, endDate time.Time
 	var err error
 
@@ -379,26 +389,21 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
 		}
-		// Set end of day for endDate
 		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	} else {
-		// Default to current month if not provided
 		now := time.Now()
 		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 		endDate = startDate.AddDate(0, 1, -1)
 		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	}
 
-	// 3. Panggil service
-	rekap, err := h.reportService.GetReportRecap(userID, startDate, endDate)
+	// 4. Panggil service
+	rekap, err := h.reportService.GetReportRecap(targetUserID, startDate, endDate)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil rekap laporan: " + err.Error(),
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil rekap laporan: " + err.Error()})
 	}
 
-	// 4. Return response
+	// 5. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":  "success",
 		"message": "Rekap laporan berhasil diambil",

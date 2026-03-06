@@ -24,6 +24,7 @@ type ReportFilter struct {
 type ReportRecapResponse struct {
 	TotalLaporan       int `json:"total_laporan" gorm:"column:total_laporan"`
 	TotalSudahDireview int `json:"total_sudah_direview" gorm:"column:total_sudah_direview"`
+	TotalDisetujui     int `json:"total_disetujui" gorm:"-"` // Alias untuk compatibility frontend lama
 	TotalMenunggu      int `json:"total_menunggu" gorm:"column:total_menunggu"`
 	TotalJamKerja      int `json:"total_jam_kerja" gorm:"column:total_jam_kerja"`
 }
@@ -170,10 +171,10 @@ func (r *reportRepository) GetReportRecap(userID uint, startDate time.Time, endD
 
 	err := r.db.Model(&domain.Laporan{}).
 		Select("COUNT(id) as total_laporan, "+
-			"SUM(CASE WHEN status = 'sudah_direview' THEN 1 ELSE 0 END) as total_sudah_direview, "+
-			"SUM(CASE WHEN status = 'menunggu_review' THEN 1 ELSE 0 END) as total_menunggu, "+
+			"SUM(CASE WHEN status IN ('sudah_direview', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, "+
+			"SUM(CASE WHEN status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END) as total_menunggu, "+
 			"COALESCE(SUM(jam_kerja), 0) as total_jam_kerja").
-		Where("user_id = ? AND waktu_pelaporan BETWEEN ? AND ?", userID, startDate, endDate).
+		Where("(? = 0 OR user_id = ?) AND waktu_pelaporan BETWEEN ? AND ?", userID, userID, startDate, endDate).
 		Scan(&rekap).Error
 
 	if err != nil {

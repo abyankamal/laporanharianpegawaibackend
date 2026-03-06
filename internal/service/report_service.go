@@ -291,7 +291,13 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 
 // GetReportRecap menghitung agregasi status dan total jam kerja laporan untuk rentang waktu tertentu.
 func (s *reportService) GetReportRecap(userID uint, startDate, endDate time.Time) (*repository.ReportRecapResponse, error) {
-	return s.reportRepo.GetReportRecap(userID, startDate, endDate)
+	rekap, err := s.reportRepo.GetReportRecap(userID, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	// Sync alias untuk compatibility frontend lama
+	rekap.TotalDisetujui = rekap.TotalSudahDireview
+	return rekap, nil
 }
 
 // EvaluateReport mengevaluasi laporan (Memberikan Masukan) berdasarkan RBAC.
