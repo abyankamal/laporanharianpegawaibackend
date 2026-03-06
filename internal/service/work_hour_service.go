@@ -11,7 +11,7 @@ import (
 // WorkHourService adalah interface untuk operasi bisnis WorkHour.
 type WorkHourService interface {
 	GetWorkHour() (*domain.WorkHour, error)
-	UpdateWorkHour(jamMasuk, jamPulang string) (*domain.WorkHour, error)
+	UpdateWorkHour(jamMasuk, jamPulang, jamMasukJumat, jamPulangJumat string) (*domain.WorkHour, error)
 }
 
 type workHourService struct {
@@ -29,7 +29,7 @@ func (s *workHourService) GetWorkHour() (*domain.WorkHour, error) {
 }
 
 // UpdateWorkHour memperbarui konfigurasi jam kerja.
-func (s *workHourService) UpdateWorkHour(jamMasuk, jamPulang string) (*domain.WorkHour, error) {
+func (s *workHourService) UpdateWorkHour(jamMasuk, jamPulang, jamMasukJumat, jamPulangJumat string) (*domain.WorkHour, error) {
 	// Validasi format jam (HH:mm)
 	timeFormat := regexp.MustCompile(`^([0-1][0-9]|2[0-3]):[0-5][0-9]$`)
 	if !timeFormat.MatchString(jamMasuk) {
@@ -38,11 +38,19 @@ func (s *workHourService) UpdateWorkHour(jamMasuk, jamPulang string) (*domain.Wo
 	if !timeFormat.MatchString(jamPulang) {
 		return nil, errors.New("format jam pulang tidak valid (gunakan HH:mm, contoh: 18:00)")
 	}
+	if !timeFormat.MatchString(jamMasukJumat) {
+		return nil, errors.New("format jam masuk jumat tidak valid (gunakan HH:mm, contoh: 07:00)")
+	}
+	if !timeFormat.MatchString(jamPulangJumat) {
+		return nil, errors.New("format jam pulang jumat tidak valid (gunakan HH:mm, contoh: 16:00)")
+	}
 
 	workHour := &domain.WorkHour{
-		ID:        1,
-		JamMasuk:  jamMasuk,
-		JamPulang: jamPulang,
+		ID:             1,
+		JamMasuk:       jamMasuk,
+		JamPulang:      jamPulang,
+		JamMasukJumat:  jamMasukJumat,
+		JamPulangJumat: jamPulangJumat,
 	}
 
 	err := s.repo.Update(workHour)

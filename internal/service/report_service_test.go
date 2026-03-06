@@ -26,7 +26,7 @@ func TestCreateReport_Success_DocumentMode(t *testing.T) {
 		// Mock: Bukan hari libur
 		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
 		// Mock: Pengaturan jam kerja default
-		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00", JamPulangJumat: "15:00"}, nil)
 		// Mock: Simpan laporan berhasil
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
@@ -181,6 +181,38 @@ func TestCreateReport_Fail_CheckHolidayError(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, laporan)
 		assert.Equal(t, "gagal mengecek status hari libur", err.Error())
+	})
+}
+
+func TestCreateReport_FridayOvertime(t *testing.T) {
+	t.Run("Verifikasi lembur hari Jumat menggunakan jam_pulang_jumat", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+
+		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
+		// Mock: Jumat pulang jam 15:00, Senin-Kamis jam 16:00
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00", JamPulangJumat: "15:00"}, nil)
+		mockReportRepo.On("Create", mock.Anything).Return(nil)
+
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
+
+		// Create a Friday date: 2024-03-08 (Friday)
+		friday := time.Date(2024, 3, 8, 15, 30, 0, 0, time.Local)
+
+		input := ReportInput{
+			UserID:         1,
+			TipeLaporan:    true,
+			JudulKegiatan:  "Tugas Jumat",
+			DeskripsiHasil: "Selesai jam 15:30",
+			WaktuPelaporan: friday,
+		}
+
+		laporan, err := reportSvc.CreateReport(input)
+
+		assert.NoError(t, err)
+		assert.True(t, laporan.IsOvertime, "Harusnya lembur karena 15:30 > 15:00 (Jumat)")
+		mockReportRepo.AssertExpectations(t)
 	})
 }
 

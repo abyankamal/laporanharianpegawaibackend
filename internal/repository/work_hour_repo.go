@@ -47,9 +47,11 @@ func (r *workHourRepository) SeedDefault() error {
 
 	if count == 0 {
 		defaultWorkHour := domain.WorkHour{
-			ID:        1,
-			JamMasuk:  "07:00",
-			JamPulang: "18:00",
+			ID:             1,
+			JamMasuk:       "07:00",
+			JamPulang:      "18:00",
+			JamMasukJumat:  "07:00",
+			JamPulangJumat: "16:00",
 		}
 		return r.db.Create(&defaultWorkHour).Error
 	}

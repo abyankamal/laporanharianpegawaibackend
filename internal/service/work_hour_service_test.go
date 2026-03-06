@@ -13,7 +13,7 @@ import (
 
 func TestGetWorkHour_Success(t *testing.T) {
 	mockRepo := new(mocks.WorkHourRepositoryMock)
-	mockRepo.On("Get").Return(&domain.WorkHour{ID: 1, JamMasuk: "07:00", JamPulang: "18:00"}, nil)
+	mockRepo.On("Get").Return(&domain.WorkHour{ID: 1, JamMasuk: "07:00", JamPulang: "18:00", JamMasukJumat: "07:00", JamPulangJumat: "16:00"}, nil)
 
 	svc := NewWorkHourService(mockRepo)
 
@@ -23,6 +23,8 @@ func TestGetWorkHour_Success(t *testing.T) {
 	assert.NotNil(t, workHour)
 	assert.Equal(t, "07:00", workHour.JamMasuk)
 	assert.Equal(t, "18:00", workHour.JamPulang)
+	assert.Equal(t, "07:00", workHour.JamMasukJumat)
+	assert.Equal(t, "16:00", workHour.JamPulangJumat)
 	mockRepo.AssertExpectations(t)
 }
 
@@ -45,12 +47,14 @@ func TestUpdateWorkHour_Success(t *testing.T) {
 
 	svc := NewWorkHourService(mockRepo)
 
-	workHour, err := svc.UpdateWorkHour("08:00", "16:00")
+	workHour, err := svc.UpdateWorkHour("08:00", "16:00", "07:30", "15:30")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, workHour)
 	assert.Equal(t, "08:00", workHour.JamMasuk)
 	assert.Equal(t, "16:00", workHour.JamPulang)
+	assert.Equal(t, "07:30", workHour.JamMasukJumat)
+	assert.Equal(t, "15:30", workHour.JamPulangJumat)
 	assert.Equal(t, uint(1), workHour.ID)
 	mockRepo.AssertExpectations(t)
 }
@@ -60,7 +64,7 @@ func TestUpdateWorkHour_InvalidJamMasuk(t *testing.T) {
 
 	svc := NewWorkHourService(mockRepo)
 
-	workHour, err := svc.UpdateWorkHour("8:00", "16:00") // invalid format
+	workHour, err := svc.UpdateWorkHour("8:00", "16:00", "07:00", "16:00") // invalid format
 
 	assert.Error(t, err)
 	assert.Nil(t, workHour)
@@ -73,7 +77,7 @@ func TestUpdateWorkHour_InvalidJamPulang(t *testing.T) {
 
 	svc := NewWorkHourService(mockRepo)
 
-	workHour, err := svc.UpdateWorkHour("08:00", "46:00") // invalid time
+	workHour, err := svc.UpdateWorkHour("08:00", "46:00", "07:00", "16:00") // invalid time
 
 	assert.Error(t, err)
 	assert.Nil(t, workHour)
@@ -87,7 +91,7 @@ func TestUpdateWorkHour_DBError(t *testing.T) {
 
 	svc := NewWorkHourService(mockRepo)
 
-	workHour, err := svc.UpdateWorkHour("08:00", "16:00")
+	workHour, err := svc.UpdateWorkHour("08:00", "16:00", "07:00", "16:00")
 
 	assert.Error(t, err)
 	assert.Nil(t, workHour)

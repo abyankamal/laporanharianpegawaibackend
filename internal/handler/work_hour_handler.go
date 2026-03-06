@@ -35,8 +35,10 @@ func (h *WorkHourHandler) GetWorkHour(c fiber.Ctx) error {
 
 // UpdateWorkHourRequest adalah struct untuk request update pengaturan.
 type UpdateWorkHourRequest struct {
-	JamMasuk  string `json:"jam_masuk"`
-	JamPulang string `json:"jam_pulang"`
+	JamMasuk       string `json:"jam_masuk"`
+	JamPulang      string `json:"jam_pulang"`
+	JamMasukJumat  string `json:"jam_masuk_jumat"`
+	JamPulangJumat string `json:"jam_pulang_jumat"`
 }
 
 // UpdateWorkHour memperbarui konfigurasi jam masuk dan pulang.
@@ -49,7 +51,7 @@ func (h *WorkHourHandler) UpdateWorkHour(c fiber.Ctx) error {
 		})
 	}
 
-	workHour, err := h.service.UpdateWorkHour(req.JamMasuk, req.JamPulang)
+	workHour, err := h.service.UpdateWorkHour(req.JamMasuk, req.JamPulang, req.JamMasukJumat, req.JamPulangJumat)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",

@@ -108,8 +108,13 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	dummyDate := "2006-01-02"
 	formatParsing := "2006-01-02 15:04"
 
-	// Default jam pulang jika gagal parse adalah jam 16:00
-	parsedJamPulang, errParse := time.Parse(formatParsing, dummyDate+" "+workHour.JamPulang)
+	// Default jam pulang jika gagal parse
+	jamPulangStr := workHour.JamPulang
+	if input.WaktuPelaporan.Weekday() == time.Friday {
+		jamPulangStr = workHour.JamPulangJumat
+	}
+
+	parsedJamPulang, errParse := time.Parse(formatParsing, dummyDate+" "+jamPulangStr)
 
 	isOvertime := false
 	if errParse == nil {

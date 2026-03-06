@@ -165,9 +165,11 @@ func (Holiday) TableName() string {
 
 // WorkHour adalah tabel untuk menyimpan pengaturan sistem seperti jam kerja (hanya 1 record/baris).
 type WorkHour struct {
-	ID        uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	JamMasuk  string `gorm:"column:jam_masuk;type:varchar(5)" json:"jam_masuk"`   // Format HH:mm
-	JamPulang string `gorm:"column:jam_pulang;type:varchar(5)" json:"jam_pulang"` // Format HH:mm
+	ID             uint   `gorm:"primaryKey;autoIncrement" json:"id"`
+	JamMasuk       string `gorm:"column:jam_masuk;type:varchar(5)" json:"jam_masuk"`   // Senin-Kamis
+	JamPulang      string `gorm:"column:jam_pulang;type:varchar(5)" json:"jam_pulang"` // Senin-Kamis
+	JamMasukJumat  string `gorm:"column:jam_masuk_jumat;type:varchar(5)" json:"jam_masuk_jumat"`
+	JamPulangJumat string `gorm:"column:jam_pulang_jumat;type:varchar(5)" json:"jam_pulang_jumat"`
 }
 
 func (WorkHour) TableName() string {
