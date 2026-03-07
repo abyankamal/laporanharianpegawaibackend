@@ -7,6 +7,7 @@ import (
 
 type AdminService interface {
 	GetRekapLaporanAdmin(filter repository.AdminReportFilter) ([]domain.Laporan, error)
+	GetDashboardSummaryAdmin() (*repository.DashboardSummaryResponse, error)
 }
 
 type adminService struct {
@@ -25,4 +26,8 @@ func (s *adminService) GetRekapLaporanAdmin(filter repository.AdminReportFilter)
 	}
 
 	return laporanList, nil
+}
+
+func (s *adminService) GetDashboardSummaryAdmin() (*repository.DashboardSummaryResponse, error) {
+	return s.adminRepo.GetDashboardSummaryAdmin()
 }

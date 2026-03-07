@@ -43,3 +43,22 @@ func (h *AdminHandler) GetRekapLaporan(c fiber.Ctx) error {
 		"data":    laporanList,
 	})
 }
+
+// GetDashboardSummary menghandle request GET /api/admin/dashboard/summary
+func (h *AdminHandler) GetDashboardSummary(c fiber.Ctx) error {
+	summary, err := h.adminService.GetDashboardSummaryAdmin()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengambil statistik dashboard",
+			"error":   err.Error(),
+		})
+	}
+
+	// Memastikan kembalian JSON persis seperti yang direquest
+	// { "success": true, "data": { "statistik": ..., "laporan_terbaru": ..., "notifikasi": ..., "agenda": ... } }
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    summary, // summary secara otomatis berbentuk object JSON karena struct response layer repository
+	})
+}

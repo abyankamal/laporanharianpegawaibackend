@@ -200,6 +200,10 @@ func main() {
 	// APP SETTINGS & REKAP - Hanya Sekertaris dan Lurah (Menggunakan AdminOnly)
 	// ===================================================
 	adminRoutes := protected.Group("/admin", middleware.AdminOnly())
+
+	// Dashboard Khusus Admin
+	adminRoutes.Get("/dashboard/summary", adminHandler.GetDashboardSummary)
+
 	adminRoutes.Get("/jam-kerja", workHourHandler.GetWorkHour)
 	adminRoutes.Put("/jam-kerja", workHourHandler.UpdateWorkHour)
 	adminRoutes.Get("/hari-libur", holidayHandler.GetHolidays)
