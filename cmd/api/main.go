@@ -98,7 +98,7 @@ func main() {
 
 	// --- Admin Module ---
 	adminRepo := repository.NewAdminRepository(config.DB)
-	adminService := service.NewAdminService(adminRepo)
+	adminService := service.NewAdminService(adminRepo, userRepo)
 	adminHandler := handler.NewAdminHandler(adminService)
 
 	// =============================================
@@ -212,6 +212,15 @@ func main() {
 
 	// Rute Baru: Rekap Laporan Admin dengan Filter
 	adminRoutes.Get("/rekap-laporan", adminHandler.GetRekapLaporan)
+
+	// ===================================================
+	// G. MANAJEMEN PEGAWAI (Khusus Admin/Lurah/Sekertaris melalui adminRoutes)
+	// ===================================================
+	pegawaiRoutes := adminRoutes.Group("/pegawai")
+	pegawaiRoutes.Get("/", adminHandler.GetPegawai)
+	pegawaiRoutes.Post("/", adminHandler.CreatePegawai)
+	pegawaiRoutes.Put("/:id", adminHandler.UpdatePegawai)
+	pegawaiRoutes.Delete("/:id", adminHandler.DeletePegawai)
 
 	// ===================================================
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)

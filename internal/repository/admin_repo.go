@@ -14,7 +14,32 @@ type AdminReportFilter struct {
 	Search      string // Pencarian nama pegawai atau NIP
 }
 
-// Struct untuk Response JSON berlapis
+// ---------------------------------------------------------
+// DATA STRUCTURES: PEGAWAI MANAGEMENT
+// ---------------------------------------------------------
+
+type AdminPegawaiFilter struct {
+	Search string // NIP, Nama, atau Jabatan
+	Page   int
+	Limit  int
+}
+
+type AdminPegawaiResponse struct {
+	Data        []domain.User `json:"data"`
+	TotalData   int64         `json:"total_data"`
+	TotalPage   int           `json:"total_page"`
+	CurrentPage int           `json:"current_page"`
+}
+
+type PegawaiStatistik struct {
+	TotalPegawai int64 `json:"total_pegawai"` // Role != 'admin'
+}
+
+// ---------------------------------------------------------
+// REPOSITORY INTERFACE & SETUP
+// ---------------------------------------------------------
+
+// Struct untuk Response JSON berlapis Dashboard Summary
 type DashboardSummaryResponse struct {
 	Statistik      StatistikDashboard       `json:"statistik"`
 	LaporanTerbaru []domain.Laporan         `json:"laporan_terbaru"`
@@ -32,6 +57,8 @@ type StatistikDashboard struct {
 type AdminRepository interface {
 	GetRekapLaporanAdmin(filter AdminReportFilter) ([]domain.Laporan, error)
 	GetDashboardSummaryAdmin() (*DashboardSummaryResponse, error)
+	GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPegawaiResponse, error)
+	GetPegawaiStatistik() (*PegawaiStatistik, error)
 }
 
 type adminRepository struct {
@@ -42,6 +69,62 @@ func NewAdminRepository(db *gorm.DB) AdminRepository {
 	return &adminRepository{db: db}
 }
 
+// ---------------------------------------------------------
+// PEGAWAI MANAGEMENT
+// ---------------------------------------------------------
+
+func (r *adminRepository) GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPegawaiResponse, error) {
+	var users []domain.User
+	var totalData int64
+
+	// Base query: join users dengan ref_jabatan agar bisa search berdasarkan nama_jabatan
+	query := r.db.Model(&domain.User{}).
+		Preload("Jabatan").
+		Joins("LEFT JOIN ref_jabatan ON users.jabatan_id = ref_jabatan.id")
+
+	// Filter Search (NIP, Nama, Jabatan)
+	if filter.Search != "" {
+		searchPattern := "%" + filter.Search + "%"
+		query = query.Where("(users.nama LIKE ? OR users.nip LIKE ? OR ref_jabatan.nama_jabatan LIKE ?)", searchPattern, searchPattern, searchPattern)
+	}
+
+	// 1. Hitung total data (sebelum pagination/limit/offset diaplikasikan)
+	if err := query.Count(&totalData).Error; err != nil {
+		return nil, err
+	}
+
+	// 2. Kalkulasi Pagination
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.Limit < 1 {
+		filter.Limit = 10
+	}
+	offset := (filter.Page - 1) * filter.Limit
+	totalPage := int((totalData + int64(filter.Limit) - 1) / int64(filter.Limit))
+
+	// 3. Ambil data dengan Limit dan Offset
+	if err := query.Order("users.created_at DESC").Limit(filter.Limit).Offset(offset).Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	return &AdminPegawaiResponse{
+		Data:        users,
+		TotalData:   totalData,
+		TotalPage:   totalPage,
+		CurrentPage: filter.Page,
+	}, nil
+}
+
+func (r *adminRepository) GetPegawaiStatistik() (*PegawaiStatistik, error) {
+	var stats PegawaiStatistik
+	err := r.db.Model(&domain.User{}).Where("role != 'admin'").Count(&stats.TotalPegawai).Error
+	return &stats, err
+}
+
+// ---------------------------------------------------------
+// DASHBOARD SUMMARY
+// ---------------------------------------------------------
 // Fitur 1: Mengambil Ringkasan Dashboard (Widget Data)
 // Menggunakan query goroutine-safe dari GORM dan filter time.Now()
 func (r *adminRepository) GetDashboardSummaryAdmin() (*DashboardSummaryResponse, error) {
