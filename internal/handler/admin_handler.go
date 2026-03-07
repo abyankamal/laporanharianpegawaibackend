@@ -21,29 +21,73 @@ func NewAdminHandler(adminService service.AdminService) *AdminHandler {
 // GetRekapLaporan menghandle request GET /api/admin/rekap-laporan
 func (h *AdminHandler) GetRekapLaporan(c fiber.Ctx) error {
 	// 1. Ekstrak parameter query string dari URL
-	// Contoh: /api/admin/rekap-laporan?start_date=2023-10-01&end_date=2023-10-31&search=Budi
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+
 	filter := repository.AdminReportFilter{
-		StartDate:   c.Query("start_date"),
-		EndDate:     c.Query("end_date"),
-		StatusWaktu: c.Query("status_waktu"),
-		Search:      c.Query("search"),
+		StartDate:    c.Query("start_date"),
+		EndDate:      c.Query("end_date"),
+		StatusWaktu:  c.Query("status_waktu"),
+		StatusReview: c.Query("status_review"),
+		Search:       c.Query("search"),
+		Page:         page,
+		Limit:        limit,
 	}
 
 	// 2. Panggil service untuk mengambil data sesuai filter
-	laporanList, err := h.adminService.GetRekapLaporanAdmin(filter)
+	rekapData, err := h.adminService.GetRekapLaporanAdmin(filter)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
+			"success": false,
 			"message": "Gagal mengambil rekap laporan",
 			"error":   err.Error(),
 		})
 	}
 
-	// 3. Kembalikan response JSON yang rapi
+	// 3. Kembalikan response JSON pagination seragam
 	return c.JSON(fiber.Map{
-		"status":  "success",
-		"message": "Berhasil mengambil rekap laporan admin",
-		"data":    laporanList,
+		"success": true,
+		"message": "Data rekap laporan berhasil diambil",
+		"data":    rekapData.Data,
+		"pagination": fiber.Map{
+			"current_page": rekapData.CurrentPage,
+			"limit":        limit,
+			"total_data":   rekapData.TotalData,
+			"total_pages":  rekapData.TotalPage,
+		},
+	})
+}
+
+// GetLaporanExport menghandle request export data Excel/PDF
+// Endpoint ini menggunakan filter yang sama tanpa limit dan offset
+func (h *AdminHandler) GetLaporanExport(c fiber.Ctx) error {
+	filter := repository.AdminReportFilter{
+		StartDate:    c.Query("start_date"),
+		EndDate:      c.Query("end_date"),
+		StatusWaktu:  c.Query("status_waktu"),
+		StatusReview: c.Query("status_review"),
+		Search:       c.Query("search"),
+		// Tanpa Page / Limit -> Menarik semua data yang match dengan filter
+	}
+
+	reports, err := h.adminService.GetLaporanExportAdmin(filter)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengambil data export",
+			"error":   err.Error(),
+		})
+	}
+
+	// TODO: Di sinilah Anda bisa menambahkan logika library Golang (misal excelize atau gofpdf)
+	// untuk mengolah array `reports` ke dalam bentuk file binary (.xlsx atau .pdf)
+	// Untuk saat ini, fungsi akan me-return JSON murni yang berisi seluruh data terfilter.
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Berhasil menarik seluruh data (siap diexport)",
+		"total":   len(reports),
+		"data":    reports,
 	})
 }
 

@@ -7,11 +7,23 @@ import (
 )
 
 // AdminReportFilter adalah struct untuk menyimpan parameter pencarian
+// AdminReportFilter adalah struct untuk menyimpan parameter pencarian
 type AdminReportFilter struct {
-	StartDate   string // Format YYYY-MM-DD
-	EndDate     string // Format YYYY-MM-DD
-	StatusWaktu string // "Tepat Waktu" atau "Lembur"
-	Search      string // Pencarian nama pegawai atau NIP
+	StartDate    string // Format YYYY-MM-DD
+	EndDate      string // Format YYYY-MM-DD
+	StatusWaktu  string // "Tepat Waktu" atau "Lembur"
+	StatusReview string // "menunggu_review" atau "sudah_direview"
+	Search       string // Pencarian nama pegawai atau NIP atau Jabatan
+	Page         int
+	Limit        int
+}
+
+// Struct untuk mengembalikan respon paginasi rekap laporan
+type AdminReportResponse struct {
+	Data        []domain.Laporan `json:"data"`
+	TotalData   int64            `json:"total_data"`
+	TotalPage   int              `json:"total_page"`
+	CurrentPage int              `json:"current_page"`
 }
 
 // ---------------------------------------------------------
@@ -55,7 +67,8 @@ type StatistikDashboard struct {
 }
 
 type AdminRepository interface {
-	GetRekapLaporanAdmin(filter AdminReportFilter) ([]domain.Laporan, error)
+	GetRekapLaporanAdmin(filter AdminReportFilter) (*AdminReportResponse, error)
+	GetLaporanExportAdmin(filter AdminReportFilter) ([]domain.Laporan, error)
 	GetDashboardSummaryAdmin() (*DashboardSummaryResponse, error)
 	GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPegawaiResponse, error)
 	GetPegawaiStatistik() (*PegawaiStatistik, error)
@@ -181,53 +194,110 @@ func (r *adminRepository) GetDashboardSummaryAdmin() (*DashboardSummaryResponse,
 	return &summary, nil
 }
 
-func (r *adminRepository) GetRekapLaporanAdmin(filter AdminReportFilter) ([]domain.Laporan, error) {
-	var reports []domain.Laporan
+// helper untuk membangun query dinamis rekap laporan agar konsisten antara tabel dan export
+func buildRekapLaporanQuery(db *gorm.DB, filter AdminReportFilter) *gorm.DB {
+	// 1. Inisialisasi basis query pada model Laporan
+	query := db.Model(&domain.Laporan{})
 
-	// 1. Inisialisasi basis query
-	// Kita mulai query pada model Laporan
-	query := r.db.Model(&domain.Laporan{})
+	// 2. Joins
+	// Karena butuh filter/pencarian berelasi ke Nama, NIP, maupun Nama Jabatan:
+	// INNER JOIN ke users (karena laporan pasti ada usernya), lalu LEFT JOIN ke ref_jabatan
+	// Ini menjamin "users.nama" dan "ref_jabatan.nama_jabatan" tersedia untuk difilter 'LIKE' di klausul 'Where'
+	query = query.Joins("INNER JOIN users ON users.id = laporan.user_id").
+		Joins("LEFT JOIN ref_jabatan ON users.jabatan_id = ref_jabatan.id")
 
-	// Karena kita mungkin butuh mencari berdasarkan nama user (dari tabel users),
-	// dan kita selalu ingin me-load data relasinya, kita join sekalian di awal
-	// Ini memungkinkan kita memfilter field dari tabel users seperti 'nama' dan 'nip'
-	query = query.Joins("LEFT JOIN users ON users.id = laporan.user_id")
-
-	// 2. Dynamic Query / Kondisional WHERE
+	// 3. Dynamic Query / Kondisional WHERE
 
 	// Filter Rentang Tanggal
 	if filter.StartDate != "" && filter.EndDate != "" {
-		// Jika keduanya ada, gunakan BETWEEN
 		query = query.Where("laporan.waktu_pelaporan BETWEEN ? AND ?", filter.StartDate+" 00:00:00", filter.EndDate+" 23:59:59")
 	} else if filter.StartDate != "" {
-		// Jika hanya start date
 		query = query.Where("laporan.waktu_pelaporan >= ?", filter.StartDate+" 00:00:00")
 	} else if filter.EndDate != "" {
-		// Jika hanya end date
 		query = query.Where("laporan.waktu_pelaporan <= ?", filter.EndDate+" 23:59:59")
 	}
 
-	// Filter Status Waktu ("Tepat Waktu" atau "Lembur")
-	if filter.StatusWaktu != "" {
+	// Filter Status Waktu ("Tepat Waktu" atau "Lembur") (Bukan "Semua")
+	if filter.StatusWaktu != "" && filter.StatusWaktu != "Semua" {
 		query = query.Where("laporan.status_waktu = ?", filter.StatusWaktu)
 	}
 
-	// Filter Search (Pencarian Nama atau NIP)
-	if filter.Search != "" {
-		// Tambahkan % untuk pencarian wildcard (LIKE)
-		searchTerm := "%" + filter.Search + "%"
-		// Menggunakan kurung (users.nama LIKE ? OR users.nip LIKE ?) agar tidak merusak filter lain
-		query = query.Where("(users.nama LIKE ? OR users.nip LIKE ?)", searchTerm, searchTerm)
+	// Filter Status Review ("menunggu_review" atau "sudah_direview") (Bukan "Semua")
+	if filter.StatusReview != "" && filter.StatusReview != "Semua" {
+		query = query.Where("laporan.status = ?", filter.StatusReview)
 	}
 
-	// 3. Eksekusi Query dengan Preload
-	// Preload berguna agar GORM otomatis mengambilkan data User dan TugasOrganisasi
-	// dan memasukkannya ke dalam struct berelasi.
+	// Filter Search (Pencarian Nama, NIP, ATAU Jabatan)
+	if filter.Search != "" {
+		searchTerm := "%" + filter.Search + "%"
+		// Menggunakan kurung penting agar kondisi OR ini tidak merusak filter AND sebelumnya
+		query = query.Where("(users.nama LIKE ? OR users.nip LIKE ? OR ref_jabatan.nama_jabatan LIKE ?)", searchTerm, searchTerm, searchTerm)
+	}
+
+	return query
+}
+
+// GetRekapLaporanAdmin mengambil data laporan untuk pagination di dashboard admin
+func (r *adminRepository) GetRekapLaporanAdmin(filter AdminReportFilter) (*AdminReportResponse, error) {
+	var reports []domain.Laporan
+	var totalData int64
+
+	// Bangun base query filter
+	query := buildRekapLaporanQuery(r.db, filter)
+
+	// Hitung total data berdasarkan filter
+	// Count tidak mempedulikan Order/Preload sehingga lebih efisien ditaruh di sini
+	if err := query.Count(&totalData).Error; err != nil {
+		return nil, err
+	}
+
+	// Kalkulasi Pagination
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.Limit < 1 {
+		filter.Limit = 10 // Default limit 10
+	}
+	offset := (filter.Page - 1) * filter.Limit
+	totalPage := int((totalData + int64(filter.Limit) - 1) / int64(filter.Limit))
+
+	// Eksekusi Query akhir dengan Offset, Limit, Preload, dan Order
+	// Preload membantu populate struct berelasi secara otomatis pasca retrieval
 	err := query.
 		Preload("User").
 		Preload("User.Jabatan").
 		Preload("TugasOrganisasi").
-		Order("laporan.waktu_pelaporan DESC"). // Urutkan dari yang terbaru
+		Order("laporan.waktu_pelaporan DESC").
+		Offset(offset).
+		Limit(filter.Limit).
+		Find(&reports).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &AdminReportResponse{
+		Data:        reports,
+		TotalData:   totalData,
+		TotalPage:   totalPage,
+		CurrentPage: filter.Page,
+	}, nil
+}
+
+// GetLaporanExportAdmin mirip GetRekap namun tanpa Pagination (Tarik semua data terfilter)
+// Nanti bisa dimanfaatkan service lain untuk merender array Reports menjadi Excel/PDF
+func (r *adminRepository) GetLaporanExportAdmin(filter AdminReportFilter) ([]domain.Laporan, error) {
+	var reports []domain.Laporan
+
+	// Bangun base query filter yang identik
+	query := buildRekapLaporanQuery(r.db, filter)
+
+	// Lansung Preload, Order, dan Tarik data tanpa Offset dan Limit
+	err := query.
+		Preload("User").
+		Preload("User.Jabatan").
+		Preload("TugasOrganisasi").
+		Order("laporan.waktu_pelaporan DESC").
 		Find(&reports).Error
 
 	if err != nil {

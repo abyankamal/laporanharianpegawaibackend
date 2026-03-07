@@ -212,6 +212,8 @@ func main() {
 
 	// Rute Baru: Rekap Laporan Admin dengan Filter
 	adminRoutes.Get("/rekap-laporan", adminHandler.GetRekapLaporan)
+	// Skeleton Endpoint untuk Cetak PDF/Excel
+	adminRoutes.Get("/rekap-laporan/export", adminHandler.GetLaporanExport)
 
 	// ===================================================
 	// G. MANAJEMEN PEGAWAI (Khusus Admin/Lurah/Sekertaris melalui adminRoutes)

@@ -9,7 +9,8 @@ import (
 )
 
 type AdminService interface {
-	GetRekapLaporanAdmin(filter repository.AdminReportFilter) ([]domain.Laporan, error)
+	GetRekapLaporanAdmin(filter repository.AdminReportFilter) (*repository.AdminReportResponse, error)
+	GetLaporanExportAdmin(filter repository.AdminReportFilter) ([]domain.Laporan, error)
 	GetDashboardSummaryAdmin() (*repository.DashboardSummaryResponse, error)
 
 	// Pegawai Management
@@ -32,7 +33,7 @@ func NewAdminService(adminRepo repository.AdminRepository, userRepo repository.U
 	}
 }
 
-func (s *adminService) GetRekapLaporanAdmin(filter repository.AdminReportFilter) ([]domain.Laporan, error) {
+func (s *adminService) GetRekapLaporanAdmin(filter repository.AdminReportFilter) (*repository.AdminReportResponse, error) {
 	// Panggil repository untuk menjalankan query dengan filter
 	laporanList, err := s.adminRepo.GetRekapLaporanAdmin(filter)
 	if err != nil {
@@ -40,6 +41,10 @@ func (s *adminService) GetRekapLaporanAdmin(filter repository.AdminReportFilter)
 	}
 
 	return laporanList, nil
+}
+
+func (s *adminService) GetLaporanExportAdmin(filter repository.AdminReportFilter) ([]domain.Laporan, error) {
+	return s.adminRepo.GetLaporanExportAdmin(filter)
 }
 
 func (s *adminService) GetDashboardSummaryAdmin() (*repository.DashboardSummaryResponse, error) {
