@@ -225,6 +225,15 @@ func main() {
 	pegawaiRoutes.Delete("/:id", adminHandler.DeletePegawai)
 
 	// ===================================================
+	// H. PUSAT PENGUMUMAN (Khusus Admin)
+	// ===================================================
+	pengumumanRoutes := adminRoutes.Group("/pengumuman")
+	pengumumanRoutes.Get("/", adminHandler.GetPengumuman)
+	pengumumanRoutes.Post("/", adminHandler.CreatePengumuman)
+	pengumumanRoutes.Put("/:id", adminHandler.UpdatePengumuman)
+	pengumumanRoutes.Delete("/:id", adminHandler.DeletePengumuman)
+
+	// ===================================================
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
 	// ===================================================
 	reportRoutes := protected.Group("/reports")

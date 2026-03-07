@@ -2,10 +2,11 @@ package service
 
 import (
 	"errors"
-	"laporanharianapi/internal/domain"
-	"laporanharianapi/internal/repository"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"laporanharianapi/internal/domain"
+	"laporanharianapi/internal/repository"
 )
 
 type AdminService interface {
@@ -19,6 +20,13 @@ type AdminService interface {
 	CreatePegawaiAdmin(req *domain.User) error
 	UpdatePegawaiAdmin(userID uint, req *domain.User) error
 	DeletePegawaiAdmin(userID uint) error
+
+	// Pengumuman Management
+	GetPengumumanAdmin(filter repository.AdminPengumumanFilter) (*repository.AdminPengumumanResponse, error)
+	GetPengumumanStatistikAdmin() (*repository.PengumumanStatistik, error)
+	CreatePengumumanAdmin(pengumuman *domain.Notification) error
+	UpdatePengumumanAdmin(id uint, pengumuman *domain.Notification) error
+	DeletePengumumanAdmin(id uint) error
 }
 
 type adminService struct {
@@ -64,77 +72,90 @@ func (s *adminService) GetPegawaiStatistikAdmin() (*repository.PegawaiStatistik,
 }
 
 func (s *adminService) CreatePegawaiAdmin(req *domain.User) error {
-	// 1. Validasi NIP tidak boleh duplikat (Dicek lewat userRepo)
-	existing, _ := s.userRepo.FindByNIP(req.NIP)
-	if existing != nil {
+	// 1. Validasi NIP Unique
+	exists, err := s.userRepo.FindByNIP(req.NIP)
+	if err == nil && exists != nil {
 		return errors.New("NIP sudah terdaftar")
 	}
 
-	// 2. Hash Password (jika tidak kosong)
+	// 2. Hash Password (jika ada)
 	if req.Password != "" {
-		hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			return errors.New("gagal memproses password")
+			return errors.New("gagal mengenkripsi kata sandi")
 		}
-		req.Password = string(hashed)
+		req.Password = string(hashedPassword)
 	}
 
-	// 3. Simpan ke Database
+	// 3. Simpan ke database
 	return s.userRepo.Create(req)
 }
 
 func (s *adminService) UpdatePegawaiAdmin(userID uint, req *domain.User) error {
-	// 1. Cari data user lama
-	existing, err := s.userRepo.FindByID(userID)
+	// 1. Cari user lama
+	existingUser, err := s.userRepo.FindByID(userID)
 	if err != nil {
-		return errors.New("data pegawai tidak ditemukan")
+		return errors.New("pegawai tidak ditemukan")
 	}
 
-	// 2. Cek apakah ada perubahan NIP dan validasi duplikasi ifchanged
-	if req.NIP != "" && req.NIP != existing.NIP {
-		checkDuplicate, _ := s.userRepo.FindByNIP(req.NIP)
-		if checkDuplicate != nil {
-			return errors.New("NIP sudah digunakan oleh pegawai lain")
+	// 2. Cek NIP duplikat (jika NIP diubah)
+	if existingUser.NIP != req.NIP {
+		nipOwner, err := s.userRepo.FindByNIP(req.NIP)
+		if err == nil && nipOwner != nil {
+			return errors.New("NIP sudah terdaftar pada pengguna lain")
 		}
-		existing.NIP = req.NIP
 	}
 
-	// 3. Update field yang diperbolehkan
-	if req.Nama != "" {
-		existing.Nama = req.Nama
-	}
-	if req.Role != "" {
-		existing.Role = req.Role
-	}
-	if req.JabatanID != nil {
-		existing.JabatanID = req.JabatanID
-	}
-	if req.FotoPath != nil { // FotoPath sebagai "foto_profil" di struct db
-		existing.FotoPath = req.FotoPath
-	}
+	// 3. Update field
+	existingUser.NIP = req.NIP
+	existingUser.Nama = req.Nama
+	existingUser.Role = req.Role
+	// Jika jabatan dan foto ingin diupdate juga, masukkan di sini
+	existingUser.JabatanID = req.JabatanID
+	existingUser.FotoPath = req.FotoPath
 
-	// 4. Hash password baru jika ada input password
+	// 4. Update Password (Hanya jika diisi/dikirim di request)
 	if req.Password != "" {
-		hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			return errors.New("gagal memproses password")
+			return errors.New("gagal mengenkripsi kata sandi")
 		}
-		existing.Password = string(hashed)
+		existingUser.Password = string(hashedPassword)
 	}
 
-	// 5. Simpan (Omit relasi dilakukan otomatis di r.userRepo.Update)
-	return s.userRepo.Update(existing)
+	// 5. Simpan Perubahan
+	return s.userRepo.Update(existingUser)
 }
 
 func (s *adminService) DeletePegawaiAdmin(userID uint) error {
-	// Pengecekan pegawai ada atau tidak
+	// Validasi eksistensi sebelum delete
 	_, err := s.userRepo.FindByID(userID)
 	if err != nil {
-		return errors.New("data pegawai tidak ditemukan")
+		return errors.New("pegawai tidak ditemukan")
 	}
-
-	// Gunakan DeleteWithCleanup agar file/relasi jika ada ikut terbersihkan
-	// Atau hapus biasa dengan r.userRepo.Delete(userID)
-	// Kita gunakan Delete biasa karena requestnya mungkin simple hard delete
 	return s.userRepo.Delete(userID)
+}
+
+// ---------------------------------------------------------
+// PENGUMUMAN MANAGEMENT
+// ---------------------------------------------------------
+
+func (s *adminService) GetPengumumanAdmin(filter repository.AdminPengumumanFilter) (*repository.AdminPengumumanResponse, error) {
+	return s.adminRepo.GetPengumumanAdmin(filter)
+}
+
+func (s *adminService) GetPengumumanStatistikAdmin() (*repository.PengumumanStatistik, error) {
+	return s.adminRepo.GetPengumumanStatistikAdmin()
+}
+
+func (s *adminService) CreatePengumumanAdmin(pengumuman *domain.Notification) error {
+	return s.adminRepo.CreatePengumumanAdmin(pengumuman)
+}
+
+func (s *adminService) UpdatePengumumanAdmin(id uint, pengumuman *domain.Notification) error {
+	return s.adminRepo.UpdatePengumumanAdmin(id, pengumuman)
+}
+
+func (s *adminService) DeletePengumumanAdmin(id uint) error {
+	return s.adminRepo.DeletePengumumanAdmin(id)
 }

@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
+	"time"
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
@@ -253,5 +255,188 @@ func (h *AdminHandler) DeletePegawai(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Berhasil menghapus data pegawai",
+	})
+}
+
+// ---------------------------------------------------------
+// PENGUMUMAN MANAGEMENT HANDLERS
+// ---------------------------------------------------------
+
+// PengumumanResponseItem struktur custom untuk response sesuai requirement UI
+type PengumumanResponseItem struct {
+	IDPengumuman   string    `json:"id_pengumuman"` // Format: ANNC-2026-001
+	Judul          string    `json:"judul"`
+	Pesan          string    `json:"pesan"`
+	FormatAudience string    `json:"audience"` // "Semua Pegawai", dll berdasarkan user_id
+	Status         string    `json:"status"`   // Hardcoded "Aktif" (karena status kolom di model asli tidak dimodifikasi)
+	Tanggal        time.Time `json:"tanggal"`  // mapped dari CreatedAt
+}
+
+func (h *AdminHandler) GetPengumuman(c fiber.Ctx) error {
+	search := c.Query("search")
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+
+	filter := repository.AdminPengumumanFilter{
+		Search: search,
+		Page:   page,
+		Limit:  limit,
+	}
+
+	notifData, err := h.adminService.GetPengumumanAdmin(filter)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengambil data pengumuman",
+			"error":   err.Error(),
+		})
+	}
+
+	stats, err := h.adminService.GetPengumumanStatistikAdmin()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengambil statistik pengumuman",
+			"error":   err.Error(),
+		})
+	}
+
+	// Mapping format ANNC dan Audience
+	var listPengumuman []PengumumanResponseItem
+	for _, n := range notifData.Data {
+		// Buat unique ID ANNC-Tahun-ID
+		uniqueID := fmt.Sprintf("ANNC-%d-%03d", n.CreatedAt.Year(), n.ID)
+
+		// Evaluasi Audience dari user_id (Bisa 0 karena kita akali untuk Semua Pegawai, dsb)
+		audienceStr := "Semua Pegawai"
+		if n.UserID != 0 {
+			audienceStr = fmt.Sprintf("User Spesifik (%d)", n.UserID)
+		}
+
+		listPengumuman = append(listPengumuman, PengumumanResponseItem{
+			IDPengumuman:   uniqueID,
+			Judul:          n.Judul,
+			Pesan:          n.Pesan,
+			FormatAudience: audienceStr,
+			Status:         "Aktif", // Tuntutan bypass
+			Tanggal:        n.CreatedAt,
+		})
+	}
+
+	// Format Output (Tabel dengan proper pagination & statistik dinamis)
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Berhasil mengambil data pengumuman",
+		"data": fiber.Map{
+			"list": listPengumuman,
+			"statistik": fiber.Map{
+				"aktif":       stats.TotalPengumuman,
+				"terjadwal":   0, // Hardcoded sesuai request drop feature
+				"kedaluwarsa": 0,
+			},
+			"pagination": fiber.Map{
+				"total_data":   notifData.TotalData,
+				"total_page":   notifData.TotalPage,
+				"current_page": notifData.CurrentPage,
+			},
+		},
+	})
+}
+
+func (h *AdminHandler) CreatePengumuman(c fiber.Ctx) error {
+	var body struct {
+		Judul    string `json:"judul"`
+		Pesan    string `json:"pesan"`
+		Audience string `json:"audience"` // bisa 'Semua Pegawai'
+	}
+
+	if err := c.Bind().JSON(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Format request tidak valid",
+		})
+	}
+
+	// Default user_id ke 0 = "Semua Pegawai"
+	userID := 0
+	if body.Audience != "Semua Pegawai" && body.Audience != "" {
+		// Logika kompleks lain jika audience adalah role spesifik (di luar scope table constraints saat ini tanpa ubah model)
+		// Kita biarkan 0 jika tidak ada
+	}
+
+	pengumuman := domain.Notification{
+		Judul:  body.Judul,
+		Pesan:  body.Pesan,
+		UserID: userID,
+	}
+
+	if err := h.adminService.CreatePengumumanAdmin(&pengumuman); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal membuat pengumuman",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"message": "Berhasil membuat pengumuman",
+		"data":    pengumuman,
+	})
+}
+
+func (h *AdminHandler) UpdatePengumuman(c fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, _ := strconv.Atoi(idParam)
+
+	var body struct {
+		Judul    string `json:"judul"`
+		Pesan    string `json:"pesan"`
+		Audience string `json:"audience"`
+	}
+
+	if err := c.Bind().JSON(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Format request tidak valid",
+		})
+	}
+
+	userID := 0 // default 'Semua'
+	pengumuman := domain.Notification{
+		Judul:  body.Judul,
+		Pesan:  body.Pesan,
+		UserID: userID,
+	}
+
+	if err := h.adminService.UpdatePengumumanAdmin(uint(id), &pengumuman); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengupdate pengumuman",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Berhasil memperbarui pengumuman",
+	})
+}
+
+func (h *AdminHandler) DeletePengumuman(c fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, _ := strconv.Atoi(idParam)
+
+	if err := h.adminService.DeletePengumumanAdmin(uint(id)); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal menghapus pengumuman",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Berhasil menghapus pengumuman",
 	})
 }

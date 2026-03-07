@@ -48,6 +48,27 @@ type PegawaiStatistik struct {
 }
 
 // ---------------------------------------------------------
+// DATA STRUCTURES: PENGUMUMAN MANAGEMENT
+// ---------------------------------------------------------
+
+type AdminPengumumanFilter struct {
+	Search string // Pencarian Judul
+	Page   int
+	Limit  int
+}
+
+type AdminPengumumanResponse struct {
+	Data        []domain.Notification `json:"data"`
+	TotalData   int64                 `json:"total_data"`
+	TotalPage   int                   `json:"total_page"`
+	CurrentPage int                   `json:"current_page"`
+}
+
+type PengumumanStatistik struct {
+	TotalPengumuman int64 `json:"total_pengumuman"` // Total pengumuman sistem
+}
+
+// ---------------------------------------------------------
 // REPOSITORY INTERFACE & SETUP
 // ---------------------------------------------------------
 
@@ -70,8 +91,15 @@ type AdminRepository interface {
 	GetRekapLaporanAdmin(filter AdminReportFilter) (*AdminReportResponse, error)
 	GetLaporanExportAdmin(filter AdminReportFilter) ([]domain.Laporan, error)
 	GetDashboardSummaryAdmin() (*DashboardSummaryResponse, error)
+
 	GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPegawaiResponse, error)
 	GetPegawaiStatistik() (*PegawaiStatistik, error)
+
+	GetPengumumanAdmin(filter AdminPengumumanFilter) (*AdminPengumumanResponse, error)
+	GetPengumumanStatistikAdmin() (*PengumumanStatistik, error)
+	CreatePengumumanAdmin(pengumuman *domain.Notification) error
+	UpdatePengumumanAdmin(id uint, pengumuman *domain.Notification) error
+	DeletePengumumanAdmin(id uint) error
 }
 
 type adminRepository struct {
@@ -210,10 +238,13 @@ func buildRekapLaporanQuery(db *gorm.DB, filter AdminReportFilter) *gorm.DB {
 
 	// Filter Rentang Tanggal
 	if filter.StartDate != "" && filter.EndDate != "" {
+		// Jika keduanya ada, gunakan BETWEEN
 		query = query.Where("laporan.waktu_pelaporan BETWEEN ? AND ?", filter.StartDate+" 00:00:00", filter.EndDate+" 23:59:59")
 	} else if filter.StartDate != "" {
+		// Jika hanya start date
 		query = query.Where("laporan.waktu_pelaporan >= ?", filter.StartDate+" 00:00:00")
 	} else if filter.EndDate != "" {
+		// Jika hanya end date
 		query = query.Where("laporan.waktu_pelaporan <= ?", filter.EndDate+" 23:59:59")
 	}
 
@@ -305,4 +336,71 @@ func (r *adminRepository) GetLaporanExportAdmin(filter AdminReportFilter) ([]dom
 	}
 
 	return reports, nil
+}
+
+// ---------------------------------------------------------
+// PENGUMUMAN MANAGEMENT
+// ---------------------------------------------------------
+
+func (r *adminRepository) GetPengumumanAdmin(filter AdminPengumumanFilter) (*AdminPengumumanResponse, error) {
+	var notifs []domain.Notification
+	var totalData int64
+
+	// Hanya ambil yang kategori 'Sistem'
+	query := r.db.Model(&domain.Notification{}).Where("kategori = 'Sistem'")
+
+	// Pencarian berdasarkan judul
+	if filter.Search != "" {
+		searchTerm := "%" + filter.Search + "%"
+		query = query.Where("judul LIKE ?", searchTerm)
+	}
+
+	if err := query.Count(&totalData).Error; err != nil {
+		return nil, err
+	}
+
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.Limit < 1 {
+		filter.Limit = 10
+	}
+	offset := (filter.Page - 1) * filter.Limit
+	totalPage := int((totalData + int64(filter.Limit) - 1) / int64(filter.Limit))
+
+	if err := query.Order("created_at DESC").Limit(filter.Limit).Offset(offset).Find(&notifs).Error; err != nil {
+		return nil, err
+	}
+
+	return &AdminPengumumanResponse{
+		Data:        notifs,
+		TotalData:   totalData,
+		TotalPage:   totalPage,
+		CurrentPage: filter.Page,
+	}, nil
+}
+
+func (r *adminRepository) GetPengumumanStatistikAdmin() (*PengumumanStatistik, error) {
+	var stats PengumumanStatistik
+	err := r.db.Model(&domain.Notification{}).Where("kategori = 'Sistem'").Count(&stats.TotalPengumuman).Error
+	return &stats, err
+}
+
+func (r *adminRepository) CreatePengumumanAdmin(pengumuman *domain.Notification) error {
+	// Pastikan kategori selalu Sistem untuk pengumuman global
+	pengumuman.Kategori = "Sistem"
+	return r.db.Create(pengumuman).Error
+}
+
+func (r *adminRepository) UpdatePengumumanAdmin(id uint, pengumuman *domain.Notification) error {
+	// Hanya update field yang diizinkan (Judul, Pesan, UserID)
+	return r.db.Model(&domain.Notification{}).Where("id = ? AND kategori = 'Sistem'", id).Updates(map[string]interface{}{
+		"judul":   pengumuman.Judul,
+		"pesan":   pengumuman.Pesan,
+		"user_id": pengumuman.UserID, // Digunakan sebagai representasi audience
+	}).Error
+}
+
+func (r *adminRepository) DeletePengumumanAdmin(id uint) error {
+	return r.db.Where("id = ? AND kategori = 'Sistem'", id).Delete(&domain.Notification{}).Error
 }
