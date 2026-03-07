@@ -50,6 +50,7 @@ func main() {
 	fmt.Println("   - NIP: 198002012009061001 | Password: 123456 | Role: sekertaris")
 	fmt.Println("   - NIP: 197905172014101003 | Password: 123456 | Role: kasi")
 	fmt.Println("   - NIP: 200112282025041006 | Password: 123456 | Role: staf")
+	fmt.Println("   - NIP: 888888888888888888 | Password: 123456 | Role: admin")
 }
 
 // connectDatabase membuat koneksi ke MySQL
@@ -80,6 +81,7 @@ func seedJabatan(db *gorm.DB) {
 	fmt.Println("📌 Seeding Master Jabatan...")
 
 	jabatanList := []string{
+		"Admin",
 		"Lurah",
 		"Sekertaris",
 		"Kasi Pemerintahan",
@@ -148,6 +150,7 @@ func seedUsers(db *gorm.DB) {
 		JabatanName   string
 		SupervisorNIP string
 	}{
+		{"888888888888888888", "Master Admin SIOPIK", "admin", "Admin", ""},
 		{"198106152014102004", "Iis Yuniawardani, S.IP", "lurah", "Lurah", ""},
 		{"198002012009061001", "Aep Saepudin, S.Kom", "sekertaris", "Sekertaris", "198106152014102004"},
 		{"197905172014101003", "Cahyo Dirgantoro Priyawan, A.Md", "kasi", "Kasi Ekonomi dan Pembangunan", "198106152014102004"},

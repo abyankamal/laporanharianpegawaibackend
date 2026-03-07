@@ -98,3 +98,24 @@ func AllowRoles(allowedRoles ...string) fiber.Handler {
 		return c.Next()
 	}
 }
+
+// AdminOnly adalah middleware khusus untuk akses Admin atau Lurah saja.
+func AdminOnly() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		// 1. Ambil role dari Locals (di-set oleh Protected middleware)
+		// Kita asumsikan middleware ini dipanggil setalah Protected()
+		userRole, ok := c.Locals("role").(string)
+
+		// Jika role tidak ada atau bukan admin/lurah, tolak akses
+		// Catatan: sesuaikan string role dengan database Anda (case-sensitive)
+		if !ok || (userRole != "admin" && userRole != "lurah" && userRole != "Admin") {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Akses ditolak: Anda bukan Admin",
+			})
+		}
+
+		// Lanjutkan ke handler berikutnya jika role valid
+		return c.Next()
+	}
+}

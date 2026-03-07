@@ -126,8 +126,11 @@ func main() {
 	// Recover Middleware (menangkap panic dan mengubahnya menjadi HTTP 500)
 	app.Use(recover.New())
 
-	// CORS Middleware (agar bisa diakses dari HP/Web)
+	// CORS Middleware (agar bisa diakses dari Web Admin/Mobile)
 	app.Use(cors.New(cors.Config{
+		// Mengizinkan semua origin untuk tahap development.
+		// Untuk production, ganti "*" menjadi domain spesifik, misal:
+		// AllowOrigins: []string{"https://admin.siopik.com", "http://localhost:5173"},
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
@@ -189,9 +192,9 @@ func main() {
 	userRoutesWrite.Delete("/:id", userHandler.Delete)
 
 	// ===================================================
-	// APP SETTINGS - Hanya Sekertaris dan Lurah
+	// APP SETTINGS - Hanya Sekertaris dan Lurah (Sekarang menggunakan AdminOnly)
 	// ===================================================
-	adminRoutes := protected.Group("/admin", middleware.AllowRoles("lurah", "sekertaris", "Sekertaris"))
+	adminRoutes := protected.Group("/admin", middleware.AdminOnly())
 	adminRoutes.Get("/jam-kerja", workHourHandler.GetWorkHour)
 	adminRoutes.Put("/jam-kerja", workHourHandler.UpdateWorkHour)
 	adminRoutes.Get("/hari-libur", holidayHandler.GetHolidays)
