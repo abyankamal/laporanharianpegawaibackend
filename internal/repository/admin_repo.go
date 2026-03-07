@@ -32,6 +32,7 @@ type AdminReportResponse struct {
 
 type AdminPegawaiFilter struct {
 	Search string // NIP, Nama, atau Jabatan
+	Role   string // 'lurah', 'sekertaris', 'kasi', 'staf', etc.
 	Page   int
 	Limit  int
 }
@@ -129,6 +130,11 @@ func (r *adminRepository) GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPega
 		query = query.Where("(users.nama LIKE ? OR users.nip LIKE ? OR ref_jabatan.nama_jabatan LIKE ?)", searchPattern, searchPattern, searchPattern)
 	}
 
+	// Filter Role
+	if filter.Role != "" && filter.Role != "Semua" {
+		query = query.Where("users.role = ?", filter.Role)
+	}
+
 	// 1. Hitung total data (sebelum pagination/limit/offset diaplikasikan)
 	if err := query.Count(&totalData).Error; err != nil {
 		return nil, err
@@ -145,7 +151,14 @@ func (r *adminRepository) GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPega
 	totalPage := int((totalData + int64(filter.Limit) - 1) / int64(filter.Limit))
 
 	// 3. Ambil data dengan Limit dan Offset
-	if err := query.Order("users.created_at DESC").Limit(filter.Limit).Offset(offset).Find(&users).Error; err != nil {
+	// Gunakan Select eksplisit untuk menghindari error jika ada kolom baru (seperti fcm_token) yang belum dimigrasi di DB
+	err := query.Select("users.id, users.nip, users.nama, users.role, users.jabatan_id, users.supervisor_id, users.foto_path, users.created_at").
+		Order("users.created_at DESC").
+		Limit(filter.Limit).
+		Offset(offset).
+		Find(&users).Error
+
+	if err != nil {
 		return nil, err
 	}
 
@@ -159,8 +172,13 @@ func (r *adminRepository) GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPega
 
 func (r *adminRepository) GetPegawaiStatistik() (*PegawaiStatistik, error) {
 	var stats PegawaiStatistik
-	err := r.db.Model(&domain.User{}).Where("role != 'admin'").Count(&stats.TotalPegawai).Error
-	return &stats, err
+
+	// 1. Total Pegawai
+	if err := r.db.Model(&domain.User{}).Where("role != 'admin'").Count(&stats.TotalPegawai).Error; err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
 }
 
 // ---------------------------------------------------------

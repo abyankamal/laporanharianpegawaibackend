@@ -120,11 +120,13 @@ func (h *AdminHandler) GetDashboardSummary(c fiber.Ctx) error {
 func (h *AdminHandler) GetPegawai(c fiber.Ctx) error {
 	// 1. Tangkap Query Parameters
 	search := c.Query("search")
+	role := c.Query("role")
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 
 	filter := repository.AdminPegawaiFilter{
 		Search: search,
+		Role:   role,
 		Page:   page,
 		Limit:  limit,
 	}
