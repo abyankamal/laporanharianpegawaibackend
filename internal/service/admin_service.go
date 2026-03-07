@@ -2,11 +2,13 @@ package service
 
 import (
 	"errors"
+	"log"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
+	"laporanharianapi/pkg/fcm"
 )
 
 type AdminService interface {
@@ -149,7 +151,40 @@ func (s *adminService) GetPengumumanStatistikAdmin() (*repository.PengumumanStat
 }
 
 func (s *adminService) CreatePengumumanAdmin(pengumuman *domain.Notification) error {
-	return s.adminRepo.CreatePengumumanAdmin(pengumuman)
+	// 1. Simpan ke database via repository
+	err := s.adminRepo.CreatePengumumanAdmin(pengumuman)
+	if err != nil {
+		return err
+	}
+
+	// 2. Trigger Push Notification (Berdasarkan audience)
+	// Jika UserID = 0 berarti audience "Semua Pegawai"
+	if pengumuman.UserID == 0 {
+		users, err := s.userRepo.FindAll()
+		if err == nil {
+			for _, u := range users {
+				if u.FCMToken != nil && *u.FCMToken != "" {
+					// Kirim secara async agar tidak menghambat response API
+					go func(token, title, body string) {
+						defer func() {
+							if r := recover(); r != nil {
+								log.Printf("⚠️ Recovered from panic in FCM goroutine: %v", r)
+							}
+						}()
+						fcm.SendPushNotification(token, title, body)
+					}(*u.FCMToken, pengumuman.Judul, pengumuman.Pesan)
+				}
+			}
+		}
+	} else {
+		// Jika spesifik ke satu user (UserID != 0)
+		u, err := s.userRepo.FindByID(uint(pengumuman.UserID))
+		if err == nil && u.FCMToken != nil && *u.FCMToken != "" {
+			go fcm.SendPushNotification(*u.FCMToken, pengumuman.Judul, pengumuman.Pesan)
+		}
+	}
+
+	return nil
 }
 
 func (s *adminService) UpdatePengumumanAdmin(id uint, pengumuman *domain.Notification) error {
