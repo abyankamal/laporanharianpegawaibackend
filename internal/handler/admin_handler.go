@@ -152,7 +152,7 @@ func (h *AdminHandler) GetPegawai(c fiber.Ctx) error {
 	// 4. Gabungkan Response (Sesuai request)
 	return c.JSON(fiber.Map{
 		"success": true,
-		"message": "Berhasil mengambil daftar pegawai",
+		"message": "Berhasil mengambil daftar rekan kerja",
 		"data": fiber.Map{
 			"list":      pegawaiData.Data,
 			"statistik": stats,

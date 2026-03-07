@@ -172,7 +172,7 @@ func main() {
 	protected := api.Group("/", middleware.Protected())
 
 	// ===================================================
-	// A. PROFILE & DASHBOARD (Semua role yang sudah login)
+	// A. PROFILE, DASHBOARD & DIRECTORY (Semua role yang sudah login)
 	// ===================================================
 	protected.Get("/profile", userHandler.GetProfile)
 	protected.Put("/profile/change-password", userHandler.ChangePassword)
@@ -180,6 +180,9 @@ func main() {
 	protected.Put("/users/fcm-token", userHandler.UpdateFCMToken)
 	protected.Get("/dashboard/summary", dashboardHandler.GetSummary)
 	protected.Get("/jabatan", jabatanHandler.GetAll)
+
+	// Directory Rekan Kerja (Bisa diakses semua role)
+	protected.Get("/rekan-kerja", adminHandler.GetPegawai)
 
 	// ===================================================
 	// B. USER MANAGEMENT

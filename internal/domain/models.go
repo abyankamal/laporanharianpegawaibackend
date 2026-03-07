@@ -154,9 +154,10 @@ func (Notification) TableName() string {
 
 // Holiday adalah tabel untuk menyimpan data hari libur.
 type Holiday struct {
-	ID         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Tanggal    time.Time `gorm:"column:tanggal;type:date;unique" json:"tanggal"`
-	Keterangan string    `gorm:"column:keterangan;type:varchar(255)" json:"keterangan"`
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	TanggalMulai   time.Time `gorm:"column:tanggal_mulai;type:date;not null" json:"tanggal_mulai"`
+	TanggalSelesai time.Time `gorm:"column:tanggal_selesai;type:date;not null" json:"tanggal_selesai"`
+	Keterangan     string    `gorm:"column:keterangan;type:varchar(255)" json:"keterangan"`
 }
 
 func (Holiday) TableName() string {

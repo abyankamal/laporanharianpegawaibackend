@@ -17,7 +17,7 @@ func TestGetHolidays_Success(t *testing.T) {
 	mockTime, _ := time.Parse("2006-01-02", "2026-08-17")
 
 	expectedList := []domain.Holiday{
-		{ID: 1, Tanggal: mockTime, Keterangan: "Hari Kemerdekaan"},
+		{ID: 1, TanggalMulai: mockTime, TanggalSelesai: mockTime, Keterangan: "Hari Kemerdekaan"},
 	}
 
 	mockRepo.On("GetAll").Return(expectedList, nil)
@@ -39,7 +39,7 @@ func TestCreateHoliday_Success(t *testing.T) {
 
 	svc := NewHolidayService(mockRepo)
 
-	holiday, err := svc.CreateHoliday("2026-12-25", "Hari Natal")
+	holiday, err := svc.CreateHoliday("2026-12-25", "2026-12-25", "Hari Natal")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, holiday)
@@ -51,7 +51,7 @@ func TestCreateHoliday_EmptyKeterangan(t *testing.T) {
 	mockRepo := new(mocks.HolidayRepositoryMock)
 	svc := NewHolidayService(mockRepo)
 
-	holiday, err := svc.CreateHoliday("2026-12-25", "")
+	holiday, err := svc.CreateHoliday("2026-12-25", "2026-12-25", "")
 
 	assert.Error(t, err)
 	assert.Nil(t, holiday)
@@ -63,7 +63,7 @@ func TestCreateHoliday_InvalidDate(t *testing.T) {
 	mockRepo := new(mocks.HolidayRepositoryMock)
 	svc := NewHolidayService(mockRepo)
 
-	holiday, err := svc.CreateHoliday("25-12-2026", "Salah Format")
+	holiday, err := svc.CreateHoliday("25-12-2026", "26-12-2026", "Salah Format")
 
 	assert.Error(t, err)
 	assert.Nil(t, holiday)

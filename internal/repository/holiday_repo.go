@@ -28,7 +28,7 @@ func NewHolidayRepository(db *gorm.DB) HolidayRepository {
 // GetAll mengambil semua data hari libur, diurutkan dari yang terbaru.
 func (r *holidayRepository) GetAll() ([]domain.Holiday, error) {
 	var list []domain.Holiday
-	err := r.db.Order("tanggal desc").Find(&list).Error
+	err := r.db.Order("tanggal_mulai asc").Find(&list).Error
 	return list, err
 }
 
@@ -42,14 +42,14 @@ func (r *holidayRepository) Delete(id uint) error {
 	return r.db.Delete(&domain.Holiday{}, id).Error
 }
 
-// CheckIsHoliday mengecek apakah tanggal tertentu adalah hari libur.
+// CheckIsHoliday mengecek apakah tanggal tertentu adalah hari libur (dalam rentang tanggal_mulai dan tanggal_selesai).
 func (r *holidayRepository) CheckIsHoliday(date time.Time) (bool, error) {
 	var count int64
 	// Format tanggal untuk query (hanya tanggal, tanpa jam)
 	dateOnly := date.Format("2006-01-02")
 
 	err := r.db.Table("holiday").
-		Where("tanggal = ?", dateOnly).
+		Where("? BETWEEN tanggal_mulai AND tanggal_selesai", dateOnly).
 		Count(&count).Error
 
 	if err != nil {

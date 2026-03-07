@@ -37,8 +37,9 @@ func (h *HolidayHandler) GetHolidays(c fiber.Ctx) error {
 
 // CreateHolidayRequest adalah struct untuk request create hari libur.
 type CreateHolidayRequest struct {
-	Tanggal    string `json:"tanggal"`
-	Keterangan string `json:"keterangan"`
+	TanggalMulai   string `json:"tanggal_mulai"`
+	TanggalSelesai string `json:"tanggal_selesai"`
+	Keterangan     string `json:"keterangan"`
 }
 
 // CreateHoliday menyimpan data hari libur baru.
@@ -51,7 +52,7 @@ func (h *HolidayHandler) CreateHoliday(c fiber.Ctx) error {
 		})
 	}
 
-	holiday, err := h.service.CreateHoliday(req.Tanggal, req.Keterangan)
+	holiday, err := h.service.CreateHoliday(req.TanggalMulai, req.TanggalSelesai, req.Keterangan)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"status":  "error",
