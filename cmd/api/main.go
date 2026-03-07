@@ -218,6 +218,13 @@ func main() {
 	// Skeleton Endpoint untuk Cetak PDF/Excel
 	adminRoutes.Get("/rekap-laporan/export", adminHandler.GetLaporanExport)
 
+	// Manajemen Jabatan
+	adminRoutes.Get("/jabatan", jabatanHandler.GetAll)
+	adminRoutes.Get("/jabatan/:id", jabatanHandler.GetOne)
+	adminRoutes.Post("/jabatan", jabatanHandler.Create)
+	adminRoutes.Put("/jabatan/:id", jabatanHandler.Update)
+	adminRoutes.Delete("/jabatan/:id", jabatanHandler.Delete)
+
 	// ===================================================
 	// G. MANAJEMEN PEGAWAI (Khusus Admin/Lurah/Sekertaris melalui adminRoutes)
 	// ===================================================
