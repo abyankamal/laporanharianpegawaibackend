@@ -795,16 +795,17 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	pageW := 215.9 - marginL - marginR // 185.9mm
 
 	// Lebar kolom: No | Tanggal | Jenis | Judul | Deskripsi | Foto
-	colW := []float64{8, 22, 28, 35, 47, 45.9}
+	// Lebar kolom disamakan: 185.9 / 6 = 30.98
+	colW := []float64{30.98, 30.98, 30.98, 30.98, 30.98, 31.0}
 	colHeaders := []string{"No", "Tanggal", "Jenis\nLaporan", "Judul\nLaporan", "Deskripsi", "Foto"}
 
-	// Warna header tabel
-	headerBgR, headerBgG, headerBgB := 31, 73, 125 // Biru tua
-	headerFgR, headerFgG, headerFgB := 255, 255, 255
+	// Warna header tabel (Putih/Tanpa Warna)
+	headerBgR, headerBgG, headerBgB := 255, 255, 255
+	headerFgR, headerFgG, headerFgB := 0, 0, 0
 
 	// Fungsi draw header tabel
 	drawTableHeader := func() {
-		pdf.SetFont("Helvetica", "B", 8)
+		pdf.SetFont("Times", "B", 8)
 		pdf.SetFillColor(headerBgR, headerBgG, headerBgB)
 		pdf.SetTextColor(headerFgR, headerFgG, headerFgB)
 		pdf.SetDrawColor(200, 200, 200)
@@ -942,15 +943,15 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		startX := pdf.GetX()
 		startY := pdf.GetY()
 
-		// Warna baris bergantian
+		// Warna baris (Selalu putih)
 		if rowFillAlt {
-			pdf.SetFillColor(240, 245, 255)
+			pdf.SetFillColor(255, 255, 255)
 		} else {
 			pdf.SetFillColor(255, 255, 255)
 		}
 		rowFillAlt = !rowFillAlt
 
-		pdf.SetFont("Helvetica", "", 7.5)
+		pdf.SetFont("Times", "", 7.5)
 		pdf.SetDrawColor(200, 200, 200)
 
 		// Sel: No
@@ -989,12 +990,12 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		} else if laporan.FotoURL != nil && *laporan.FotoURL != "" {
 			// File tidak ditemukan, tulis keterangan teks
 			pdf.SetXY(fotoX, startY+(rowH/2)-2)
-			pdf.SetFont("Helvetica", "I", 6)
+			pdf.SetFont("Times", "I", 6)
 			pdf.CellFormat(colW[5], 4, "File tdk ditemukan", "", 0, "C", false, 0, "")
 		} else {
 			// Tidak ada foto
 			pdf.SetXY(fotoX, startY+(rowH/2)-2)
-			pdf.SetFont("Helvetica", "I", 6)
+			pdf.SetFont("Times", "I", 6)
 			pdf.CellFormat(colW[5], 4, "- Tanpa Foto -", "", 0, "C", false, 0, "")
 		}
 
@@ -1020,12 +1021,12 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.AddPageFormat("P", f4Size)
 
 		// --- Kop halaman ---
-		pdf.SetFont("Helvetica", "B", 12)
+		pdf.SetFont("Times", "B", 12)
 		pdf.CellFormat(pageW, 8, "Laporan Harian Pegawai", "", 1, "C", false, 0, "")
-		pdf.SetFont("Helvetica", "B", 10)
+		pdf.SetFont("Times", "B", 10)
 		pdf.CellFormat(pageW, 6, user.Nama, "", 1, "C", false, 0, "")
 
-		pdf.SetFont("Helvetica", "", 9)
+		pdf.SetFont("Times", "", 9)
 		if user.Jabatan != nil {
 			pdf.CellFormat(pageW, 6, user.Jabatan.NamaJabatan, "", 1, "C", false, 0, "")
 		}
