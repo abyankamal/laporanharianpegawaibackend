@@ -96,6 +96,11 @@ func main() {
 	jabatanService := service.NewJabatanService(jabatanRepo)
 	jabatanHandler := handler.NewJabatanHandler(jabatanService)
 
+	// --- Admin Module ---
+	adminRepo := repository.NewAdminRepository(config.DB)
+	adminService := service.NewAdminService(adminRepo)
+	adminHandler := handler.NewAdminHandler(adminService)
+
 	// =============================================
 	// 4. SETUP FIBER APP
 	// =============================================
@@ -192,7 +197,7 @@ func main() {
 	userRoutesWrite.Delete("/:id", userHandler.Delete)
 
 	// ===================================================
-	// APP SETTINGS - Hanya Sekertaris dan Lurah (Sekarang menggunakan AdminOnly)
+	// APP SETTINGS & REKAP - Hanya Sekertaris dan Lurah (Menggunakan AdminOnly)
 	// ===================================================
 	adminRoutes := protected.Group("/admin", middleware.AdminOnly())
 	adminRoutes.Get("/jam-kerja", workHourHandler.GetWorkHour)
@@ -200,6 +205,9 @@ func main() {
 	adminRoutes.Get("/hari-libur", holidayHandler.GetHolidays)
 	adminRoutes.Post("/hari-libur", holidayHandler.CreateHoliday)
 	adminRoutes.Delete("/hari-libur/:id", holidayHandler.DeleteHoliday)
+
+	// Rute Baru: Rekap Laporan Admin dengan Filter
+	adminRoutes.Get("/rekap-laporan", adminHandler.GetRekapLaporan)
 
 	// ===================================================
 	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
