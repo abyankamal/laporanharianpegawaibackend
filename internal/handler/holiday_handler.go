@@ -67,6 +67,47 @@ func (h *HolidayHandler) CreateHoliday(c fiber.Ctx) error {
 	})
 }
 
+// UpdateHoliday request body
+type UpdateHolidayRequest struct {
+	TanggalMulai   string `json:"tanggal_mulai"`
+	TanggalSelesai string `json:"tanggal_selesai"`
+	Keterangan     string `json:"keterangan"`
+}
+
+// UpdateHoliday memperbarui data hari libur.
+func (h *HolidayHandler) UpdateHoliday(c fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID hari libur tidak valid",
+		})
+	}
+
+	var req UpdateHolidayRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid",
+		})
+	}
+
+	holiday, err := h.service.UpdateHoliday(uint(id), req.TanggalMulai, req.TanggalSelesai, req.Keterangan)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Hari libur berhasil diperbarui",
+		"data":    holiday,
+	})
+}
+
 // DeleteHoliday menghapus hari libur tertentu.
 func (h *HolidayHandler) DeleteHoliday(c fiber.Ctx) error {
 	idParam := c.Params("id")

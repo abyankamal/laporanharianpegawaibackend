@@ -11,7 +11,9 @@ import (
 // HolidayRepository adalah interface untuk operasi database Holiday.
 type HolidayRepository interface {
 	GetAll() ([]domain.Holiday, error)
+	GetByID(id uint) (*domain.Holiday, error)
 	Create(holiday *domain.Holiday) error
+	Update(holiday *domain.Holiday) error
 	Delete(id uint) error
 	CheckIsHoliday(date time.Time) (bool, error)
 }
@@ -35,6 +37,21 @@ func (r *holidayRepository) GetAll() ([]domain.Holiday, error) {
 // Create menyimpan data hari libur baru.
 func (r *holidayRepository) Create(holiday *domain.Holiday) error {
 	return r.db.Create(holiday).Error
+}
+
+// GetByID mengambil satu data hari libur berdasarkan ID.
+func (r *holidayRepository) GetByID(id uint) (*domain.Holiday, error) {
+	var holiday domain.Holiday
+	err := r.db.First(&holiday, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &holiday, nil
+}
+
+// Update memperbarui data hari libur yang sudah ada.
+func (r *holidayRepository) Update(holiday *domain.Holiday) error {
+	return r.db.Save(holiday).Error
 }
 
 // Delete menghapus hari libur berdasarkan ID.

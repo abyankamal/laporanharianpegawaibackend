@@ -364,6 +364,19 @@ func (m *HolidayRepositoryMock) Create(holiday *domain.Holiday) error {
 	return args.Error(0)
 }
 
+func (m *HolidayRepositoryMock) GetByID(id uint) (*domain.Holiday, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Holiday), args.Error(1)
+}
+
+func (m *HolidayRepositoryMock) Update(holiday *domain.Holiday) error {
+	args := m.Called(holiday)
+	return args.Error(0)
+}
+
 func (m *HolidayRepositoryMock) Delete(id uint) error {
 	args := m.Called(id)
 	return args.Error(0)

@@ -211,6 +211,7 @@ func main() {
 	adminRoutes.Put("/jam-kerja", workHourHandler.UpdateWorkHour)
 	adminRoutes.Get("/hari-libur", holidayHandler.GetHolidays)
 	adminRoutes.Post("/hari-libur", holidayHandler.CreateHoliday)
+	adminRoutes.Put("/hari-libur/:id", holidayHandler.UpdateHoliday)
 	adminRoutes.Delete("/hari-libur/:id", holidayHandler.DeleteHoliday)
 
 	// Rute Baru: Rekap Laporan Admin dengan Filter
