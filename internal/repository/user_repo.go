@@ -205,7 +205,7 @@ func (r *userRepository) FindSupervisors(roleFilter string) ([]domain.User, erro
 	if roleFilter == "" {
 		// Jika roleFilter kosong, ambil semua user yang memiliki role 'Atasan' atau 'Admin'
 		// (Catatan: disesuaikan dengan role sistem: lurah, sekertaris, kasi)
-		query = query.Where("role IN ?", []string{"Atasan", "Admin", "lurah", "sekertaris", "kasi"})
+		query = query.Where("role IN ?", []string{"Atasan", "lurah", "sekertaris", "kasi"})
 	} else {
 		// Jika roleFilter memiliki isi (misal: "sekertaris"), tambahkan kondisi
 		query = query.Where("role = ?", roleFilter)

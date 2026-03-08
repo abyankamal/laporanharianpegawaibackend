@@ -211,10 +211,6 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	}
 
 	// Format response detail penugasan
-	creatorName := ""
-	if task.Creator != nil {
-		creatorName = task.Creator.Nama
-	}
 
 	var deadline interface{}
 	if task.Deadline != nil {
@@ -224,21 +220,38 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	}
 
 	responseData := fiber.Map{
-		"judul_tugas":        task.JudulTugas,
-		"deskripsi":          task.Deskripsi,
-		"file_pendukung":     task.FileBukti,
-		"deadline":           deadline,
-		"nama_pemberi_tugas": creatorName,
+		"id":             task.ID,
+		"judul_tugas":    task.JudulTugas,
+		"deskripsi":      task.Deskripsi,
+		"file_pendukung": task.FileBukti,
+		"deadline":       deadline,
 	}
 
-	// Optional: add assignees to detail for completeness (though not explicitly requested, helpful for tracing)
+	// Info creator
+	if task.Creator != nil {
+		responseData["creator_name"] = task.Creator.Nama
+		responseData["creator_nip"] = task.Creator.NIP
+		if task.Creator.FotoPath != nil {
+			responseData["creator_avatar"] = *task.Creator.FotoPath
+		} else {
+			responseData["creator_avatar"] = ""
+		}
+	}
+
+	// Optional: add assignees to detail for completeness
 	var assigneeList []fiber.Map
 	for _, a := range task.Assignees {
-		assigneeList = append(assigneeList, fiber.Map{
+		aMap := fiber.Map{
 			"id":   a.ID,
 			"nama": a.Nama,
 			"nip":  a.NIP,
-		})
+		}
+		if a.FotoPath != nil {
+			aMap["avatar"] = *a.FotoPath
+		} else {
+			aMap["avatar"] = ""
+		}
+		assigneeList = append(assigneeList, aMap)
 	}
 	responseData["assignees"] = assigneeList
 

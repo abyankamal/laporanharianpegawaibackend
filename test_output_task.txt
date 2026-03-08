@@ -1,0 +1,8 @@
+﻿=== RUN   TestUpdateTask_Success_Partial
+=== RUN   TestUpdateTask_Success_Partial/Sukses:_Lurah_mengedit_hanya_judul_tugas
+=== RUN   TestUpdateTask_Success_Partial/Sukses:_Lurah_mengedit_hanya_assignees
+--- PASS: TestUpdateTask_Success_Partial (0.00s)
+    --- PASS: TestUpdateTask_Success_Partial/Sukses:_Lurah_mengedit_hanya_judul_tugas (0.00s)
+    --- PASS: TestUpdateTask_Success_Partial/Sukses:_Lurah_mengedit_hanya_assignees (0.00s)
+PASS
+ok  	laporanharianapi/internal/service	0.143s

@@ -135,6 +135,9 @@ func (r *adminRepository) GetPegawaiAdmin(filter AdminPegawaiFilter) (*AdminPega
 		query = query.Where("users.role = ?", filter.Role)
 	}
 
+	// Always exclude 'admin' role from this list
+	query = query.Where("users.role != ?", "admin")
+
 	// 1. Hitung total data (sebelum pagination/limit/offset diaplikasikan)
 	if err := query.Count(&totalData).Error; err != nil {
 		return nil, err

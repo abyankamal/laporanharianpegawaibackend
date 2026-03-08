@@ -1,0 +1,180 @@
+﻿=== RUN   TestGetSummary_Success_Staf
+=== RUN   TestGetSummary_Success_Staf/Sukses:_Dashboard_staf_ΓÇö_tanpa_laporan_masuk_hari_ini
+--- PASS: TestGetSummary_Success_Staf (0.00s)
+    --- PASS: TestGetSummary_Success_Staf/Sukses:_Dashboard_staf_ΓÇö_tanpa_laporan_masuk_hari_ini (0.00s)
+=== RUN   TestGetSummary_Success_Lurah
+=== RUN   TestGetSummary_Success_Lurah/Sukses:_Dashboard_lurah_ΓÇö_dengan_laporan_masuk_hari_ini
+--- PASS: TestGetSummary_Success_Lurah (0.00s)
+    --- PASS: TestGetSummary_Success_Lurah/Sukses:_Dashboard_lurah_ΓÇö_dengan_laporan_masuk_hari_ini (0.00s)
+=== RUN   TestGetSummary_Success_Sekertaris
+=== RUN   TestGetSummary_Success_Sekertaris/Sukses:_Dashboard_sekertaris_ΓÇö_dengan_laporan_masuk_hari_ini
+--- PASS: TestGetSummary_Success_Sekertaris (0.00s)
+    --- PASS: TestGetSummary_Success_Sekertaris/Sukses:_Dashboard_sekertaris_ΓÇö_dengan_laporan_masuk_hari_ini (0.00s)
+=== RUN   TestGetSummary_Fail_UserNotFound
+=== RUN   TestGetSummary_Fail_UserNotFound/Gagal:_User_tidak_ditemukan
+--- PASS: TestGetSummary_Fail_UserNotFound (0.00s)
+    --- PASS: TestGetSummary_Fail_UserNotFound/Gagal:_User_tidak_ditemukan (0.00s)
+=== RUN   TestGetSummary_Fail_CountPendingError
+=== RUN   TestGetSummary_Fail_CountPendingError/Gagal:_Error_saat_hitung_tugas_pending
+--- PASS: TestGetSummary_Fail_CountPendingError (0.00s)
+    --- PASS: TestGetSummary_Fail_CountPendingError/Gagal:_Error_saat_hitung_tugas_pending (0.00s)
+=== RUN   TestGetSummary_Fail_CountLaporanBulanError
+=== RUN   TestGetSummary_Fail_CountLaporanBulanError/Gagal:_Error_saat_hitung_laporan_bulan_ini
+--- PASS: TestGetSummary_Fail_CountLaporanBulanError (0.00s)
+    --- PASS: TestGetSummary_Fail_CountLaporanBulanError/Gagal:_Error_saat_hitung_laporan_bulan_ini (0.00s)
+=== RUN   TestGetSummary_Success_WithRiwayat
+=== RUN   TestGetSummary_Success_WithRiwayat/Sukses:_Mengembalikan_riwayat_laporan_terbaru
+--- PASS: TestGetSummary_Success_WithRiwayat (0.00s)
+    --- PASS: TestGetSummary_Success_WithRiwayat/Sukses:_Mengembalikan_riwayat_laporan_terbaru (0.00s)
+=== RUN   TestGetSummary_Success_ZeroValues
+=== RUN   TestGetSummary_Success_ZeroValues/Sukses:_Semua_count_bernilai_0_(pegawai_baru)
+--- PASS: TestGetSummary_Success_ZeroValues (0.00s)
+    --- PASS: TestGetSummary_Success_ZeroValues/Sukses:_Semua_count_bernilai_0_(pegawai_baru) (0.00s)
+=== RUN   TestGetHolidays_Success
+--- PASS: TestGetHolidays_Success (0.00s)
+=== RUN   TestCreateHoliday_Success
+--- PASS: TestCreateHoliday_Success (0.00s)
+=== RUN   TestCreateHoliday_EmptyKeterangan
+--- PASS: TestCreateHoliday_EmptyKeterangan (0.00s)
+=== RUN   TestCreateHoliday_InvalidDate
+    holiday_service_test.go:70: 
+        	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/holiday_service_test.go:70
+        	Error:      	Not equal: 
+        	            	expected: "format tanggal tidak valid (gunakan YYYY-MM-DD, contoh: 2026-08-17)"
+        	            	actual  : "format tanggal mulai tidak valid (gunakan YYYY-MM-DD, contoh: 2026-08-17)"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-format tanggal tidak valid (gunakan YYYY-MM-DD, contoh: 2026-08-17)
+        	            	+format tanggal mulai tidak valid (gunakan YYYY-MM-DD, contoh: 2026-08-17)
+        	Test:       	TestCreateHoliday_InvalidDate
+--- FAIL: TestCreateHoliday_InvalidDate (0.00s)
+=== RUN   TestDeleteHoliday_Success
+--- PASS: TestDeleteHoliday_Success (0.00s)
+=== RUN   TestDeleteHoliday_Error
+--- PASS: TestDeleteHoliday_Error (0.00s)
+=== RUN   TestGetMyNotifications_Success
+=== RUN   TestGetMyNotifications_Success/Sukses:_Mengembalikan_list_notifikasi_milik_user
+--- PASS: TestGetMyNotifications_Success (0.00s)
+    --- PASS: TestGetMyNotifications_Success/Sukses:_Mengembalikan_list_notifikasi_milik_user (0.00s)
+=== RUN   TestGetMyNotifications_Success_Empty
+=== RUN   TestGetMyNotifications_Success_Empty/Sukses:_User_belum_punya_notifikasi_(empty_list)
+--- PASS: TestGetMyNotifications_Success_Empty (0.00s)
+    --- PASS: TestGetMyNotifications_Success_Empty/Sukses:_User_belum_punya_notifikasi_(empty_list) (0.00s)
+=== RUN   TestGetMyNotifications_Fail_DBError
+=== RUN   TestGetMyNotifications_Fail_DBError/Gagal:_Error_database_saat_query_notifikasi
+--- PASS: TestGetMyNotifications_Fail_DBError (0.00s)
+    --- PASS: TestGetMyNotifications_Fail_DBError/Gagal:_Error_database_saat_query_notifikasi (0.00s)
+=== RUN   TestReadNotification_Success
+=== RUN   TestReadNotification_Success/Sukses:_Menandai_notifikasi_sebagai_dibaca
+--- PASS: TestReadNotification_Success (0.00s)
+    --- PASS: TestReadNotification_Success/Sukses:_Menandai_notifikasi_sebagai_dibaca (0.00s)
+=== RUN   TestReadNotification_Fail_NotFound
+=== RUN   TestReadNotification_Fail_NotFound/Gagal:_Notifikasi_tidak_ditemukan_atau_bukan_milik_user
+--- PASS: TestReadNotification_Fail_NotFound (0.00s)
+    --- PASS: TestReadNotification_Fail_NotFound/Gagal:_Notifikasi_tidak_ditemukan_atau_bukan_milik_user (0.00s)
+=== RUN   TestCreateReport_Success_DocumentMode
+=== RUN   TestCreateReport_Success_DocumentMode/Sukses_membuat_laporan_mode_dokumen_(tanpa_lokasi,_tanpa_file)
+--- PASS: TestCreateReport_Success_DocumentMode (0.00s)
+    --- PASS: TestCreateReport_Success_DocumentMode/Sukses_membuat_laporan_mode_dokumen_(tanpa_lokasi,_tanpa_file) (0.00s)
+=== RUN   TestCreateReport_Success_WithLocation
+=== RUN   TestCreateReport_Success_WithLocation/Sukses_membuat_laporan_dengan_data_lokasi
+--- PASS: TestCreateReport_Success_WithLocation (0.00s)
+    --- PASS: TestCreateReport_Success_WithLocation/Sukses_membuat_laporan_dengan_data_lokasi (0.00s)
+=== RUN   TestCreateReport_Fail_Holiday
+=== RUN   TestCreateReport_Fail_Holiday/Gagal_membuat_laporan_pada_hari_libur
+--- PASS: TestCreateReport_Fail_Holiday (0.00s)
+    --- PASS: TestCreateReport_Fail_Holiday/Gagal_membuat_laporan_pada_hari_libur (0.00s)
+=== RUN   TestCreateReport_Fail_MissingJudulForTambahan
+=== RUN   TestCreateReport_Fail_MissingJudulForTambahan/Gagal_membuat_laporan_tambahan_tanpa_judul_kegiatan
+--- PASS: TestCreateReport_Fail_MissingJudulForTambahan (0.00s)
+    --- PASS: TestCreateReport_Fail_MissingJudulForTambahan/Gagal_membuat_laporan_tambahan_tanpa_judul_kegiatan (0.00s)
+=== RUN   TestCreateReport_Fail_CheckHolidayError
+=== RUN   TestCreateReport_Fail_CheckHolidayError/Gagal_ketika_pengecekan_hari_libur_error
+--- PASS: TestCreateReport_Fail_CheckHolidayError (0.00s)
+    --- PASS: TestCreateReport_Fail_CheckHolidayError/Gagal_ketika_pengecekan_hari_libur_error (0.00s)
+=== RUN   TestCreateReport_FridayOvertime
+=== RUN   TestCreateReport_FridayOvertime/Verifikasi_lembur_hari_Jumat_menggunakan_jam_pulang_jumat
+--- PASS: TestCreateReport_FridayOvertime (0.00s)
+    --- PASS: TestCreateReport_FridayOvertime/Verifikasi_lembur_hari_Jumat_menggunakan_jam_pulang_jumat (0.00s)
+=== RUN   TestEvaluateReport_Success_Lurah
+=== RUN   TestEvaluateReport_Success_Lurah/Sukses:_Lurah_bebas_menyetujui_laporan_siapa_saja
+--- PASS: TestEvaluateReport_Success_Lurah (0.00s)
+    --- PASS: TestEvaluateReport_Success_Lurah/Sukses:_Lurah_bebas_menyetujui_laporan_siapa_saja (0.00s)
+=== RUN   TestEvaluateReport_Success_SekertarisToStaf
+=== RUN   TestEvaluateReport_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_laporan_Staf
+--- PASS: TestEvaluateReport_Success_SekertarisToStaf (0.00s)
+    --- PASS: TestEvaluateReport_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_laporan_Staf (0.00s)
+=== RUN   TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID
+=== RUN   TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID/Gagal:_Sekertaris_menilai_Kasi_yang_bukan_bawahannya
+--- PASS: TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID (0.00s)
+    --- PASS: TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID/Gagal:_Sekertaris_menilai_Kasi_yang_bukan_bawahannya (0.00s)
+=== RUN   TestEvaluateReport_Fail_Kasi
+=== RUN   TestEvaluateReport_Fail_Kasi/Gagal:_Kasi/Staf_mencoba_melakukan_evaluasi
+--- PASS: TestEvaluateReport_Fail_Kasi (0.00s)
+    --- PASS: TestEvaluateReport_Fail_Kasi/Gagal:_Kasi/Staf_mencoba_melakukan_evaluasi (0.00s)
+=== RUN   TestSubmitReview_Success_LurahToSekertaris
+=== RUN   TestSubmitReview_Success_LurahToSekertaris/Sukses:_Lurah_menilai_Sekertaris_+_notifikasi_terkirim
+--- PASS: TestSubmitReview_Success_LurahToSekertaris (0.00s)
+    --- PASS: TestSubmitReview_Success_LurahToSekertaris/Sukses:_Lurah_menilai_Sekertaris_+_notifikasi_terkirim (0.00s)
+=== RUN   TestSubmitReview_Success_SekertarisToStaf
+=== RUN   TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf
+--- PASS: TestSubmitReview_Success_SekertarisToStaf (0.00s)
+    --- PASS: TestSubmitReview_Success_SekertarisToStaf/Sukses:_Sekertaris_menilai_Staf (0.00s)
+=== RUN   TestSubmitReview_Fail_SelfReview
+=== RUN   TestSubmitReview_Fail_SelfReview/Gagal:_Tidak_boleh_menilai_diri_sendiri
+--- PASS: TestSubmitReview_Fail_SelfReview (0.00s)
+    --- PASS: TestSubmitReview_Fail_SelfReview/Gagal:_Tidak_boleh_menilai_diri_sendiri (0.00s)
+=== RUN   TestSubmitReview_Fail_InvalidDateRange
+=== RUN   TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai
+--- PASS: TestSubmitReview_Fail_InvalidDateRange (0.00s)
+    --- PASS: TestSubmitReview_Fail_InvalidDateRange/Gagal:_Tanggal_mulai_lebih_besar_dari_tanggal_selesai (0.00s)
+=== RUN   TestSubmitReview_Fail_StafCannotReview
+=== RUN   TestSubmitReview_Fail_StafCannotReview/Gagal:_Staf_tidak_boleh_melakukan_penilaian
+--- PASS: TestSubmitReview_Fail_StafCannotReview (0.00s)
+    --- PASS: TestSubmitReview_Fail_StafCannotReview/Gagal:_Staf_tidak_boleh_melakukan_penilaian (0.00s)
+=== RUN   TestSubmitReview_Fail_InvalidPeriode
+=== RUN   TestSubmitReview_Fail_InvalidPeriode/Gagal:_JenisPeriode_tidak_valid
+--- PASS: TestSubmitReview_Fail_InvalidPeriode (0.00s)
+    --- PASS: TestSubmitReview_Fail_InvalidPeriode/Gagal:_JenisPeriode_tidak_valid (0.00s)
+=== RUN   TestSubmitReview_Fail_LurahToStaf
+=== RUN   TestSubmitReview_Fail_LurahToStaf/Gagal:_Lurah_tidak_boleh_langsung_menilai_Staf
+--- PASS: TestSubmitReview_Fail_LurahToStaf (0.00s)
+    --- PASS: TestSubmitReview_Fail_LurahToStaf/Gagal:_Lurah_tidak_boleh_langsung_menilai_Staf (0.00s)
+=== RUN   TestSubmitReview_Fail_DBError_NoNotification
+=== RUN   TestSubmitReview_Fail_DBError_NoNotification/Gagal:_DB_error_saat_simpan_ΓÇö_notifikasi_tidak_terkirim
+--- PASS: TestSubmitReview_Fail_DBError_NoNotification (0.00s)
+    --- PASS: TestSubmitReview_Fail_DBError_NoNotification/Gagal:_DB_error_saat_simpan_ΓÇö_notifikasi_tidak_terkirim (0.00s)
+=== RUN   TestCreateTask_Organisasi_Success
+=== RUN   TestCreateTask_Organisasi_Success/Sukses:_Lurah_membuat_tugas_organisasi_ke_2_user
+    task_service_test.go:50: 
+        	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/task_service_test.go:50
+        	Error:      	Received unexpected error:
+        	            	format deadline tidak valid. Gunakan YYYY-MM-DD HH:mm:ss
+        	Test:       	TestCreateTask_Organisasi_Success/Sukses:_Lurah_membuat_tugas_organisasi_ke_2_user
+    task_service_test.go:51: 
+        	Error Trace:	C:/laragon/www/laporanharianapi/internal/service/task_service_test.go:51
+        	Error:      	Expected value not to be nil.
+        	Test:       	TestCreateTask_Organisasi_Success/Sukses:_Lurah_membuat_tugas_organisasi_ke_2_user
+--- FAIL: TestCreateTask_Organisasi_Success (0.00s)
+    --- FAIL: TestCreateTask_Organisasi_Success/Sukses:_Lurah_membuat_tugas_organisasi_ke_2_user (0.00s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered, repanicked]
+[signal 0xc0000005 code=0x0 addr=0x8 pc=0x7ff69de85db8]
+
+goroutine 114 [running]:
+testing.tRunner.func1.2({0x7ff69e069b80, 0x7ff69f053da0})
+	C:/Program Files/Go/src/testing/testing.go:1872 +0x239
+testing.tRunner.func1()
+	C:/Program Files/Go/src/testing/testing.go:1875 +0x35b
+panic({0x7ff69e069b80?, 0x7ff69f053da0?})
+	C:/Program Files/Go/src/runtime/panic.go:783 +0x132
+laporanharianapi/internal/service.TestCreateTask_Organisasi_Success.func1(0xc0006076c0)
+	C:/laragon/www/laporanharianapi/internal/service/task_service_test.go:52 +0x558
+testing.tRunner(0xc0006076c0, 0x7ff69e36a2c0)
+	C:/Program Files/Go/src/testing/testing.go:1934 +0xc3
+created by testing.(*T).Run in goroutine 113
+	C:/Program Files/Go/src/testing/testing.go:1997 +0x44b
+FAIL	laporanharianapi/internal/service	0.154s
+FAIL

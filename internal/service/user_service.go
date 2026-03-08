@@ -295,7 +295,7 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 		return "", errors.New("gagal mengupdate foto profil")
 	}
 
-	return destPath, nil
+	return filepath.ToSlash(destPath), nil
 }
 
 // GetSupervisors mengambil daftar atasan secara dinamis berdasarkan query parameter roleFilter.

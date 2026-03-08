@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"laporanharianapi/internal/domain"
@@ -196,7 +197,7 @@ func (s *taskService) GetTaskByID(requesterID uint, requesterRole string, taskID
 	return task, nil
 }
 
-// UpdateTask mengubah tugas organisasi. Hanya Lurah yang dapat mengubahnya.
+// UpdateTask mengubah tugas organisasi. Hanya Lurah yang dapat mengubahnya (Mendukung Partial Update).
 func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID uint, req UpdateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error) {
 	// 1. Validasi otorisasi: Hanya Lurah yang boleh mengedit
 	if requesterRole != "lurah" {
@@ -209,77 +210,70 @@ func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID 
 		return nil, errors.New("tugas tidak ditemukan")
 	}
 
-	// 3. Validasi input
-	if req.JudulTugas == "" {
-		return nil, errors.New("judul_tugas wajib diisi")
+	// 3. Update field utama (Hanya jika diisi/dikirim)
+	if req.JudulTugas != "" {
+		task.JudulTugas = req.JudulTugas
 	}
 
-	// 3.5 Parse Deadline (Sudah menggunakan time.Local)
-	parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, time.Local)
-	if err != nil {
-		// Coba format RFC3339
-		parsedDeadline, err = time.Parse(time.RFC3339, req.Deadline)
+	if req.Deskripsi != "" {
+		task.Deskripsi = req.Deskripsi
+	}
+
+	// 3.5 Parse Deadline jika dikirim
+	if req.Deadline != "" {
+		parsedDeadline, err := time.ParseInLocation("2006-01-02 15:04:05", req.Deadline, time.Local)
 		if err != nil {
-			return nil, errors.New("format deadline tidak valid. Gunakan YYYY-MM-DD HH:mm:ss")
+			parsedDeadline, err = time.Parse(time.RFC3339, req.Deadline)
+			if err != nil {
+				return nil, errors.New("format deadline tidak valid. Gunakan YYYY-MM-DD HH:mm:ss")
+			}
 		}
+		task.Deadline = &parsedDeadline
 	}
 
-	// 4. Update field utama
-	task.JudulTugas = req.JudulTugas
-	task.Deskripsi = req.Deskripsi
-	task.Deadline = &parsedDeadline
-
-	// Handle File update
+	// 4. Handle File update (Logika Perbaikan)
 	if req.FileHeader != nil {
-		// Hapus file lama jika ada
+		// Jika ada upload file fisik baru: hapus yang lama, simpan yang baru
 		if task.FileBukti != nil && *task.FileBukti != "" {
 			os.Remove(filepath.FromSlash(*task.FileBukti))
 		}
-		// Simpan file baru
 		uploadedPath, err := s.saveTaskFile(req.FileHeader)
 		if err != nil {
 			return nil, fmt.Errorf("gagal menyimpan file bukti baru: %v", err)
 		}
 		task.FileBukti = &uploadedPath
 	} else if req.FileBukti != "" {
-		// Update path jika dikirim string (Base64 atau manual link)
+		// Jika dikirim string path/URL baru
 		if task.FileBukti == nil || *task.FileBukti != req.FileBukti {
-			if task.FileBukti != nil && *task.FileBukti != "" {
+			// Jika sebelumnya ada file fisik (bukan URL luar), hapus dulu sebelum ganti ke path baru
+			if task.FileBukti != nil && strings.Contains(*task.FileBukti, "uploads/") {
 				os.Remove(filepath.FromSlash(*task.FileBukti))
 			}
 			task.FileBukti = &req.FileBukti
 		}
-	} else if req.FileBukti == "" && req.FileHeader == nil && task.FileBukti != nil {
-		// Jika dikirim kosong dan memang ada file lama, asumsikan ingin dihapus
-		os.Remove(filepath.FromSlash(*task.FileBukti))
-		task.FileBukti = nil
 	}
+	// Note: Jika req.FileBukti dan req.FileHeader kosong, kita KEEPS file lama (Safe for partial update)
 
-	// 5. Validasi TargetUserIDs
-	if len(req.TargetUserIDs) == 0 {
-		return nil, errors.New("target_user_ids wajib diisi")
-	}
-
-	// 6. Validasi semua target user
-	var assignees []domain.User
-	for _, uid := range req.TargetUserIDs {
-		user, err := s.userRepo.FindByID(uint(uid))
-		if err != nil {
-			return nil, fmt.Errorf("user target dengan ID %d tidak ditemukan", uid)
+	// 5. Update assignees M2M (Hanya jika dikirim)
+	if len(req.TargetUserIDs) > 0 {
+		var assignees []domain.User
+		for _, uid := range req.TargetUserIDs {
+			user, err := s.userRepo.FindByID(uint(uid))
+			if err != nil {
+				return nil, fmt.Errorf("user target dengan ID %d tidak ditemukan", uid)
+			}
+			assignees = append(assignees, *user)
 		}
-		assignees = append(assignees, *user)
+
+		if err := s.taskRepo.ReplaceAssignees(taskID, assignees); err != nil {
+			return nil, fmt.Errorf("gagal mengubah assignees: %v", err)
+		}
+		task.Assignees = assignees
 	}
 
-	// 7. Update assignees M2M
-	if err := s.taskRepo.ReplaceAssignees(taskID, assignees); err != nil {
-		return nil, fmt.Errorf("gagal mengubah assignees: %v", err)
-	}
-
-	task.Assignees = assignees
-
-	// 8. Simpan perubahan ke DB
+	// 6. Simpan perubahan ke DB
 	if err := s.taskRepo.Update(task); err != nil {
-		return nil, fmt.Errorf("gagal mengubah tugas: %v", err)
+		return nil, fmt.Errorf("gagal mengubah tugas di database: %v", err)
 	}
 
 	return task, nil

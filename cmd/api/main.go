@@ -165,130 +165,133 @@ func main() {
 	// =============================================
 	api := app.Group("/api")
 
-	// --- Public Routes (Tidak perlu login) ---
-	api.Post("/login", authHandler.Login)
+	// ===================================================
+	// MOBILE ROUTES (FLUTTER) - /api/mobile/v1
+	// ===================================================
+	mobile := api.Group("/mobile")
 
-	// --- Protected Routes (Wajib login dengan JWT) ---
-	protected := api.Group("/", middleware.Protected())
+	// 1. Authenticated Routes for Mobile
+	mobile.Post("/login", authHandler.Login) // Public Login for Mobile
+
+	mProtected := mobile.Group("", middleware.Protected())
+
+	// Profile & Dashboard
+	mProtected.Get("/profile", userHandler.GetProfile)
+	mProtected.Put("/profile/change-password", userHandler.ChangePassword)
+	mProtected.Put("/profile/change-photo", userHandler.ChangePhoto)
+	mProtected.Put("/users/fcm-token", userHandler.UpdateFCMToken)
+	mProtected.Get("/dashboard/summary", dashboardHandler.GetSummary)
+
+	// Directory
+	mProtected.Get("/rekan-kerja", adminHandler.GetPegawai)
+
+	// Laporan (Mobile)
+	mReport := mProtected.Group("/reports")
+	mReport.Post("/", reportHandler.Create)
+	mReport.Get("/", reportHandler.GetAll)
+	mReport.Get("/recap", reportHandler.GetReportRecapHandler)
+	mReport.Get("/recap-pegawai", adminHandler.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin")) // Admin features in mobile
+	mReport.Put("/evaluate", reportHandler.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))        // Admin features in mobile
+	mReport.Get("/:id", reportHandler.GetOne)
+
+	// Tugas & Notifikasi (Mobile)
+	mProtected.Get("/my-tasks", taskHandler.GetMyTasks)
+	mProtected.Get("/notifications", notifHandler.GetMy)
+	mProtected.Get("/notifications/:id", notifHandler.GetByID)
+	mProtected.Put("/notifications/:id/read", notifHandler.MarkRead)
+
+	// Manajemen Tugas (Khusus Lurah di Mobile)
+	mTasks := mProtected.Group("/tasks")
+	mTasks.Get("/:id", taskHandler.GetByID) // Bisa diakses Lurah & Assignee
+	mTasks.Post("/", taskHandler.Create, middleware.AllowRoles("lurah"))
+	mTasks.Get("/", taskHandler.GetAll, middleware.AllowRoles("lurah"))
+	mTasks.Put("/:id", taskHandler.Update, middleware.AllowRoles("lurah"))
+	mTasks.Delete("/:id", taskHandler.Delete, middleware.AllowRoles("lurah"))
+
+	// Penilaian (Mobile)
+	mProtected.Get("/reviews", reviewHandler.GetMyReviews) // Semua role bisa lihat nilai diri sendiri
+
+	// Manajemen Penilaian (Khusus Lurah & Sekertaris di Mobile)
+	mReviewManage := mProtected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
+	mReviewManage.Post("/", reviewHandler.Create)
+	mReviewManage.Get("/submissions", reviewHandler.GetMySubmittedReviews)
 
 	// ===================================================
-	// A. PROFILE, DASHBOARD & DIRECTORY (Semua role yang sudah login)
+	// WEB ROUTES (ADMIN PANEL) - /api/web/v1
 	// ===================================================
-	protected.Get("/profile", userHandler.GetProfile)
-	protected.Put("/profile/change-password", userHandler.ChangePassword)
-	protected.Put("/profile/change-photo", userHandler.ChangePhoto)
-	protected.Put("/users/fcm-token", userHandler.UpdateFCMToken)
-	protected.Get("/dashboard/summary", dashboardHandler.GetSummary)
-	protected.Get("/jabatan", jabatanHandler.GetAll)
+	web := api.Group("/web")
 
-	// Directory Rekan Kerja (Bisa diakses semua role)
-	protected.Get("/rekan-kerja", adminHandler.GetPegawai)
+	// 1. Authenticated Routes for Web
+	web.Post("/login", authHandler.Login) // Public Login for Web
 
-	// ===================================================
-	// B. USER MANAGEMENT
-	// ===================================================
-	// Read-only access untuk Lurah (butuh untuk dropdown bawahan) & Sekertaris
-	userRoutesRead := protected.Group("/users", middleware.AllowRoles("Sekertaris", "lurah", "sekertaris"))
-	userRoutesRead.Get("/", userHandler.GetAll)
-	userRoutesRead.Get("/supervisors", userHandler.GetSupervisors)
-	userRoutesRead.Get("/:id", userHandler.GetOne)
+	wProtected := web.Group("", middleware.Protected())
 
-	// Write access khusus Sekertaris
-	userRoutesWrite := protected.Group("/users", middleware.AllowRoles("sekertaris", "Sekertaris"))
-	userRoutesWrite.Post("/", userHandler.Create)
-	userRoutesWrite.Put("/:id", userHandler.Update)
-	userRoutesWrite.Delete("/:id", userHandler.Delete)
+	// Dashboard & Profile
+	wProtected.Get("/profile", userHandler.GetProfile)
+	wProtected.Get("/dashboard/summary", adminHandler.GetDashboardSummary)
 
-	// ===================================================
-	// APP SETTINGS & REKAP - Hanya Sekertaris dan Lurah (Menggunakan AdminOnly)
-	// ===================================================
-	adminRoutes := protected.Group("/admin", middleware.AdminOnly())
+	// Admin Specific (Only Lurah/Sekertaris/Admin)
+	adminOnly := wProtected.Group("/admin", middleware.AdminOnly())
 
-	// Dashboard Khusus Admin
-	adminRoutes.Get("/dashboard/summary", adminHandler.GetDashboardSummary)
+	// App Settings
+	adminOnly.Get("/jam-kerja", workHourHandler.GetWorkHour)
+	adminOnly.Put("/jam-kerja", workHourHandler.UpdateWorkHour)
+	adminOnly.Get("/hari-libur", holidayHandler.GetHolidays)
+	adminOnly.Post("/hari-libur", holidayHandler.CreateHoliday)
+	adminOnly.Put("/hari-libur/:id", holidayHandler.UpdateHoliday)
+	adminOnly.Delete("/hari-libur/:id", holidayHandler.DeleteHoliday)
 
-	adminRoutes.Get("/jam-kerja", workHourHandler.GetWorkHour)
-	adminRoutes.Put("/jam-kerja", workHourHandler.UpdateWorkHour)
-	adminRoutes.Get("/hari-libur", holidayHandler.GetHolidays)
-	adminRoutes.Post("/hari-libur", holidayHandler.CreateHoliday)
-	adminRoutes.Put("/hari-libur/:id", holidayHandler.UpdateHoliday)
-	adminRoutes.Delete("/hari-libur/:id", holidayHandler.DeleteHoliday)
+	// User Management
+	userManage := wProtected.Group("/users", middleware.AllowRoles("lurah", "sekertaris"))
+	userManage.Get("/", userHandler.GetAll)
+	userManage.Get("/supervisors", userHandler.GetSupervisors)
+	userManage.Get("/:id", userHandler.GetOne)
+	userManage.Post("/", userHandler.Create)
+	userManage.Put("/:id", userHandler.Update)
+	userManage.Delete("/:id", userHandler.Delete)
 
-	// Rute Baru: Rekap Laporan Admin dengan Filter
-	adminRoutes.Get("/rekap-laporan", adminHandler.GetRekapLaporan)
-	// Skeleton Endpoint untuk Cetak PDF/Excel
-	adminRoutes.Get("/rekap-laporan/export", adminHandler.GetLaporanExport)
+	// Manajemen Pegawai
+	pegawaiManage := adminOnly.Group("/pegawai")
+	pegawaiManage.Get("/", adminHandler.GetPegawai)
+	pegawaiManage.Post("/", adminHandler.CreatePegawai)
+	pegawaiManage.Put("/:id", adminHandler.UpdatePegawai)
+	pegawaiManage.Delete("/:id", adminHandler.DeletePegawai)
+
+	// Rekap Laporan & Export
+	wReports := wProtected.Group("/reports")
+	wReports.Get("/", reportHandler.GetAll)
+	wReports.Get("/recap", adminHandler.GetRekapLaporan)
+	wReports.Get("/export", adminHandler.GetLaporanExport)
+	wReports.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
+	wReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
+	wReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
+	wReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
+
+	// Pusat Pengumuman
+	pengumuman := adminOnly.Group("/pengumuman")
+	pengumuman.Get("/", adminHandler.GetPengumuman)
+	pengumuman.Post("/", adminHandler.CreatePengumuman)
+	pengumuman.Put("/:id", adminHandler.UpdatePengumuman)
+	pengumuman.Delete("/:id", adminHandler.DeletePengumuman)
+
+	// Manajemen Tugas (Lurah)
+	wTasks := wProtected.Group("/tasks", middleware.AllowRoles("lurah"))
+	wTasks.Post("/", taskHandler.Create)
+	wTasks.Get("/", taskHandler.GetAll)
+	wTasks.Put("/:id", taskHandler.Update)
+	wTasks.Delete("/:id", taskHandler.Delete)
+
+	// Manajemen Penilaian
+	wReviews := wProtected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
+	wReviews.Post("/", reviewHandler.Create)
+	wReviews.Get("/submissions", reviewHandler.GetMySubmittedReviews)
 
 	// Manajemen Jabatan
-	adminRoutes.Get("/jabatan", jabatanHandler.GetAll)
-	adminRoutes.Get("/jabatan/:id", jabatanHandler.GetOne)
-	adminRoutes.Post("/jabatan", jabatanHandler.Create)
-	adminRoutes.Put("/jabatan/:id", jabatanHandler.Update)
-	adminRoutes.Delete("/jabatan/:id", jabatanHandler.Delete)
-
-	// ===================================================
-	// G. MANAJEMEN PEGAWAI (Khusus Admin/Lurah/Sekertaris melalui adminRoutes)
-	// ===================================================
-	pegawaiRoutes := adminRoutes.Group("/pegawai")
-	pegawaiRoutes.Get("/", adminHandler.GetPegawai)
-	pegawaiRoutes.Post("/", adminHandler.CreatePegawai)
-	pegawaiRoutes.Put("/:id", adminHandler.UpdatePegawai)
-	pegawaiRoutes.Delete("/:id", adminHandler.DeletePegawai)
-
-	// ===================================================
-	// H. PUSAT PENGUMUMAN (Khusus Admin)
-	// ===================================================
-	pengumumanRoutes := adminRoutes.Group("/pengumuman")
-	pengumumanRoutes.Get("/", adminHandler.GetPengumuman)
-	pengumumanRoutes.Post("/", adminHandler.CreatePengumuman)
-	pengumumanRoutes.Put("/:id", adminHandler.UpdatePengumuman)
-	pengumumanRoutes.Delete("/:id", adminHandler.DeletePengumuman)
-
-	// ===================================================
-	// C. LAPORAN - Semua role bisa create & view (RBAC di service layer)
-	// ===================================================
-	reportRoutes := protected.Group("/reports")
-	reportRoutes.Post("/", reportHandler.Create) // Semua role
-	reportRoutes.Get("/", reportHandler.GetAll)  // RBAC ditangani di service layer
-	reportRoutes.Get("/recap", reportHandler.GetReportRecapHandler)
-	reportRoutes.Get("/recap/export/excel", reportHandler.ExportReportRecapExcelHandler)
-	reportRoutes.Get("/recap/export/attachments", reportHandler.ExportReportAttachmentsHandler)
-	reportRoutes.Get("/recap/export/pdf", reportHandler.ExportReportPDFHandler) // Ekspor PDF laporan harian
-	reportRoutes.Put("/evaluate", reportHandler.EvaluateReportHandler)          // Evaluasi laporan (Lurah/Sekertaris)
-	reportRoutes.Get("/:id", reportHandler.GetOne)                              // Mengambil detail laporan
-
-	// ===================================================
-	// D. PENILAIAN - Create hanya Lurah & Sekertaris
-	//    View penilaian diri sendiri boleh semua role
-	// ===================================================
-	protected.Get("/reviews", reviewHandler.GetMyReviews) // Semua role (lihat nilai sendiri)
-
-	reviewManage := protected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
-	reviewManage.Post("/", reviewHandler.Create)                             // Hanya Lurah & Sekertaris
-	reviewManage.Get("/my-submissions", reviewHandler.GetMySubmittedReviews) // Hanya Lurah & Sekertaris
-
-	// ===================================================
-	// E. TUGAS ORGANISASI - Create, Update, Delete hanya Lurah
-	// ===================================================
-	taskRoutes := protected.Group("/tasks", middleware.AllowRoles("lurah"))
-	taskRoutes.Post("/", taskHandler.Create)      // Hanya Lurah
-	taskRoutes.Get("/", taskHandler.GetAll)       // Hanya Lurah
-	taskRoutes.Put("/:id", taskHandler.Update)    // Hanya Lurah
-	taskRoutes.Delete("/:id", taskHandler.Delete) // Hanya Lurah
-
-	// My Tasks - Semua role bisa melihat tugas organisasi miliknya (untuk dropdown)
-	protected.Get("/my-tasks", taskHandler.GetMyTasks)
-
-	// Detail Tugas - Bisa dilihat oleh Lurah maupun assignee
-	protected.Get("/tasks/:id", taskHandler.GetByID)
-
-	// ===================================================
-	// F. NOTIFIKASI - Semua role yang sudah login
-	// ===================================================
-	notifRoutes := protected.Group("/notifications")
-	notifRoutes.Get("/", notifHandler.GetMy)            // Ambil semua notifikasi saya
-	notifRoutes.Get("/:id", notifHandler.GetByID)       // Ambil detail notifikasi
-	notifRoutes.Put("/:id/read", notifHandler.MarkRead) // Tandai notifikasi sebagai dibaca
+	adminOnly.Get("/jabatan", jabatanHandler.GetAll)
+	adminOnly.Get("/jabatan/:id", jabatanHandler.GetOne)
+	adminOnly.Post("/jabatan", jabatanHandler.Create)
+	adminOnly.Put("/jabatan/:id", jabatanHandler.Update)
+	adminOnly.Delete("/jabatan/:id", jabatanHandler.Delete)
 
 	// =============================================
 	// 7. BACKGROUND JOBS
@@ -307,43 +310,19 @@ func main() {
 	log.Printf("🚀 Server berjalan di http://localhost:%s", port)
 	log.Println("================================================")
 	log.Println("")
-	log.Println("📌 Daftar Endpoints:")
-	log.Println("   [PUBLIC]")
-	log.Println("   POST   /api/login                        - Login user")
+	log.Println("📌 Daftar Endpoints Utama:")
+	log.Println("   [MOBILE - /api/mobile/v1]")
+	log.Println("   POST   /login                    - Login Mobile")
+	log.Println("   GET    /profile                  - Profile Saya")
+	log.Println("   POST   /reports                  - Buat Laporan")
+	log.Println("   GET    /my-tasks                 - Tugas Saya")
 	log.Println("")
-	log.Println("   [PROTECTED - Semua Role]")
-	log.Println("   GET    /api/profile                      - Lihat profil user (dari DB)")
-	log.Println("   PUT    /api/profile/change-password       - Ubah password")
-	log.Println("   PUT    /api/profile/change-photo          - Ubah foto profil")
-	log.Println("   GET    /api/dashboard/summary             - Statistik dashboard")
-	log.Println("   GET    /api/jabatan                      - Lihat daftar jabatan")
-	log.Println("   POST   /api/reports                      - Buat laporan kinerja")
-	log.Println("   GET    /api/reports                      - Lihat laporan (RBAC di service)")
-	log.Println("   GET    /api/reviews                      - Lihat penilaian saya")
-	log.Println("   GET    /api/notifications                - Lihat notifikasi saya")
-	log.Println("   PUT    /api/notifications/:id/read       - Tandai notifikasi dibaca")
-	log.Println("")
-	log.Println("   [RBAC - Sekertaris Only]")
-	log.Println("   GET    /api/users                        - Lihat semua user")
-	log.Println("   GET    /api/users/:id                    - Lihat detail user")
-	log.Println("   POST   /api/users                        - Buat user baru")
-	log.Println("   PUT    /api/users/:id                    - Update user")
-	log.Println("   DELETE /api/users/:id                    - Hapus user")
-	log.Println("")
-	log.Println("   [RBAC - Lurah Only]")
-	log.Println("   POST   /api/tasks                        - Buat tugas organisasi")
-	log.Println("   GET    /api/tasks                        - Lihat seluruh tugas organisasi")
-	log.Println("   PUT    /api/tasks/:id                    - Update tugas organisasi")
-	log.Println("   DELETE /api/tasks/:id                    - Hapus tugas organisasi")
-	log.Println("   [RBAC - Semua Role]")
-	log.Println("   GET    /api/my-tasks                     - Lihat tugas organisasi saya")
-	log.Println("")
-	log.Println("   [RBAC - Sekertaris & Lurah]")
-	log.Println("   GET    /api/admin/jam-kerja              - Lihat pengaturan jam kerja")
-	log.Println("   PUT    /api/admin/jam-kerja              - Update pengaturan jam kerja")
-	log.Println("   GET    /api/admin/hari-libur             - Lihat daftar hari libur")
-	log.Println("   POST   /api/admin/hari-libur             - Tambah hari libur")
-	log.Println("   DELETE /api/admin/hari-libur/:id          - Hapus hari libur")
+	log.Println("   [WEB - /api/web/v1]")
+	log.Println("   POST   /login                    - Login Web")
+	log.Println("   GET    /dashboard/summary        - Dashboard Admin")
+	log.Println("   GET    /users                    - Kelola User")
+	log.Println("   GET    /reports/recap            - Rekap Laporan")
+	log.Println("================================================")
 	log.Println("   [BACKGROUND JOBS]")
 	log.Println("   ⏰ Daily Reminder                         - Jam 15:00 hari kerja")
 	log.Println("================================================")

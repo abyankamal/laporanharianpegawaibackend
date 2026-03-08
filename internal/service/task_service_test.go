@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -99,8 +100,7 @@ func TestCreateTask_Organisasi_Fail_EmptyTargetUserIDs(t *testing.T) {
 	})
 }
 
-// ============================================================
-// Test GetAllTasks
+// = [x] Test GetAllTasks
 // ============================================================
 
 func TestGetAllTasks_Success(t *testing.T) {
@@ -123,6 +123,76 @@ func TestGetAllTasks_Success(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, tasks, 2)
 		assert.Equal(t, "Tugas 1", tasks[0].JudulTugas)
+		mockTaskRepo.AssertExpectations(t)
+	})
+}
+
+// ============================================================
+// Test UpdateTask — Tugas Organisasi
+// ============================================================
+
+func TestUpdateTask_Success_Partial(t *testing.T) {
+	t.Run("Sukses: Lurah mengedit hanya judul tugas", func(t *testing.T) {
+		// Setup
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		existingDeadline := time.Now().Add(24 * time.Hour)
+		existingTask := &domain.TugasOrganisasi{
+			ID:         1,
+			JudulTugas: "Judul Lama",
+			Deskripsi:  "Deskripsi Lama",
+			Deadline:   &existingDeadline,
+		}
+
+		mockTaskRepo.On("FindByID", uint(1)).Return(existingTask, nil)
+		mockTaskRepo.On("Update", mock.Anything).Return(nil)
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		// Execute: hanya kirim judul baru
+		req := UpdateOrganizationalTaskRequest{
+			JudulTugas: "Judul Baru",
+		}
+		updated, err := taskSvc.UpdateTask(1, "lurah", 1, req)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Equal(t, "Judul Baru", updated.JudulTugas)
+		assert.Equal(t, "Deskripsi Lama", updated.Deskripsi) // Tetap yang lama
+		assert.Equal(t, &existingDeadline, updated.Deadline) // Tetap yang lama
+
+		mockTaskRepo.AssertExpectations(t)
+	})
+
+	t.Run("Sukses: Lurah mengedit hanya assignees", func(t *testing.T) {
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		existingTask := &domain.TugasOrganisasi{
+			ID:         1,
+			JudulTugas: "Judul",
+			Assignees:  []domain.User{{ID: 2}},
+		}
+
+		newUser := &domain.User{ID: 3}
+		mockTaskRepo.On("FindByID", uint(1)).Return(existingTask, nil)
+		mockUserRepo.On("FindByID", uint(3)).Return(newUser, nil)
+		mockTaskRepo.On("ReplaceAssignees", uint(1), []domain.User{*newUser}).Return(nil)
+		mockTaskRepo.On("Update", mock.Anything).Return(nil)
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		req := UpdateOrganizationalTaskRequest{
+			TargetUserIDs: []int{3},
+		}
+		updated, err := taskSvc.UpdateTask(1, "lurah", 1, req)
+
+		assert.NoError(t, err)
+		assert.Len(t, updated.Assignees, 1)
+		assert.Equal(t, uint(3), updated.Assignees[0].ID)
 		mockTaskRepo.AssertExpectations(t)
 	})
 }

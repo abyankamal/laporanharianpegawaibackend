@@ -291,7 +291,7 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 		}
 	}
 
-	return destPath, nil
+	return filepath.ToSlash(destPath), nil
 }
 
 // GetReportRecap menghitung agregasi status dan total jam kerja laporan untuk rentang waktu tertentu.
