@@ -794,9 +794,9 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	pdf.SetMargins(marginL, 20, marginR)
 	pageW := 215.9 - marginL - marginR // 185.9mm
 
-	// Lebar kolom: No | Tanggal | Jenis | Judul | Deskripsi | Foto
-	// Lebar kolom disamakan: 185.9 / 6 = 30.98
-	colW := []float64{30.98, 30.98, 30.98, 30.98, 30.98, 31.0}
+	// Lebar kolom: No (kecil) | Tanggal | Jenis | Judul | Deskripsi (luas) | Foto (luas)
+	// Total: 8 + 22 + 25 + 30 + 50 + 50.9 = 185.9mm
+	colW := []float64{8, 22, 25, 30, 50, 50.9}
 	colHeaders := []string{"No", "Tanggal", "Jenis\nLaporan", "Judul\nLaporan", "Deskripsi", "Foto"}
 
 	// Warna header tabel (Putih/Tanpa Warna)
@@ -954,28 +954,42 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.SetFont("Times", "", 7.5)
 		pdf.SetDrawColor(200, 200, 200)
 
+		// Fungsi helper untuk menggambar box dan teks/foto secara proporsional
+		drawCell := func(x, y, w, h float64, txt string, align string) {
+			pdf.SetXY(x, y)
+			// Gambar kotak pembungkus (selalu h)
+			pdf.CellFormat(w, h, "", "1", 0, "", true, 0, "")
+
+			// Gambar teks di dalamnya
+			if txt != "" {
+				// Hitung tinggi teks untuk memposisikan di tengah secara vertikal
+				rows := calcTextRows(txt, w, 7)
+				realTextH := float64(rows) * lineH
+				offsetY := (h - realTextH) / 2
+				if offsetY < 0 {
+					offsetY = 0
+				}
+				pdf.SetXY(x, y+offsetY)
+				pdf.MultiCell(w, lineH, txt, "0", align, false)
+			}
+		}
+
 		// Sel: No
-		pdf.SetXY(startX, startY)
-		pdf.CellFormat(colW[0], rowH, strconv.Itoa(no), "1", 0, "C", true, 0, "")
+		drawCell(startX, startY, colW[0], rowH, strconv.Itoa(no), "C")
 
 		// Sel: Tanggal
-		pdf.SetXY(startX+colW[0], startY)
-		pdf.MultiCell(colW[1], lineH, tanggal, "1", "C", true)
-		pdf.SetXY(startX+colW[0]+colW[1], startY)
+		drawCell(startX+colW[0], startY, colW[1], rowH, tanggal, "C")
 
 		// Sel: Jenis Laporan
-		pdf.SetXY(startX+colW[0]+colW[1], startY)
-		pdf.MultiCell(colW[2], lineH, jenis, "1", "C", true)
+		drawCell(startX+colW[0]+colW[1], startY, colW[2], rowH, jenis, "C")
 
 		// Sel: Judul
-		pdf.SetXY(startX+colW[0]+colW[1]+colW[2], startY)
-		pdf.MultiCell(colW[3], lineH, judul, "1", "L", true)
+		drawCell(startX+colW[0]+colW[1]+colW[2], startY, colW[3], rowH, judul, "L")
 
 		// Sel: Deskripsi
-		pdf.SetXY(startX+colW[0]+colW[1]+colW[2]+colW[3], startY)
-		pdf.MultiCell(colW[4], lineH, desc, "1", "L", true)
+		drawCell(startX+colW[0]+colW[1]+colW[2]+colW[3], startY, colW[4], rowH, desc, "L")
 
-		// Sel: Foto (kotak kosong dulu, lalu gambar di-overlay)
+		// Sel: Foto
 		fotoX := startX + colW[0] + colW[1] + colW[2] + colW[3] + colW[4]
 		pdf.SetXY(fotoX, startY)
 		pdf.CellFormat(colW[5], rowH, "", "1", 0, "C", true, 0, "")
