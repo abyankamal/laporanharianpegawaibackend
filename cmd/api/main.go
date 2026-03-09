@@ -115,17 +115,13 @@ func main() {
 		WriteBufferSize: 16 * 1024,
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
-			message := "Terjadi kesalahan internal server"
+			message := err.Error() // Temporarily show full error for debugging
 
-			// Jika ini adalah fiber.Error (4xx), expose pesannya karena sudah sengaja dibuat oleh handler
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
-				if code < 500 {
-					message = e.Message
-				}
 			}
 
-			// Log detail error di server untuk debugging, tanpa mengeksposnya ke client
+			// Log detail error di server
 			if code >= 500 {
 				log.Printf("[SERVER ERROR] %d %s: %v", code, c.Path(), err)
 			}
@@ -216,8 +212,12 @@ func main() {
 	mReport.Post("/", reportHandler.Create)
 	mReport.Get("/", reportHandler.GetAll)
 	mReport.Get("/recap", reportHandler.GetReportRecapHandler)
-	mReport.Get("/recap-pegawai", adminHandler.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin")) // Admin features in mobile
-	mReport.Put("/evaluate", reportHandler.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))        // Admin features in mobile
+	mReport.Get("/recap-pegawai", adminHandler.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	mReport.Get("/export", adminHandler.GetLaporanExport)
+	mReport.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
+	mReport.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
+	mReport.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
+	mReport.Put("/evaluate", reportHandler.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))
 	mReport.Get("/:id", reportHandler.GetOne)
 
 	// Tugas & Notifikasi (Mobile)
@@ -256,6 +256,17 @@ func main() {
 	wProtected.Get("/profile", userHandler.GetProfile)
 	wProtected.Get("/dashboard/summary", adminHandler.GetDashboardSummary)
 
+	// Rekap Laporan & Export (Kembalikan ke wProtected agar tidak merusak frontend lama)
+	wReports := wProtected.Group("/reports")
+	wReports.Get("/", reportHandler.GetAll)
+	wReports.Get("/recap", adminHandler.GetRekapLaporan)
+	wReports.Get("/export", adminHandler.GetLaporanExport)
+	wReports.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
+	wReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
+	wReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
+	wReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
+	wReports.Get("/:id", reportHandler.GetOne)
+
 	// Admin Specific (Only Lurah/Sekertaris/Admin)
 	adminOnly := wProtected.Group("/admin", middleware.AdminOnly())
 
@@ -283,15 +294,16 @@ func main() {
 	pegawaiManage.Put("/:id", adminHandler.UpdatePegawai)
 	pegawaiManage.Delete("/:id", adminHandler.DeletePegawai)
 
-	// Rekap Laporan & Export
-	wReports := wProtected.Group("/reports")
-	wReports.Get("/", reportHandler.GetAll)
-	wReports.Get("/recap", adminHandler.GetRekapLaporan)
-	wReports.Get("/export", adminHandler.GetLaporanExport)
-	wReports.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
-	wReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
-	wReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
-	wReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
+	// Alias untuk standarisasi (agar /api/web/admin/reports juga bekerja)
+	wAdminReports := adminOnly.Group("/reports")
+	wAdminReports.Get("/", reportHandler.GetAll)
+	wAdminReports.Get("/recap", adminHandler.GetRekapLaporan)
+	wAdminReports.Get("/export", adminHandler.GetLaporanExport)
+	wAdminReports.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
+	wAdminReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
+	wAdminReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
+	wAdminReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
+	wAdminReports.Get("/:id", reportHandler.GetOne)
 
 	// Pusat Pengumuman
 	pengumuman := adminOnly.Group("/pengumuman")
