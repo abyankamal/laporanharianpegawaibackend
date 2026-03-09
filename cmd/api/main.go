@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -114,12 +115,24 @@ func main() {
 		WriteBufferSize: 16 * 1024,
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
+			message := "Terjadi kesalahan internal server"
+
+			// Jika ini adalah fiber.Error (4xx), expose pesannya karena sudah sengaja dibuat oleh handler
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
+				if code < 500 {
+					message = e.Message
+				}
 			}
+
+			// Log detail error di server untuk debugging, tanpa mengeksposnya ke client
+			if code >= 500 {
+				log.Printf("[SERVER ERROR] %d %s: %v", code, c.Path(), err)
+			}
+
 			return c.Status(code).JSON(fiber.Map{
 				"status":  "error",
-				"message": err.Error(),
+				"message": message,
 			})
 		},
 	})
@@ -131,12 +144,25 @@ func main() {
 	// Recover Middleware (menangkap panic dan mengubahnya menjadi HTTP 500)
 	app.Use(recover.New())
 
-	// CORS Middleware (agar bisa diakses dari Web Admin/Mobile)
+	// CORS Middleware — origins dibaca dari ALLOWED_ORIGINS di .env
+	// Contoh production: ALLOWED_ORIGINS=https://siopik.com,https://admin.siopik.com
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+	var allowedOrigins []string
+	if allowedOriginsEnv == "" {
+		log.Println("⚠️  ALLOWED_ORIGINS tidak diset. Menggunakan '*' (tidak aman untuk production!)")
+		allowedOrigins = []string{"*"}
+	} else {
+		for _, o := range strings.Split(allowedOriginsEnv, ",") {
+			trimmed := strings.TrimSpace(o)
+			if trimmed != "" {
+				allowedOrigins = append(allowedOrigins, trimmed)
+			}
+		}
+		log.Printf("✅ CORS diizinkan untuk: %v", allowedOrigins)
+	}
+
 	app.Use(cors.New(cors.Config{
-		// Mengizinkan semua origin untuk tahap development.
-		// Untuk production, ganti "*" menjadi domain spesifik, misal:
-		// AllowOrigins: []string{"https://admin.siopik.com", "http://localhost:5173"},
-		AllowOrigins: []string{"*"},
+		AllowOrigins: allowedOrigins,
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}))
