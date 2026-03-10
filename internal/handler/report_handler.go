@@ -849,11 +849,11 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		lineH := 4.5 // tinggi per baris teks
 
 		// Hitung tinggi minimum dari kolom teks
-		jenis := "Tambahan"
+		jenis := "Individu"
 		if laporan.TipeLaporan {
-			jenis = "Pokok"
+			jenis = "Organisasi"
 			if laporan.TugasOrganisasi != nil {
-				jenis = "Pokok\n" + laporan.TugasOrganisasi.JudulTugas
+				jenis = "Organisasi\n" + laporan.TugasOrganisasi.JudulTugas
 			}
 		}
 
@@ -897,13 +897,14 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 					if decErr == nil {
 						// Max lebar foto di tabel = colW[5] - 2mm padding
 						maxW := colW[5] - 2
-						maxH := 50.0 // Max tinggi foto dalam sel
 
 						imgRatio := float64(imgCfg.Height) / float64(imgCfg.Width)
 						scaledW := maxW
 						scaledH := scaledW * imgRatio
 
-						// Perperkecil jika tinggi melebihi maxH
+						// Jika foto vertikal (tinggi > lebar) atau sangat panjang,
+						// kita beri batas maksimal tinggi agar tidak memakan terlalu banyak halaman
+						maxH := 70.0 // Batas atas tinggi foto agar tetap proporsional dalam tabel
 						if scaledH > maxH {
 							scaledH = maxH
 							scaledW = scaledH / imgRatio
