@@ -21,7 +21,7 @@ type userBasic struct {
 // kepada pegawai yang belum membuat laporan kinerja pada hari tersebut.
 // Job berjalan setiap hari kerja (Senin-Jumat) pukul 15:00 waktu lokal.
 // Fungsi ini non-blocking karena menggunakan goroutine.
-func StartDailyReminder(db *gorm.DB, notifRepo repository.NotificationRepository) {
+func StartDailyReminder(db *gorm.DB, notifRepo repository.NotificationRepository, workHourRepo repository.WorkHourRepository) {
 	go func() {
 		// Recover dari panic agar goroutine tidak crash
 		defer func() {
@@ -54,7 +54,7 @@ func StartDailyReminder(db *gorm.DB, notifRepo repository.NotificationRepository
 					}
 				}()
 
-				executeReminder(db, notifRepo)
+				executeReminder(db, notifRepo, workHourRepo)
 			}()
 		}
 	}()
@@ -84,7 +84,7 @@ func nextWeekdayTarget(now time.Time, hour, min, sec int) time.Time {
 }
 
 // executeReminder menjalankan logika utama: query user yang belum lapor, lalu kirim notifikasi.
-func executeReminder(db *gorm.DB, notifRepo repository.NotificationRepository) {
+func executeReminder(db *gorm.DB, notifRepo repository.NotificationRepository, workHourRepo repository.WorkHourRepository) {
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	todayEnd := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
@@ -115,6 +115,17 @@ func executeReminder(db *gorm.DB, notifRepo repository.NotificationRepository) {
 		return
 	}
 
+	// Ambil data jam kerja untuk pesan notifikasi
+	jamSelesai := "18:00" // Default fallback
+	wh, err := workHourRepo.Get()
+	if err == nil && wh != nil {
+		if now.Weekday() == time.Friday {
+			jamSelesai = wh.JamPulangJumat
+		} else {
+			jamSelesai = wh.JamPulang
+		}
+	}
+
 	// Kirim notifikasi untuk setiap user yang belum lapor
 	sentCount := 0
 	for _, user := range users {
@@ -122,7 +133,7 @@ func executeReminder(db *gorm.DB, notifRepo repository.NotificationRepository) {
 			UserID:    int(user.ID),
 			Kategori:  "Sistem",
 			Judul:     "Pengingat Pelaporan",
-			Pesan:     fmt.Sprintf("Halo %s, Anda belum mengisi laporan kinerja untuk hari ini. Segera isi sebelum jam 18:00 ya!", user.Nama),
+			Pesan:     fmt.Sprintf("Halo %s, Anda belum mengisi laporan kinerja untuk hari ini. Segera isi sebelum jam %s ya!", user.Nama, jamSelesai),
 			TerkaitID: 0,
 			CreatedAt: time.Now(),
 		}

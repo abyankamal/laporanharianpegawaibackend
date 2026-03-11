@@ -334,7 +334,7 @@ func main() {
 	// =============================================
 	// 7. BACKGROUND JOBS
 	// =============================================
-	scheduler.StartDailyReminder(config.DB, notifRepo)
+	scheduler.StartDailyReminder(config.DB, notifRepo, workHourRepo)
 
 	// =============================================
 	// 8. START SERVER
