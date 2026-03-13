@@ -308,7 +308,7 @@ func (s *reportService) GetReportRecap(userID uint, startDate, endDate time.Time
 // EvaluateReport mengevaluasi laporan (Memberikan Masukan) berdasarkan RBAC.
 func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error {
 
-	// 1. Ambil data laporan beserta relasi User pengirimnya
+	// Ambil data laporan beserta relasi User pengirimnya
 	laporan, err := s.reportRepo.GetByID(req.ReportID)
 	if err != nil {
 		return errors.New("laporan tidak ditemukan")
@@ -319,7 +319,12 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 		return errors.New("data user pemilik laporan tidak valid")
 	}
 
-	// 2. Terapkan RBAC Hierarki Penilaian
+	// Cek apakah laporan sudah dievaluasi sebelumnya
+	if laporan.Status == "sudah_direview" {
+		return errors.New("Laporan ini sudah dievaluasi dan tidak dapat diubah")
+	}
+
+	// Terapkan RBAC Hierarki Penilaian
 	switch assessorRole {
 	case "sekertaris":
 		// Sekertaris HANYA boleh menilai staf (Permintaan User: Staf dikomentari Sekertaris & Lurah)
