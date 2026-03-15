@@ -127,6 +127,7 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 	err := query.
 		Preload("User").
 		Preload("User.Jabatan").
+		Preload("User.Supervisor").
 		Order("laporan.created_at DESC").
 		Limit(limit).
 		Offset(filter.Offset).

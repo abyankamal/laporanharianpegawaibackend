@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	_ "image/jpeg"
+	"image/jpeg"
 	_ "image/png"
 	"io"
 	"math"
@@ -1000,8 +1000,32 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 			// Hitung posisi agar gambar terpusat di dalam sel
 			imgX := fotoX + (colW[5]-photoW)/2
 			imgY := startY + (rowH-photoH)/2
-			opt := fpdf.ImageOptions{ImageType: photoType, ReadDpi: false}
-			pdf.ImageOptions(photoPath, imgX, imgY, photoW, photoH, false, opt, 0, "")
+			
+			// Open the image file
+			file, err := os.Open(photoPath)
+			imageCompressed := false
+			if err == nil {
+				img, _, errDec := image.Decode(file)
+				file.Close()
+				if errDec == nil {
+					// Compress JPEG configuration
+					var buf bytes.Buffer
+					errEnc := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 50}) // 50% quality to reduce size
+					if errEnc == nil {
+						imgName := filepath.Base(photoPath) + "_compressed"
+						opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
+						pdf.RegisterImageOptionsReader(imgName, opt, &buf)
+						pdf.ImageOptions(imgName, imgX, imgY, photoW, photoH, false, opt, 0, "")
+						imageCompressed = true
+					}
+				}
+			}
+			
+			// Fallback to original logic if compression fails
+			if !imageCompressed {
+				opt := fpdf.ImageOptions{ImageType: photoType, ReadDpi: false}
+				pdf.ImageOptions(photoPath, imgX, imgY, photoW, photoH, false, opt, 0, "")
+			}
 		} else if laporan.FotoURL != nil && *laporan.FotoURL != "" {
 			// File tidak ditemukan, tulis keterangan teks
 			pdf.SetXY(fotoX, startY+(rowH/2)-2)
@@ -1058,6 +1082,58 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 			addReportRow(rowCounter, laporan)
 			rowCounter++
 		}
+
+		// Tambahkan kolom tanda tangan di bagian akhir laporan user
+		pdf.Ln(10) // Jarak dari tabel ke tanda tangan
+		
+		// Cek apakah sisa halaman cukup untuk blok tanda tangan (~40mm)
+		_, pageH := pdf.GetPageSize()
+		bottomMargin := 20.0
+		if pdf.GetY()+40 > pageH-bottomMargin {
+			pdf.AddPageFormat("P", f4Size)
+		}
+
+		sigY := pdf.GetY()
+		pdf.SetFont("Times", "", 10)
+
+		// Kolom Kiri: Pejabat Penilai Kinerja
+		leftX := marginL
+		pdf.SetXY(leftX, sigY)
+		pdf.CellFormat(60, 5, "Mengetahui,", "", 2, "C", false, 0, "")
+		pdf.CellFormat(60, 5, "Pejabat Penilai Kinerja,", "", 2, "C", false, 0, "")
+		
+		// Beri spasi untuk tanda tangan
+		pdf.Ln(20)
+		
+		pdf.SetX(leftX)
+		supervisorName := ""
+		if user.Supervisor != nil {
+			supervisorName = user.Supervisor.Nama
+		}
+		
+		if supervisorName != "" {
+			pdf.SetFont("Times", "BU", 10)
+			pdf.CellFormat(60, 5, supervisorName, "", 1, "C", false, 0, "")
+		} else {
+			pdf.SetFont("Times", "", 10)
+			pdf.CellFormat(60, 5, "( ........................................ )", "", 1, "C", false, 0, "")
+		}
+
+		// Kolom Kanan: Yang Dinilai
+		pdf.SetFont("Times", "", 10)
+		rightX := pageW - 60 + marginL // Rata kanan
+		pdf.SetXY(rightX, sigY)
+		pdf.CellFormat(60, 5, "", "", 2, "C", false, 0, "") // Align dengan 'Mengetahui,'
+		pdf.CellFormat(60, 5, "Yang Dinilai,", "", 2, "C", false, 0, "")
+		
+		// Beri spasi untuk tanda tangan
+		pdf.Ln(20)
+		
+		pdf.SetX(rightX)
+		pdf.SetFont("Times", "BU", 10)
+		pdf.CellFormat(60, 5, user.Nama, "", 2, "C", false, 0, "")
+		pdf.SetFont("Times", "", 10)
+		pdf.CellFormat(60, 5, "NIP. "+user.NIP, "", 1, "C", false, 0, "")
 
 		// Halaman baru jika masih ada user lagi
 		_ = uIdx
