@@ -204,11 +204,11 @@ func (r *adminRepository) GetDashboardSummaryAdmin() (*DashboardSummaryResponse,
 	// 2. Laporan Masuk Hari Ini
 	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr).Count(&summary.Statistik.LaporanMasuk)
 
-	// 3. Tepat Waktu Hari Ini (Asumsi nama statusnya "Jam Kerja")
-	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr + " AND status_waktu = 'Jam Kerja'").Count(&summary.Statistik.TepatWaktu)
+	// 3. Tepat Waktu Hari Ini
+	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr + " AND is_overtime = ?", false).Count(&summary.Statistik.TepatWaktu)
 
-	// 4. Lembur Hari Ini (Lembur biasa atau hari libur)
-	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr + " AND status_waktu LIKE '%Lembur%'").Count(&summary.Statistik.Lembur)
+	// 4. Lembur Hari Ini
+	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr + " AND is_overtime = ?", true).Count(&summary.Statistik.Lembur)
 
 	// B. LAPORAN TERBARU
 	// Ambil 5 teratas untuk hari ini
@@ -271,7 +271,11 @@ func buildRekapLaporanQuery(db *gorm.DB, filter AdminReportFilter) *gorm.DB {
 
 	// Filter Status Waktu ("Tepat Waktu" atau "Lembur") (Bukan "Semua")
 	if filter.StatusWaktu != "" && filter.StatusWaktu != "Semua" {
-		query = query.Where("laporan.status_waktu = ?", filter.StatusWaktu)
+		if filter.StatusWaktu == "Tepat Waktu" {
+			query = query.Where("laporan.is_overtime = ?", false)
+		} else if filter.StatusWaktu == "Lembur" {
+			query = query.Where("laporan.is_overtime = ?", true)
+		}
 	}
 
 	// Filter Status Review ("menunggu_review" atau "sudah_direview") (Bukan "Semua")
