@@ -320,6 +320,9 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 
 	if laporan.User != nil {
 		responseMap["owner_role"] = laporan.User.Role
+		if laporan.User.Supervisor != nil {
+			responseMap["supervisor_nip"] = laporan.User.Supervisor.NIP
+		}
 	}
 
 	if laporan.TipeLaporan {
@@ -1113,10 +1116,13 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		
 		if supervisorName != "" {
 			pdf.SetFont("Times", "BU", 10)
-			pdf.CellFormat(60, 5, supervisorName, "", 1, "C", false, 0, "")
+			pdf.CellFormat(60, 5, supervisorName, "", 2, "C", false, 0, "")
+			pdf.SetFont("Times", "", 10)
+			pdf.CellFormat(60, 5, "NIP. "+user.Supervisor.NIP, "", 1, "C", false, 0, "")
 		} else {
 			pdf.SetFont("Times", "", 10)
-			pdf.CellFormat(60, 5, "( ........................................ )", "", 1, "C", false, 0, "")
+			pdf.CellFormat(60, 5, "( ........................................ )", "", 2, "C", false, 0, "")
+			pdf.CellFormat(60, 5, "NIP. ........................................ ", "", 1, "C", false, 0, "")
 		}
 
 		// Kolom Kanan: Yang Dinilai
