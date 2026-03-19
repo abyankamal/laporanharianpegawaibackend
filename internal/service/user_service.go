@@ -69,12 +69,26 @@ func NewUserService(userRepo repository.UserRepository) UserService {
 
 // GetAllUsers mengambil semua user.
 func (s *userService) GetAllUsers() ([]domain.User, error) {
-	return s.userRepo.FindAll()
+	users, err := s.userRepo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+	for i := range users {
+		s.fillLurahSupervisor(&users[i])
+	}
+	return users, nil
 }
 
 // GetUsersByRoles mengambil user berdasarkan roles.
 func (s *userService) GetUsersByRoles(roles []string) ([]domain.User, error) {
-	return s.userRepo.FindByRoles(roles)
+	users, err := s.userRepo.FindByRoles(roles)
+	if err != nil {
+		return nil, err
+	}
+	for i := range users {
+		s.fillLurahSupervisor(&users[i])
+	}
+	return users, nil
 }
 
 // GetUserByID mengambil user berdasarkan ID.
@@ -83,7 +97,19 @@ func (s *userService) GetUserByID(id uint) (*domain.User, error) {
 	if err != nil {
 		return nil, errors.New("user tidak ditemukan")
 	}
+	s.fillLurahSupervisor(user)
 	return user, nil
+}
+
+func (s *userService) fillLurahSupervisor(user *domain.User) {
+	if user != nil && (strings.ToLower(user.Role) == "lurah" || (user.Jabatan != nil && strings.ToLower(user.Jabatan.NamaJabatan) == "lurah")) {
+		if user.Supervisor == nil {
+			user.Supervisor = &domain.User{
+				Nama: "Rena Sudrajat, S.Sos., M.Si",
+				NIP:  "197208241992031003",
+			}
+		}
+	}
 }
 
 // CreateUser membuat user baru.

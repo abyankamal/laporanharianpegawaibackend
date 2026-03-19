@@ -322,6 +322,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		responseMap["owner_role"] = laporan.User.Role
 		if laporan.User.Supervisor != nil {
 			responseMap["supervisor_nip"] = laporan.User.Supervisor.NIP
+			responseMap["supervisor_nama"] = laporan.User.Supervisor.Nama
 		}
 	}
 
@@ -1003,7 +1004,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 			// Hitung posisi agar gambar terpusat di dalam sel
 			imgX := fotoX + (colW[5]-photoW)/2
 			imgY := startY + (rowH-photoH)/2
-			
+
 			// Open the image file
 			file, err := os.Open(photoPath)
 			imageCompressed := false
@@ -1023,7 +1024,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 					}
 				}
 			}
-			
+
 			// Fallback to original logic if compression fails
 			if !imageCompressed {
 				opt := fpdf.ImageOptions{ImageType: photoType, ReadDpi: false}
@@ -1088,7 +1089,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 
 		// Tambahkan kolom tanda tangan di bagian akhir laporan user
 		pdf.Ln(10) // Jarak dari tabel ke tanda tangan
-		
+
 		// Cek apakah sisa halaman cukup untuk blok tanda tangan (~40mm)
 		_, pageH := pdf.GetPageSize()
 		bottomMargin := 20.0
@@ -1104,21 +1105,26 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.SetXY(leftX, sigY)
 		pdf.CellFormat(60, 5, "Mengetahui,", "", 2, "C", false, 0, "")
 		pdf.CellFormat(60, 5, "Pejabat Penilai Kinerja,", "", 2, "C", false, 0, "")
-		
+
 		// Beri spasi untuk tanda tangan
 		pdf.Ln(20)
-		
+
 		pdf.SetX(leftX)
 		supervisorName := ""
-		if user.Supervisor != nil {
+		supervisorNIP := ""
+		if strings.ToLower(user.Role) == "lurah" {
+			supervisorName = "Rena Sudrajat, S.Sos., M.Si"
+			supervisorNIP = "197208241992031003"
+		} else if user.Supervisor != nil {
 			supervisorName = user.Supervisor.Nama
+			supervisorNIP = user.Supervisor.NIP
 		}
-		
+
 		if supervisorName != "" {
 			pdf.SetFont("Times", "BU", 10)
 			pdf.CellFormat(60, 5, supervisorName, "", 2, "C", false, 0, "")
 			pdf.SetFont("Times", "", 10)
-			pdf.CellFormat(60, 5, "NIP. "+user.Supervisor.NIP, "", 1, "C", false, 0, "")
+			pdf.CellFormat(60, 5, "NIP. "+supervisorNIP, "", 1, "C", false, 0, "")
 		} else {
 			pdf.SetFont("Times", "", 10)
 			pdf.CellFormat(60, 5, "( ........................................ )", "", 2, "C", false, 0, "")
@@ -1131,10 +1137,10 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.SetXY(rightX, sigY)
 		pdf.CellFormat(60, 5, "", "", 2, "C", false, 0, "") // Align dengan 'Mengetahui,'
 		pdf.CellFormat(60, 5, "Yang Dinilai,", "", 2, "C", false, 0, "")
-		
+
 		// Beri spasi untuk tanda tangan
 		pdf.Ln(20)
-		
+
 		pdf.SetX(rightX)
 		pdf.SetFont("Times", "BU", 10)
 		pdf.CellFormat(60, 5, user.Nama, "", 2, "C", false, 0, "")

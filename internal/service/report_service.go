@@ -199,7 +199,16 @@ func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterR
 		return nil, 0, errors.New("role tidak dikenali")
 	}
 
-	return s.reportRepo.GetAll(filter)
+	reports, total, err := s.reportRepo.GetAll(filter)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	for i := range reports {
+		s.fillLurahSupervisor(&reports[i])
+	}
+
+	return reports, total, nil
 }
 
 // GetReportDetail mengambil detail satu laporan.
@@ -229,7 +238,21 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 		return nil, errors.New("role tidak dikenali")
 	}
 
+	s.fillLurahSupervisor(laporan)
+
 	return laporan, nil
+}
+
+// fillLurahSupervisor mengisi data pejabat penilai secara hardcoded jika user adalah Lurah (karena atasan lurah ada di tingkat kecamatan).
+func (s *reportService) fillLurahSupervisor(laporan *domain.Laporan) {
+	if laporan.User != nil && (strings.ToLower(laporan.User.Role) == "lurah" || (laporan.User.Jabatan != nil && strings.ToLower(laporan.User.Jabatan.NamaJabatan) == "lurah")) {
+		if laporan.User.Supervisor == nil {
+			laporan.User.Supervisor = &domain.User{
+				Nama: "Rena Sudrajat, S.Sos., M.Si",
+				NIP:  "197208241992031003",
+			}
+		}
+	}
 }
 
 // saveFile menyimpan file ke subfolder uploads/reports/<subDir>.
