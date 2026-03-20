@@ -366,16 +366,20 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 	requesterRole, _ := c.Locals("role").(string)
 	roleBase := strings.ToLower(requesterRole)
 
+	roleFilter := c.Query("role")
+
 	// 2. Tentukan target userID (dari query param atau default ke diri sendiri)
 	targetUserIDStr := c.Query("user_id")
 	targetUserID := requesterID // Default ke diri sendiri
 
-	if targetUserIDStr != "" {
+	if roleFilter == "" && targetUserIDStr != "" {
 		parsedID, _ := strconv.Atoi(targetUserIDStr)
 		// Hanya Lurah/Sekertaris yang boleh ganti targetUserID
 		if roleBase == "lurah" || roleBase == "sekertaris" || roleBase == "sekretaris" {
 			targetUserID = uint(parsedID)
 		}
+	} else if roleFilter != "" {
+		targetUserID = 0 // Jika ada role filter, kita fallback ke aggregated mode
 	}
 
 	// 3. Parse query parameters (tanggal)
@@ -402,7 +406,20 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 	}
 
 	// 4. Panggil service
-	rekap, err := h.reportService.GetReportRecap(targetUserID, startDate, endDate)
+	var rekap *repository.ReportRecapResponse
+	
+	if roleFilter != "" {
+		filter := repository.ReportFilter{
+			StartDate: startDateStr,
+			EndDate:   endDateStr,
+			UserRole:  roleFilter,
+			UserID:    int(targetUserID), // Harus 0
+		}
+		rekap, err = h.reportService.GetReportRecapAggregated(filter, requesterRole, requesterID)
+	} else {
+		rekap, err = h.reportService.GetReportRecap(targetUserID, startDate, endDate)
+	}
+
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil rekap laporan: " + err.Error()})
 	}
@@ -801,7 +818,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	// Lebar kolom: No (kecil) | Tanggal | Jenis | Judul | Deskripsi (luas) | Foto (luas)
 	// Total: 8 + 22 + 25 + 30 + 50 + 50.9 = 185.9mm
 	colW := []float64{8, 22, 25, 30, 50, 50.9}
-	colHeaders := []string{"No", "Tanggal", "Jenis\nLaporan", "Judul\nLaporan", "Deskripsi", "Foto"}
+	colHeaders := []string{"No", "Waktu\nPelaksanaan", "Jenis\nLaporan", "Judul\nLaporan", "Deskripsi", "Foto"}
 
 	// Warna header tabel (Putih/Tanpa Warna)
 	headerBgR, headerBgG, headerBgB := 255, 255, 255
@@ -813,10 +830,30 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.SetFillColor(headerBgR, headerBgG, headerBgB)
 		pdf.SetTextColor(headerFgR, headerFgG, headerFgB)
 		pdf.SetDrawColor(200, 200, 200)
+
+		headerH := 10.0
+		startY := pdf.GetY()
+		startX := marginL
+
 		for i, w := range colW {
-			pdf.CellFormat(w, 10, colHeaders[i], "1", 0, "C", true, 0, "")
+			pdf.SetXY(startX, startY)
+			// Gambar kotak pembungkus
+			pdf.CellFormat(w, headerH, "", "1", 0, "C", true, 0, "")
+
+			// Tulis teks (bisa multi-baris jika ada \n)
+			// Hitung offset vertikal agar teks di tengah
+			lines := strings.Split(colHeaders[i], "\n")
+			lineH := 4.0
+			totalTextH := float64(len(lines)) * lineH
+			offsetY := (headerH - totalTextH) / 2
+
+			pdf.SetXY(startX, startY+offsetY)
+			pdf.MultiCell(w, lineH, colHeaders[i], "0", "C", false)
+
+			startX += w
 		}
-		pdf.Ln(-1)
+		// Reset cursor ke bawah header untuk memulai isi tabel
+		pdf.SetXY(marginL, startY+headerH)
 		pdf.SetTextColor(0, 0, 0)
 		pdf.SetFillColor(255, 255, 255)
 	}

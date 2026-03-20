@@ -46,6 +46,7 @@ type ReportService interface {
 	GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error)
 	GetReportDetail(id uint, requesterRole string, requesterID uint) (*domain.Laporan, error)
 	GetReportRecap(userID uint, startDate, endDate time.Time) (*repository.ReportRecapResponse, error)
+	GetReportRecapAggregated(filter repository.ReportFilter, requesterRole string, requesterID uint) (*repository.ReportRecapResponse, error)
 	EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error
 }
 
@@ -327,6 +328,59 @@ func (s *reportService) GetReportRecap(userID uint, startDate, endDate time.Time
 	rekap.TotalDisetujui = rekap.TotalSudahDireview
 	return rekap, nil
 }
+
+// GetReportRecapAggregated menghitung agregasi status dan total jam kerja laporan untuk banyak user (RBAC applied).
+func (s *reportService) GetReportRecapAggregated(filter repository.ReportFilter, requesterRole string, requesterID uint) (*repository.ReportRecapResponse, error) {
+	switch strings.ToLower(requesterRole) {
+	case "lurah":
+		// Lurah boleh melihat semua laporan.
+		// Jika UserRole kosong atau "semua", biarkan kosong agar melihat semua.
+		if strings.ToLower(filter.UserRole) == "semua" {
+			filter.UserRole = ""
+		}
+	case "sekertaris", "sekretaris":
+		// Sekertaris hanya boleh melihat staf dan diri sendiri
+		if filter.UserRole == "" || strings.ToLower(filter.UserRole) == "semua" {
+			filter.UserRole = "staf"
+			filter.OwnID = int(requesterID)
+		} else if strings.ToLower(filter.UserRole) == "staf" {
+			filter.UserRole = "staf"
+			filter.OwnID = 0 // Hanya staf
+		} else if strings.ToLower(filter.UserRole) == "sekertaris" || strings.ToLower(filter.UserRole) == "sekretaris" {
+			filter.UserRole = ""
+			filter.UserID = int(requesterID) // Hanya diri sendiri
+		} else {
+			// Jika mencoba filter role lain, paksa ke diri sendiri
+			filter.UserRole = ""
+			filter.UserID = int(requesterID)
+		}
+	case "kasi", "staf", "pegawai":
+		// Hanya boleh melihat diri sendiri
+		filter.UserRole = ""
+		filter.UserID = int(requesterID)
+	default:
+		return nil, errors.New("role tidak dikenali")
+	}
+
+	// Jangan gunakan OwnID jika UserID diset spesifik
+	if filter.UserID > 0 {
+		filter.OwnID = 0
+		filter.UserRole = ""
+	}
+
+	if filter.UserRole != "" {
+		filter.UserRole = strings.ToLower(filter.UserRole)
+	}
+
+	rekap, err := s.reportRepo.GetReportRecapAggregated(filter)
+	if err != nil {
+		return nil, err
+	}
+	// Sync alias untuk compatibility frontend lama
+	rekap.TotalDisetujui = rekap.TotalSudahDireview
+	return rekap, nil
+}
+
 
 // EvaluateReport mengevaluasi laporan (Memberikan Masukan) berdasarkan RBAC.
 func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error {

@@ -37,6 +37,7 @@ type ReportRepository interface {
 	GetAll(filter ReportFilter) ([]domain.Laporan, int64, error)
 	GetByID(id uint) (*domain.Laporan, error)
 	GetReportRecap(userID uint, startDate time.Time, endDate time.Time) (*ReportRecapResponse, error)
+	GetReportRecapAggregated(filter ReportFilter) (*ReportRecapResponse, error)
 	Update(laporan *domain.Laporan) error
 }
 
@@ -184,3 +185,46 @@ func (r *reportRepository) GetReportRecap(userID uint, startDate time.Time, endD
 	}
 	return &rekap, nil
 }
+
+// GetReportRecapAggregated menghitung agregasi status dan jam kerja laporan untuk banyak user berdasarkan filter.
+func (r *reportRepository) GetReportRecapAggregated(filter ReportFilter) (*ReportRecapResponse, error) {
+	var rekap ReportRecapResponse
+
+	query := r.db.Model(&domain.Laporan{})
+
+	if filter.StartDate != "" {
+		query = query.Where("laporan.waktu_pelaporan >= ?", filter.StartDate+" 00:00:00")
+	}
+
+	if filter.EndDate != "" {
+		query = query.Where("laporan.waktu_pelaporan <= ?", filter.EndDate+" 23:59:59")
+	}
+
+	if filter.UserID > 0 {
+		query = query.Where("laporan.user_id = ?", filter.UserID)
+	}
+
+	if filter.UserRole != "" {
+		// Jika UserRole di set ke "semua_bawahan" (khusus lurah jika ingin melihat semua tapi tidak termasuk dirinya, dsb, tapi kita handle di service)
+		if filter.OwnID > 0 {
+			query = query.Joins("JOIN users ON users.id = laporan.user_id").
+				Where("(users.role = ? OR laporan.user_id = ?)", filter.UserRole, filter.OwnID)
+		} else {
+			query = query.Joins("JOIN users ON users.id = laporan.user_id").
+				Where("users.role = ?", filter.UserRole)
+		}
+	}
+
+	err := query.Select("COUNT(laporan.id) as total_laporan, " +
+		"SUM(CASE WHEN laporan.status IN ('sudah_direview', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, " +
+		"SUM(CASE WHEN laporan.status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END) as total_menunggu, " +
+		"COALESCE(SUM(laporan.jam_kerja), 0) as total_jam_kerja").
+		Scan(&rekap).Error
+
+	if err != nil {
+		return nil, err
+	}
+	rekap.TotalDisetujui = rekap.TotalSudahDireview
+	return &rekap, nil
+}
+
