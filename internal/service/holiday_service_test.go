@@ -67,7 +67,7 @@ func TestCreateHoliday_InvalidDate(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, holiday)
-	assert.Equal(t, "format tanggal tidak valid (gunakan YYYY-MM-DD, contoh: 2026-08-17)", err.Error())
+	assert.Equal(t, "format tanggal mulai tidak valid (gunakan YYYY-MM-DD, contoh: 2026-08-17)", err.Error())
 	mockRepo.AssertNotCalled(t, "Create")
 }
 

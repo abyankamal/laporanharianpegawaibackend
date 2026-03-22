@@ -53,6 +53,14 @@ func (m *ReportServiceMock) GetReportRecap(userID uint, startDate, endDate time.
 	return args.Get(0).(*repository.ReportRecapResponse), args.Error(1)
 }
 
+func (m *ReportServiceMock) GetReportRecapAggregated(filter repository.ReportFilter, requesterRole string, requesterID uint) (*repository.ReportRecapResponse, error) {
+	args := m.Called(filter, requesterRole, requesterID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.ReportRecapResponse), args.Error(1)
+}
+
 func (m *ReportServiceMock) EvaluateReport(assessorID uint, assessorRole string, req service.EvaluateReportRequest) error {
 	args := m.Called(assessorID, assessorRole, req)
 	return args.Error(0)

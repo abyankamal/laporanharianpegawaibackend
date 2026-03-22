@@ -152,6 +152,14 @@ func (m *ReportRepositoryMock) Update(laporan *domain.Laporan) error {
 	return args.Error(0)
 }
 
+func (m *ReportRepositoryMock) GetReportRecapAggregated(filter repository.ReportFilter) (*repository.ReportRecapResponse, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.ReportRecapResponse), args.Error(1)
+}
+
 // ============================================================
 // ReviewRepositoryMock
 // ============================================================

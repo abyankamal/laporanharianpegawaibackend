@@ -43,6 +43,7 @@ func TestCreateTask_Organisasi_Success(t *testing.T) {
 			JudulTugas:    "Tugas Organisasi Penting",
 			Deskripsi:     "Deskripsi tugas organisasi",
 			FileBukti:     "https://example.com/bukti.pdf",
+			Deadline:      "2026-12-31 23:59:59",
 		}
 		tugas, err := taskSvc.CreateTask(1, "lurah", req)
 
@@ -70,6 +71,7 @@ func TestCreateTask_Organisasi_Fail_NonLurah(t *testing.T) {
 		req := CreateOrganizationalTaskRequest{
 			TargetUserIDs: []int{3},
 			JudulTugas:    "Tugas dari sekertaris",
+			Deadline:      "2026-12-31 23:59:59",
 		}
 		tugas, err := taskSvc.CreateTask(2, "sekertaris", req)
 
@@ -91,6 +93,7 @@ func TestCreateTask_Organisasi_Fail_EmptyTargetUserIDs(t *testing.T) {
 		req := CreateOrganizationalTaskRequest{
 			TargetUserIDs: []int{}, // kosong
 			JudulTugas:    "Tugas tanpa target",
+			Deadline:      "2026-12-31 23:59:59",
 		}
 		tugas, err := taskSvc.CreateTask(1, "lurah", req)
 
