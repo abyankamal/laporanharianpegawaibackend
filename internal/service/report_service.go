@@ -22,7 +22,8 @@ import (
 // ReportInput adalah struct untuk input pembuatan laporan.
 type ReportInput struct {
 	UserID            uint
-	TipeLaporan       bool  // true = Pokok (linked or manual), false = Tambahan
+	UserRole          string
+	TipeLaporan       bool // true = Pokok (linked or manual), false = Tambahan
 	TugasOrganisasiID *uint // ID tugas organisasi (optional, only for linked tasks)
 	JudulKegiatan     string
 	DeskripsiHasil    string
@@ -82,14 +83,26 @@ func toStringPtr(s string) *string {
 func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error) {
 	now := time.Now()
 
-	// 1. Validasi: Cek apakah hari ini adalah hari libur di tabel Holiday
-	isHoliday, err := s.holidayRepo.CheckIsHoliday(now)
+	// 0. Validasi Role: Hanya 'lurah' yang boleh melapor tidak real-time (backdating)
+	// Untuk role lain, batasi selisih waktu maksimal 30 menit dari sekarang
+	if input.UserRole != "lurah" {
+		diff := now.Sub(input.WaktuPelaporan)
+		if diff < 0 {
+			diff = -diff // abs
+		}
+		if diff > 30*time.Minute {
+			return nil, errors.New("pelaporan non-real-time (backdating) hanya diperbolehkan untuk role Lurah")
+		}
+	}
+
+	// 1. Cek apakah hari pelaporan adalah hari libur atau akhir pekan
+	isHoliday, err := s.holidayRepo.CheckIsHoliday(input.WaktuPelaporan)
 	if err != nil {
 		return nil, errors.New("gagal mengecek status hari libur")
 	}
-	if isHoliday {
-		return nil, errors.New("laporan tidak dapat dibuat pada hari libur")
-	}
+
+	weekday := input.WaktuPelaporan.Weekday()
+	isWeekend := weekday == time.Saturday || weekday == time.Sunday
 
 	// 2. Validasi input berdasarkan tipe laporan
 	// true = pokok (pelaporan tugas pokok)
@@ -118,7 +131,10 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	parsedJamPulang, errParse := time.Parse(formatParsing, dummyDate+" "+jamPulangStr)
 
 	isOvertime := false
-	if errParse == nil {
+	// Jika hari libur atau akhir pekan, otomatis lembur
+	if isHoliday || isWeekend {
+		isOvertime = true
+	} else if errParse == nil {
 		// Buat objek waktu WaktuPelaporan dengan tanggal dummy yang sama
 		jamKirimDummy, _ := time.Parse(formatParsing, fmt.Sprintf("%s %02d:%02d", dummyDate, input.WaktuPelaporan.Hour(), input.WaktuPelaporan.Minute()))
 

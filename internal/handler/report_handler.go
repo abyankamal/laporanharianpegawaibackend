@@ -221,8 +221,10 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	}
 
 	// 6. Susun input untuk service
+	role, _ := c.Locals("role").(string)
 	input := service.ReportInput{
 		UserID:            userID,
+		UserRole:          role,
 		TipeLaporan:       tipeLaporan,
 		TugasOrganisasiID: tugasOrganisasiID,
 		JudulKegiatan:     judulKegiatan,
