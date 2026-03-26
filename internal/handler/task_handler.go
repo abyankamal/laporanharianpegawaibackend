@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"strconv"
 	"strings"
 
@@ -185,14 +186,23 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 		})
 	}
 
-	requesterIDFloat, ok := c.Locals("user_id").(float64)
-	if !ok {
+	// 2. Ambil requester ID dari Locals
+	var requesterID uint
+	val := c.Locals("user_id")
+
+	switch v := val.(type) {
+	case float64:
+		requesterID = uint(v)
+	case int:
+		requesterID = uint(v)
+	case uint:
+		requesterID = v
+	default:
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status":  "error",
-			"message": "User tidak terautentikasi",
+			"message": "User ID tidak valid",
 		})
 	}
-	requesterID := uint(requesterIDFloat)
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
@@ -202,13 +212,20 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 		})
 	}
 
+	// Logging untuk debug akses
+	log.Printf("[DEBUG] GetTaskByID - TaskID: %d, UserID: %d, Role: %s\n", taskID, requesterID, requesterRole)
+
 	task, err := h.taskService.GetTaskByID(requesterID, requesterRole, uint(taskID))
 	if err != nil {
+		log.Printf("[DEBUG] GetTaskByID - Error: %v\n", err)
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"status":  "error",
 			"message": err.Error(),
 		})
 	}
+
+	// Log jumlah assignees yang ter-preload
+	log.Printf("[DEBUG] GetTaskByID - Success. Task: %s, Assignees Count: %d\n", task.JudulTugas, len(task.Assignees))
 
 	// Format response detail penugasan
 

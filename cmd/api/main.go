@@ -15,7 +15,8 @@ import (
 	"laporanharianapi/internal/handler"
 	"laporanharianapi/internal/middleware"
 	"laporanharianapi/internal/repository"
-	"laporanharianapi/internal/scheduler"
+
+	// "laporanharianapi/internal/scheduler"
 	"laporanharianapi/internal/service"
 	"laporanharianapi/pkg/fcm"
 )
@@ -334,7 +335,7 @@ func main() {
 	// =============================================
 	// 7. BACKGROUND JOBS
 	// =============================================
-	scheduler.StartDailyReminder(config.DB, notifRepo, workHourRepo)
+	// scheduler.StartDailyReminder(config.DB, notifRepo, workHourRepo)
 
 	// =============================================
 	// 8. START SERVER

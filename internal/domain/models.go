@@ -58,7 +58,7 @@ type TugasOrganisasi struct {
 
 	// Relasi
 	Creator   *User  `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
-	Assignees []User `gorm:"many2many:tugas_assignees;foreignKey:ID;joinForeignKey:TugasOrganisasiID;References:ID;joinReferences:UserID" json:"assignees,omitempty"`
+	Assignees []User `gorm:"many2many:tugas_assignees;foreignKey:ID;joinForeignKey:tugas_organisasi_id;References:ID;joinReferences:user_id" json:"assignees,omitempty"`
 }
 
 func (TugasOrganisasi) TableName() string {
