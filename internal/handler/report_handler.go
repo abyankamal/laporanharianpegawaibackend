@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
-	_ "image/png"
 	"io"
 	"math"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/disintegration/imaging"
 	"github.com/go-pdf/fpdf"
 	"github.com/gofiber/fiber/v3"
 	"github.com/xuri/excelize/v2"
@@ -817,6 +817,56 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	pdf.SetMargins(marginL, 20, marginR)
 	pageW := 215.9 - marginL - marginR // 185.9mm
 
+	// --- Setup Watermark Logo ---
+	// Daftar file logo dari folder images/ yang akan dijadikan watermark
+	logoFiles := []string{
+		"images/Logo_EVP.png",
+		"images/logo.png",
+		"images/logo_berakhlak.png",
+		"images/splash_illustration.png",
+	}
+	type logoInfo struct {
+		name string
+		ok   bool
+	}
+	var logos []logoInfo
+	for _, f := range logoFiles {
+		if _, statErr := os.Stat(f); statErr == nil {
+			name := filepath.Base(f)
+			ext := strings.ToUpper(strings.TrimPrefix(filepath.Ext(f), "."))
+			opt := fpdf.ImageOptions{ImageType: ext, ReadDpi: false}
+			pdf.RegisterImageOptions(f, opt)
+			logos = append(logos, logoInfo{name: name, ok: true})
+			_ = logos
+		}
+	}
+
+	// Gambar watermark di pojok kiri atas setiap halaman
+	logoH := 12.0  // tinggi logo dalam mm
+	logoGap := 2.0 // jarak antara logo
+	pdf.SetHeaderFuncMode(func() {
+		logoX := marginL
+		logoY := 3.0
+		for _, f := range logoFiles {
+			if _, statErr := os.Stat(f); statErr == nil {
+				ext := strings.ToUpper(strings.TrimPrefix(filepath.Ext(f), "."))
+				opt := fpdf.ImageOptions{ImageType: ext, ReadDpi: false}
+				// Gambar logo dengan tinggi tetap, lebar auto-proporsional (0 = auto)
+				pdf.ImageOptions(f, logoX, logoY, 0, logoH, false, opt, 0, "")
+				// Hitung lebar aktual logo untuk menentukan posisi logo berikutnya
+				// fpdf tidak return lebar, kita estimasi dari info gambar
+				info := pdf.GetImageInfo(f)
+				if info != nil {
+					logoW := logoH * float64(info.Width()) / float64(info.Height())
+					logoX += logoW + logoGap
+				} else {
+					logoX += logoH + logoGap // fallback
+				}
+			}
+		}
+	}, true)
+
+
 	// Lebar kolom: No (kecil) | Tanggal | Jenis | Judul | Deskripsi (luas) | Foto (luas)
 	// Total: 8 + 22 + 25 + 30 + 50 + 50.9 = 185.9mm
 	colW := []float64{8, 22, 25, 30, 50, 50.9}
@@ -927,42 +977,46 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		photoH := 0.0
 		photoW := 0.0
 		photoPath := ""
-		photoType := ""
+		var photoImg image.Image // Simpan gambar yang sudah di-orient + resize
 
 		if laporan.FotoURL != nil && *laporan.FotoURL != "" {
 			localPath := filepath.Join(".", *laporan.FotoURL)
 			if _, statErr := os.Stat(localPath); statErr == nil {
-				// Cek dimensi gambar
-				f, openErr := os.Open(localPath)
+				// Buka gambar dengan imaging: otomatis terapkan EXIF orientation
+				img, openErr := imaging.Open(localPath, imaging.AutoOrientation(true))
 				if openErr == nil {
-					imgCfg, _, decErr := image.DecodeConfig(f)
-					f.Close()
-					if decErr == nil {
-						// Max lebar foto di tabel = colW[5] - 2mm padding
-						maxW := colW[5] - 2
+					// Max lebar foto di tabel = colW[5] - 2mm padding
+					maxW := colW[5] - 2
+					maxH := 70.0
 
-						imgRatio := float64(imgCfg.Height) / float64(imgCfg.Width)
-						scaledW := maxW
-						scaledH := scaledW * imgRatio
+					imgW := float64(img.Bounds().Dx())
+					imgH := float64(img.Bounds().Dy())
+					imgRatio := imgH / imgW
 
-						// Jika foto vertikal (tinggi > lebar) atau sangat panjang,
-						// kita beri batas maksimal tinggi agar tidak memakan terlalu banyak halaman
-						maxH := 70.0 // Batas atas tinggi foto agar tetap proporsional dalam tabel
-						if scaledH > maxH {
-							scaledH = maxH
-							scaledW = scaledH / imgRatio
-						}
-
-						photoW = scaledW
-						photoH = scaledH
-						photoPath = localPath
-						ext := strings.ToLower(filepath.Ext(localPath))
-						if ext == ".jpg" || ext == ".jpeg" {
-							photoType = "JPG"
-						} else if ext == ".png" {
-							photoType = "PNG"
-						}
+					scaledW := maxW
+					scaledH := scaledW * imgRatio
+					if scaledH > maxH {
+						scaledH = maxH
+						scaledW = scaledH / imgRatio
 					}
+
+					// Konversi mm ke pixel (96 DPI) untuk resize
+					// 1mm ≈ 3.78 pixel pada 96dpi
+					targetPxW := int(scaledW * 3.78)
+					targetPxH := int(scaledH * 3.78)
+					if targetPxW > img.Bounds().Dx() {
+						// Jangan upscale, pakai dimensi asli jika lebih kecil
+						targetPxW = img.Bounds().Dx()
+						targetPxH = img.Bounds().Dy()
+					}
+
+					// Resize ke dimensi tampil (drastis mengurangi ukuran PDF)
+					resized := imaging.Resize(img, targetPxW, targetPxH, imaging.Lanczos)
+
+					photoW = scaledW
+					photoH = scaledH
+					photoPath = localPath
+					photoImg = resized
 				}
 			}
 		}
@@ -1039,35 +1093,19 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.CellFormat(colW[5], rowH, "", "1", 0, "C", true, 0, "")
 
 		// Overlay gambar di dalam sel foto
-		if photoPath != "" && photoType != "" {
+		if photoPath != "" {
 			// Hitung posisi agar gambar terpusat di dalam sel
 			imgX := fotoX + (colW[5]-photoW)/2
 			imgY := startY + (rowH-photoH)/2
 
-			// Open the image file
-			file, err := os.Open(photoPath)
-			imageCompressed := false
-			if err == nil {
-				img, _, errDec := image.Decode(file)
-				file.Close()
-				if errDec == nil {
-					// Compress JPEG configuration
-					var buf bytes.Buffer
-					errEnc := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 50}) // 50% quality to reduce size
-					if errEnc == nil {
-						imgName := filepath.Base(photoPath) + "_compressed"
-						opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
-						pdf.RegisterImageOptionsReader(imgName, opt, &buf)
-						pdf.ImageOptions(imgName, imgX, imgY, photoW, photoH, false, opt, 0, "")
-						imageCompressed = true
-					}
-				}
-			}
-
-			// Fallback to original logic if compression fails
-			if !imageCompressed {
-				opt := fpdf.ImageOptions{ImageType: photoType, ReadDpi: false}
-				pdf.ImageOptions(photoPath, imgX, imgY, photoW, photoH, false, opt, 0, "")
+			// Encode gambar yang sudah di-orient dan di-resize ke JPEG 75%
+			var buf bytes.Buffer
+			errEnc := jpeg.Encode(&buf, photoImg, &jpeg.Options{Quality: 75})
+			if errEnc == nil {
+				imgName := filepath.Base(photoPath) + "_opt"
+				opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
+				pdf.RegisterImageOptionsReader(imgName, opt, &buf)
+				pdf.ImageOptions(imgName, imgX, imgY, photoW, photoH, false, opt, 0, "")
 			}
 		} else if laporan.FotoURL != nil && *laporan.FotoURL != "" {
 			// File tidak ditemukan, tulis keterangan teks
@@ -1093,6 +1131,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 			Offset:    0,
 			StartDate: startDate.Format("2006-01-02"),
 			EndDate:   endDate.Format("2006-01-02"),
+			SortOrder: "asc", // Tampilkan laporan dari terlama ke terbaru
 		}
 
 		reports, _, err := h.reportService.GetAllReports(filter, "lurah", requesterID) // role lurah agar dapat semua

@@ -18,6 +18,7 @@ type ReportFilter struct {
 	OwnID     int    // Filter tambahan untuk melihat laporan milik sendiri (untuk Sekertaris)
 	Limit     int
 	Offset    int
+	SortOrder string // "asc" atau "desc" (default: "desc")
 }
 
 // ReportRecapResponse adalah struct rekapitulasi agregat laporan.
@@ -125,11 +126,16 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 	}
 
 	// Terapkan pagination dan sorting
+	sortDir := "DESC"
+	if filter.SortOrder == "asc" {
+		sortDir = "ASC"
+	}
 	err := query.
 		Preload("User").
 		Preload("User.Jabatan").
 		Preload("User.Supervisor").
-		Order("laporan.created_at DESC").
+		Preload("TugasOrganisasi").
+		Order("laporan.waktu_pelaporan " + sortDir).
 		Limit(limit).
 		Offset(filter.Offset).
 		Find(&reports).Error
