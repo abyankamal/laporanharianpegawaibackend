@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
+	"image/draw"
 	"image/jpeg"
 	"io"
 	"math"
@@ -818,50 +820,89 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	pageW := 215.9 - marginL - marginR // 185.9mm
 
 	// --- Setup Watermark Logo ---
-	// Daftar file logo dari folder images/ yang akan dijadikan watermark
-	logoFiles := []string{
-		"images/Logo_EVP.png",
+	type logoTarget struct {
+		file   string
+		height float64
+	}
+
+	// 1. Urutan logo header
+	logoFiles := []logoTarget{
+		{"images/logo.png", 12.0},             // Logo utama (lebih besar)
+		{"images/logo_berakhlak.png", 8.0},    // Diperkecil
+		{"images/Logo_EVP.png", 8.0},          // Diperkecil
+	}
+
+	// 2. Gambar watermark tengah
+	splashFile := "images/splash_illustration.png"
+
+	allImages := []string{
 		"images/logo.png",
 		"images/logo_berakhlak.png",
-		"images/splash_illustration.png",
+		"images/Logo_EVP.png",
+		splashFile,
 	}
-	type logoInfo struct {
-		name string
-		ok   bool
-	}
-	var logos []logoInfo
-	for _, f := range logoFiles {
-		if _, statErr := os.Stat(f); statErr == nil {
-			name := filepath.Base(f)
-			ext := strings.ToUpper(strings.TrimPrefix(filepath.Ext(f), "."))
-			opt := fpdf.ImageOptions{ImageType: ext, ReadDpi: false}
-			pdf.RegisterImageOptions(f, opt)
-			logos = append(logos, logoInfo{name: name, ok: true})
-			_ = logos
+
+	// Buat helper untuk mendaftarkan logo sebagai file JPEG virtual (supaya kebal dari bug PNG gofpdf)
+	for _, f := range allImages {
+		localPath := filepath.Join(".", f)
+		if _, statErr := os.Stat(localPath); statErr == nil {
+			img, errOpen := imaging.Open(localPath, imaging.AutoOrientation(true))
+			if errOpen == nil {
+				// Flatten ke background putih agar transparan tidak jadi hitam
+				whiteBg := image.NewRGBA(img.Bounds())
+				draw.Draw(whiteBg, whiteBg.Bounds(), &image.Uniform{color.White}, image.Point{}, draw.Src)
+				draw.Draw(whiteBg, whiteBg.Bounds(), img, img.Bounds().Min, draw.Over)
+
+				// Konversi ke JPEG dalam memori
+				var buf bytes.Buffer
+				errEnc := jpeg.Encode(&buf, whiteBg, &jpeg.Options{Quality: 90})
+				if errEnc == nil {
+					name := filepath.Base(f)
+					opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
+					pdf.RegisterImageOptionsReader(name, opt, &buf)
+				}
+			}
 		}
 	}
 
-	// Gambar watermark di pojok kiri atas setiap halaman
-	logoH := 12.0  // tinggi logo dalam mm
-	logoGap := 2.0 // jarak antara logo
+	logoGap := 2.0
 	pdf.SetHeaderFuncMode(func() {
+		// --- 1. Gambar Watermark Tengah (Background Transparan) ---
+		splashName := filepath.Base(splashFile)
+		infoSplash := pdf.GetImageInfo(splashName)
+		if infoSplash != nil {
+			splashW := 90.0 // Diperkecil menjadi 60% (dari 150)
+			splashH := splashW * float64(infoSplash.Height()) / float64(infoSplash.Width())
+			
+			// F4 Size: 215.9 x 330.2, hitung koordinat tengah
+			splashX := (215.9 - splashW) / 2
+			splashY := (330.2 - splashH) / 2
+
+			pdf.SetAlpha(0.15, "Normal") // Buat sangat tipis (15% opacity)
+			opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
+			pdf.ImageOptions(splashName, splashX, splashY, splashW, splashH, false, opt, 0, "")
+			pdf.SetAlpha(1.0, "Normal") // Kembalikan opacity ke 100% untuk konten PDF lainnya
+		}
+
+		// --- 2. Gambar Logo Header ---
 		logoX := marginL
-		logoY := 3.0
-		for _, f := range logoFiles {
-			if _, statErr := os.Stat(f); statErr == nil {
-				ext := strings.ToUpper(strings.TrimPrefix(filepath.Ext(f), "."))
-				opt := fpdf.ImageOptions{ImageType: ext, ReadDpi: false}
-				// Gambar logo dengan tinggi tetap, lebar auto-proporsional (0 = auto)
-				pdf.ImageOptions(f, logoX, logoY, 0, logoH, false, opt, 0, "")
-				// Hitung lebar aktual logo untuk menentukan posisi logo berikutnya
-				// fpdf tidak return lebar, kita estimasi dari info gambar
-				info := pdf.GetImageInfo(f)
-				if info != nil {
-					logoW := logoH * float64(info.Width()) / float64(info.Height())
-					logoX += logoW + logoGap
-				} else {
-					logoX += logoH + logoGap // fallback
-				}
+		baseY := 3.0
+		baseH := 12.0 // Tinggi logo referensi (logo utama)
+
+		for _, logo := range logoFiles {
+			name := filepath.Base(logo.file)
+			info := pdf.GetImageInfo(name)
+			if info != nil {
+				opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
+				
+				// Hitung Y alignment agar logo kecil tetap sejajar vertikal di tengah logo utama
+				offsetY := (baseH - logo.height) / 2
+				currentY := baseY + offsetY
+
+				pdf.ImageOptions(name, logoX, currentY, 0, logo.height, false, opt, 0, "")
+				
+				logoW := logo.height * float64(info.Width()) / float64(info.Height())
+				logoX += logoW + logoGap
 			}
 		}
 	}, true)
@@ -889,8 +930,8 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 
 		for i, w := range colW {
 			pdf.SetXY(startX, startY)
-			// Gambar kotak pembungkus
-			pdf.CellFormat(w, headerH, "", "1", 0, "C", true, 0, "")
+			// Gambar kotak pembungkus (tanpa fill putih agar tembus pandang)
+			pdf.CellFormat(w, headerH, "", "1", 0, "C", false, 0, "")
 
 			// Tulis teks (bisa multi-baris jika ada \n)
 			// Hitung offset vertikal agar teks di tengah
@@ -1055,8 +1096,8 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		// Fungsi helper untuk menggambar box dan teks/foto secara proporsional
 		drawCell := func(x, y, w, h float64, txt string, align string) {
 			pdf.SetXY(x, y)
-			// Gambar kotak pembungkus (selalu h)
-			pdf.CellFormat(w, h, "", "1", 0, "", true, 0, "")
+			// Gambar kotak pembungkus (selalu h) tanpa fill putih
+			pdf.CellFormat(w, h, "", "1", 0, "", false, 0, "")
 
 			// Gambar teks di dalamnya
 			if txt != "" {
@@ -1090,7 +1131,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		// Sel: Foto
 		fotoX := startX + colW[0] + colW[1] + colW[2] + colW[3] + colW[4]
 		pdf.SetXY(fotoX, startY)
-		pdf.CellFormat(colW[5], rowH, "", "1", 0, "C", true, 0, "")
+		pdf.CellFormat(colW[5], rowH, "", "1", 0, "C", false, 0, "")
 
 		// Overlay gambar di dalam sel foto
 		if photoPath != "" {

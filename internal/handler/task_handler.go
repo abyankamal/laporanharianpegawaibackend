@@ -423,7 +423,7 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 
 // mapTasksToResponse mengonversi slice TugasOrganisasi ke format response JSON.
 func (h *TaskHandler) mapTasksToResponse(tasks []domain.TugasOrganisasi) []fiber.Map {
-	var responseData []fiber.Map
+	responseData := make([]fiber.Map, 0)
 	for _, t := range tasks {
 		var deadline interface{}
 		if t.Deadline != nil {
