@@ -24,6 +24,7 @@ import (
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/internal/service"
+	embedImages "laporanharianapi/images"
 )
 
 // ReportHandler menangani request laporan.
@@ -819,6 +820,21 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	pdf.SetMargins(marginL, 20, marginR)
 	pageW := 215.9 - marginL - marginR // 185.9mm
 
+	// Tentukan base directory aplikasi - agar path file (foto, logo) dapat ditemukan
+	// baik saat development (Windows) maupun deployment (Linux server)
+	exePath, exeErr := os.Executable()
+	var baseDir string
+	if exeErr == nil {
+		baseDir = filepath.Dir(exePath)
+	} else {
+		// Fallback ke working directory
+		baseDir, _ = os.Getwd()
+	}
+	// Jika dijalankan lewat `go run`, executable ada di /tmp, gunakan cwd
+	if strings.Contains(baseDir, "go-build") || strings.Contains(baseDir, "/tmp") {
+		baseDir, _ = os.Getwd()
+	}
+
 	// --- Setup Watermark Logo ---
 	type logoTarget struct {
 		file   string
@@ -842,11 +858,16 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		splashFile,
 	}
 
-	// Buat helper untuk mendaftarkan logo sebagai file JPEG virtual (supaya kebal dari bug PNG gofpdf)
+	// Buat helper untuk mendaftarkan logo sebagai file JPEG virtual.
+	// KITA MENGGUNAKAN EMBED FS SEHINGGA GAMBAR SELALU BERSAMA BINARY.
 	for _, f := range allImages {
-		localPath := filepath.Join(".", f)
-		if _, statErr := os.Stat(localPath); statErr == nil {
-			img, errOpen := imaging.Open(localPath, imaging.AutoOrientation(true))
+		name := filepath.Base(f)
+		
+		// Buka dari sistem file statis (embed.FS) yang dipaketkan dengan binari.
+		file, errFS := embedImages.FS.Open(name)
+		if errFS == nil {
+			img, errOpen := imaging.Decode(file, imaging.AutoOrientation(true))
+			file.Close()
 			if errOpen == nil {
 				// Flatten ke background putih agar transparan tidak jadi hitam
 				whiteBg := image.NewRGBA(img.Bounds())
@@ -857,7 +878,6 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 				var buf bytes.Buffer
 				errEnc := jpeg.Encode(&buf, whiteBg, &jpeg.Options{Quality: 90})
 				if errEnc == nil {
-					name := filepath.Base(f)
 					opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
 					pdf.RegisterImageOptionsReader(name, opt, &buf)
 				}
@@ -908,6 +928,29 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	}, true)
 
 
+	// Fungsi helper untuk mendapatkan nama bulan Indonesia
+	getIndonesianMonth := func(m time.Month) string {
+		months := map[time.Month]string{
+			time.January:   "Januari",
+			time.February:  "Februari",
+			time.March:     "Maret",
+			time.April:     "April",
+			time.May:       "Mei",
+			time.June:      "Juni",
+			time.July:      "Juli",
+			time.August:    "Agustus",
+			time.September: "September",
+			time.October:   "Oktober",
+			time.November:  "November",
+			time.December:  "Desember",
+		}
+		return months[m]
+	}
+
+	formatDateIndo := func(t time.Time) string {
+		return fmt.Sprintf("%02d %s %d", t.Day(), getIndonesianMonth(t.Month()), t.Year())
+	}
+
 	// Lebar kolom: No (kecil) | Tanggal | Jenis | Judul | Deskripsi (luas) | Foto (luas)
 	// Total: 8 + 22 + 25 + 30 + 50 + 50.9 = 185.9mm
 	colW := []float64{8, 22, 25, 30, 50, 50.9}
@@ -919,7 +962,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 
 	// Fungsi draw header tabel
 	drawTableHeader := func() {
-		pdf.SetFont("Times", "B", 8)
+		pdf.SetFont("Arial", "B", 8)
 		pdf.SetFillColor(headerBgR, headerBgG, headerBgB)
 		pdf.SetTextColor(headerFgR, headerFgG, headerFgB)
 		pdf.SetDrawColor(200, 200, 200)
@@ -993,7 +1036,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 
 		judul := laporan.JudulKegiatan
 		desc := laporan.DeskripsiHasil
-		tanggal := laporan.WaktuPelaporan.Format("02/01/2006\n15:04")
+		tanggal := fmt.Sprintf("%02d/%02d/%d\n%02d:%02d", laporan.WaktuPelaporan.Day(), int(laporan.WaktuPelaporan.Month()), laporan.WaktuPelaporan.Year(), laporan.WaktuPelaporan.Hour(), laporan.WaktuPelaporan.Minute())
 
 		// Hitung jumlah baris per kolom
 		rowsJenis := calcTextRows(jenis, colW[2], 7)
@@ -1021,7 +1064,18 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		var photoImg image.Image // Simpan gambar yang sudah di-orient + resize
 
 		if laporan.FotoURL != nil && *laporan.FotoURL != "" {
-			localPath := filepath.Join(".", *laporan.FotoURL)
+			// Normalisasi path: ganti backslash (Windows) ke slash, lalu hilangkan leading slash
+			p := strings.ReplaceAll(*laporan.FotoURL, "\\", "/")
+			p = strings.TrimPrefix(p, "/")
+
+			// Coba resolve path relatif terhadap baseDir (folder binary)
+			localPath := filepath.Join(baseDir, filepath.FromSlash(p))
+			if _, statErr := os.Stat(localPath); statErr != nil {
+				// Fallback: coba relatif terhadap cwd
+				cwd, _ := os.Getwd()
+				localPath = filepath.Join(cwd, filepath.FromSlash(p))
+			}
+			
 			if _, statErr := os.Stat(localPath); statErr == nil {
 				// Buka gambar dengan imaging: otomatis terapkan EXIF orientation
 				img, openErr := imaging.Open(localPath, imaging.AutoOrientation(true))
@@ -1090,7 +1144,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		}
 		rowFillAlt = !rowFillAlt
 
-		pdf.SetFont("Times", "", 7.5)
+		pdf.SetFont("Arial", "", 7.5)
 		pdf.SetDrawColor(200, 200, 200)
 
 		// Fungsi helper untuk menggambar box dan teks/foto secara proporsional
@@ -1151,12 +1205,12 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		} else if laporan.FotoURL != nil && *laporan.FotoURL != "" {
 			// File tidak ditemukan, tulis keterangan teks
 			pdf.SetXY(fotoX, startY+(rowH/2)-2)
-			pdf.SetFont("Times", "I", 6)
+			pdf.SetFont("Arial", "I", 6)
 			pdf.CellFormat(colW[5], 4, "File tdk ditemukan", "", 0, "C", false, 0, "")
 		} else {
 			// Tidak ada foto
 			pdf.SetXY(fotoX, startY+(rowH/2)-2)
-			pdf.SetFont("Times", "I", 6)
+			pdf.SetFont("Arial", "I", 6)
 			pdf.CellFormat(colW[5], 4, "- Tanpa Foto -", "", 0, "C", false, 0, "")
 		}
 
@@ -1183,17 +1237,17 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.AddPageFormat("P", f4Size)
 
 		// --- Kop halaman ---
-		pdf.SetFont("Times", "B", 12)
+		pdf.SetFont("Arial", "B", 12)
 		pdf.CellFormat(pageW, 8, "Laporan Harian Pegawai", "", 1, "C", false, 0, "")
-		pdf.SetFont("Times", "B", 10)
+		pdf.SetFont("Arial", "B", 10)
 		pdf.CellFormat(pageW, 6, user.Nama, "", 1, "C", false, 0, "")
 
-		pdf.SetFont("Times", "", 9)
+		pdf.SetFont("Arial", "", 9)
 		if user.Jabatan != nil {
 			pdf.CellFormat(pageW, 6, user.Jabatan.NamaJabatan, "", 1, "C", false, 0, "")
 		}
 		pdf.CellFormat(pageW, 6,
-			fmt.Sprintf("Periode: %s s/d %s", startDate.Format("02 Jan 2006"), endDate.Format("02 Jan 2006")),
+			fmt.Sprintf("Periode: %s s/d %s", formatDateIndo(startDate), formatDateIndo(endDate)),
 			"", 1, "C", false, 0, "")
 		pdf.Ln(2)
 
@@ -1217,7 +1271,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		}
 
 		sigY := pdf.GetY()
-		pdf.SetFont("Times", "", 10)
+		pdf.SetFont("Arial", "", 10)
 
 		// Kolom Kiri: Pejabat Penilai Kinerja
 		leftX := marginL
@@ -1240,18 +1294,18 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		}
 
 		if supervisorName != "" {
-			pdf.SetFont("Times", "BU", 10)
+			pdf.SetFont("Arial", "BU", 10)
 			pdf.CellFormat(60, 5, supervisorName, "", 2, "C", false, 0, "")
-			pdf.SetFont("Times", "", 10)
+			pdf.SetFont("Arial", "", 10)
 			pdf.CellFormat(60, 5, "NIP. "+supervisorNIP, "", 1, "C", false, 0, "")
 		} else {
-			pdf.SetFont("Times", "", 10)
+			pdf.SetFont("Arial", "", 10)
 			pdf.CellFormat(60, 5, "( ........................................ )", "", 2, "C", false, 0, "")
 			pdf.CellFormat(60, 5, "NIP. ........................................ ", "", 1, "C", false, 0, "")
 		}
 
 		// Kolom Kanan: Yang Dinilai
-		pdf.SetFont("Times", "", 10)
+		pdf.SetFont("Arial", "", 10)
 		rightX := pageW - 60 + marginL // Rata kanan
 		pdf.SetXY(rightX, sigY)
 		pdf.CellFormat(60, 5, "", "", 2, "C", false, 0, "") // Align dengan 'Mengetahui,'
@@ -1261,9 +1315,9 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.Ln(20)
 
 		pdf.SetX(rightX)
-		pdf.SetFont("Times", "BU", 10)
+		pdf.SetFont("Arial", "BU", 10)
 		pdf.CellFormat(60, 5, user.Nama, "", 2, "C", false, 0, "")
-		pdf.SetFont("Times", "", 10)
+		pdf.SetFont("Arial", "", 10)
 		pdf.CellFormat(60, 5, "NIP. "+user.NIP, "", 1, "C", false, 0, "")
 
 		// Halaman baru jika masih ada user lagi
