@@ -216,6 +216,67 @@ func TestCreateReport_FridayOvertime(t *testing.T) {
 	})
 }
 
+func TestCreateReport_Fail_Backdating_NonLurah(t *testing.T) {
+	t.Run("Gagal: non-lurah backdating lebih dari 30 menit", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
+
+		// Waktu 1 jam yg lalu
+		pastTime := time.Now().Add(-1 * time.Hour)
+
+		input := ReportInput{
+			UserID:         1,
+			UserRole:       "staf",
+			TipeLaporan:    true,
+			JudulKegiatan:  "Tugas Lama",
+			DeskripsiHasil: "Selesai 1 jam lalu",
+			WaktuPelaporan: pastTime,
+		}
+
+		laporan, err := reportSvc.CreateReport(input)
+
+		assert.Error(t, err)
+		assert.Nil(t, laporan)
+		assert.Equal(t, "pelaporan non-real-time (backdating) hanya diperbolehkan untuk role Lurah", err.Error())
+		mockReportRepo.AssertNotCalled(t, "Create")
+	})
+}
+
+func TestCreateReport_Success_Backdating_Lurah(t *testing.T) {
+	t.Run("Sukses: lurah backdating lebih dari 30 menit", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+
+		mockHolidayRepo.On("CheckIsHoliday", mock.Anything).Return(false, nil)
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
+		mockReportRepo.On("Create", mock.Anything).Return(nil)
+
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
+
+		// Waktu 2 hari yg lalu
+		pastTime := time.Now().Add(-48 * time.Hour)
+
+		input := ReportInput{
+			UserID:         1,
+			UserRole:       "lurah",
+			TipeLaporan:    true,
+			JudulKegiatan:  "Tugas 2 hari yg lalu",
+			DeskripsiHasil: "Selesai 2 hari lalu",
+			WaktuPelaporan: pastTime,
+		}
+
+		laporan, err := reportSvc.CreateReport(input)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, laporan)
+		mockReportRepo.AssertExpectations(t)
+	})
+}
+
 // ============================================================
 // Test EvaluateReport (ReportService)
 // ============================================================
