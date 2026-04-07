@@ -724,6 +724,111 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 	return c.Type("zip").Send(buf.Bytes())
 }
 
+// Update menangani pembaruan data laporan (Judul & Detail).
+func (h *ReportHandler) Update(c fiber.Ctx) error {
+	// 1. Ambil ID dari URL parameter
+	idParam := c.Params("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID laporan tidak valid",
+		})
+	}
+
+	// 2. Ambil info requester untuk RBAC
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	requesterID := uint(requesterIDFloat)
+	requesterRole, _ := c.Locals("role").(string)
+
+	// 3. Parse Request Body
+	// Mendukung JSON body
+	type UpdateRequest struct {
+		JudulKegiatan  string `json:"judul_kegiatan"`
+		DeskripsiHasil string `json:"deskripsi_hasil"`
+	}
+	var req UpdateRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		// Jika gagal parse JSON, coba ambil dari form value (fallback)
+		req.JudulKegiatan = c.FormValue("judul_kegiatan")
+		req.DeskripsiHasil = c.FormValue("deskripsi_hasil")
+	}
+
+	// 4. Panggil Service
+	err = h.reportService.UpdateReport(uint(id), req.JudulKegiatan, req.DeskripsiHasil, requesterID, requesterRole)
+	if err != nil {
+		status := fiber.StatusInternalServerError
+		if err.Error() == "laporan tidak ditemukan" {
+			status = fiber.StatusNotFound
+		} else if strings.Contains(err.Error(), "akses ditolak") {
+			status = fiber.StatusForbidden
+		}
+		return c.Status(status).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// 5. Success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"status":  "success",
+		"message": "Laporan berhasil diperbarui",
+	})
+}
+
+// Delete menangani penghapusan laporan (Hanya Lurah).
+func (h *ReportHandler) Delete(c fiber.Ctx) error {
+	// 1. Ambil ID dari URL parameter
+	idParam := c.Params("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID laporan tidak valid",
+		})
+	}
+
+	// 2. Ambil info requester (Hanya role Lurah yang diizinkan)
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": "User tidak terautentikasi",
+		})
+	}
+	requesterID := uint(requesterIDFloat)
+	requesterRole, _ := c.Locals("role").(string)
+
+	// 3. Panggil service Delete
+	err = h.reportService.DeleteReport(uint(id), requesterID, requesterRole)
+	if err != nil {
+		status := fiber.StatusInternalServerError
+		if err.Error() == "laporan tidak ditemukan" {
+			status = fiber.StatusNotFound
+		} else if strings.Contains(err.Error(), "akses ditolak") {
+			status = fiber.StatusForbidden
+		}
+		return c.Status(status).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// 4. Success
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"status":  "success",
+		"message": "Laporan berhasil dihapus",
+	})
+}
+
 // ExportReportPDFHandler mengekspor laporan harian menjadi file PDF berformat F4.
 // - Staf/Kasi   : hanya laporan diri sendiri
 // - Lurah/Sekertaris : gabungan semua pegawai yang relevan, tapi bisa difilter per user_id

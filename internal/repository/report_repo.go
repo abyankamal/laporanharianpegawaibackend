@@ -40,6 +40,7 @@ type ReportRepository interface {
 	GetReportRecap(userID uint, startDate time.Time, endDate time.Time) (*ReportRecapResponse, error)
 	GetReportRecapAggregated(filter ReportFilter) (*ReportRecapResponse, error)
 	Update(laporan *domain.Laporan) error
+	Delete(id uint) error
 }
 
 // reportRepository adalah implementasi dari ReportRepository.
@@ -60,6 +61,11 @@ func (r *reportRepository) Create(laporan *domain.Laporan) error {
 // Update memperbarui data laporan di database (misal status/komentar).
 func (r *reportRepository) Update(laporan *domain.Laporan) error {
 	return r.db.Save(laporan).Error
+}
+
+// Delete menghapus data laporan dari database.
+func (r *reportRepository) Delete(id uint) error {
+	return r.db.Delete(&domain.Laporan{}, id).Error
 }
 
 // CreateFileLaporan menyimpan data file laporan ke database.

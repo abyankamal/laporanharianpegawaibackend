@@ -49,6 +49,8 @@ type ReportService interface {
 	GetReportRecap(userID uint, startDate, endDate time.Time) (*repository.ReportRecapResponse, error)
 	GetReportRecapAggregated(filter repository.ReportFilter, requesterRole string, requesterID uint) (*repository.ReportRecapResponse, error)
 	EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error
+	UpdateReport(id uint, judul string, deskripsi string, requesterID uint, requesterRole string) error
+	DeleteReport(id uint, requesterID uint, requesterRole string) error
 }
 
 // reportService adalah implementasi dari ReportService.
@@ -455,6 +457,62 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 			}()
 			fcm.SendPushNotification(*targetUser.FCMToken, title, body)
 		}()
+	}
+
+	return nil
+}
+
+// UpdateReport memperbarui judul dan detail laporan.
+func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, requesterID uint, requesterRole string) error {
+	// 1. Ambil data laporan
+	laporan, err := s.reportRepo.GetByID(id)
+	if err != nil {
+		return errors.New("laporan tidak ditemukan")
+	}
+
+	// 2. RBAC: Admin (Lurah/Sekertaris) bisa edit semua, User lain hanya milik sendiri.
+	// Catatan: User diperbolehkan mengedit meskipun sudah direview (sesuai permintaan).
+	roleBase := strings.ToLower(requesterRole)
+	if roleBase != "lurah" && roleBase != "sekertaris" {
+		if laporan.UserID == nil || *laporan.UserID != requesterID {
+			return errors.New("akses ditolak: hanya dapat mengubah laporan milik sendiri")
+		}
+	}
+
+	// 3. Update field yang diperbolehkan
+	if judul != "" {
+		laporan.JudulKegiatan = judul
+	}
+	if deskripsi != "" {
+		laporan.DeskripsiHasil = deskripsi
+	}
+
+	// 4. Simpan perubahan
+	err = s.reportRepo.Update(laporan)
+	if err != nil {
+		return fmt.Errorf("gagal memperbarui laporan: %v", err)
+	}
+
+	return nil
+}
+
+// DeleteReport menghapus laporan (Hanya Lurah).
+func (s *reportService) DeleteReport(id uint, requesterID uint, requesterRole string) error {
+	// 1. Ambil data laporan
+	_, err := s.reportRepo.GetByID(id)
+	if err != nil {
+		return errors.New("laporan tidak ditemukan")
+	}
+
+	// 2. RBAC: Hanya Lurah yang boleh menghapus
+	if strings.ToLower(requesterRole) != "lurah" {
+		return errors.New("akses ditolak: hanya role Lurah yang diperbolehkan menghapus laporan")
+	}
+
+	// 3. Hapus laporan
+	err = s.reportRepo.Delete(id)
+	if err != nil {
+		return fmt.Errorf("gagal menghapus laporan: %v", err)
 	}
 
 	return nil

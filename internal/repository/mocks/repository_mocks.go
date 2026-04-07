@@ -152,6 +152,11 @@ func (m *ReportRepositoryMock) Update(laporan *domain.Laporan) error {
 	return args.Error(0)
 }
 
+func (m *ReportRepositoryMock) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
 func (m *ReportRepositoryMock) GetReportRecapAggregated(filter repository.ReportFilter) (*repository.ReportRecapResponse, error) {
 	args := m.Called(filter)
 	if args.Get(0) == nil {

@@ -219,6 +219,8 @@ func main() {
 	mReport.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
 	mReport.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
 	mReport.Put("/evaluate", reportHandler.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))
+	mReport.Put("/:id", reportHandler.Update)
+	mReport.Delete("/:id", reportHandler.Delete)
 	mReport.Get("/:id", reportHandler.GetOne)
 
 	// Tugas & Notifikasi (Mobile)
@@ -267,6 +269,8 @@ func main() {
 	wReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
 	wReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
 	wReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
+	wReports.Put("/:id", reportHandler.Update)
+	wReports.Delete("/:id", reportHandler.Delete)
 	wReports.Get("/:id", reportHandler.GetOne)
 
 	// Admin Specific (Only Lurah/Sekertaris/Admin)
@@ -306,6 +310,8 @@ func main() {
 	wAdminReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
 	wAdminReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
 	wAdminReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
+	wAdminReports.Put("/:id", reportHandler.Update)
+	wAdminReports.Delete("/:id", reportHandler.Delete)
 	wAdminReports.Get("/:id", reportHandler.GetOne)
 
 	// Pusat Pengumuman

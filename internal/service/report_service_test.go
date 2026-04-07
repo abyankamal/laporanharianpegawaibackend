@@ -403,3 +403,94 @@ func TestEvaluateReport_Fail_Kasi(t *testing.T) {
 		assert.Equal(t, "akses ditolak", err.Error())
 	})
 }
+
+// ============================================================
+// Test UpdateReport (ReportService)
+// ============================================================
+
+func TestUpdateReport(t *testing.T) {
+	t.Run("Sukses: User update laporan sendiri", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		svc := NewReportService(mockReportRepo, nil, nil)
+
+		userID := uint(1)
+		laporan := &domain.Laporan{ID: 1, UserID: &userID, JudulKegiatan: "Lama", DeskripsiHasil: "Lama"}
+
+		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
+		mockReportRepo.On("Update", mock.Anything).Return(nil)
+
+		err := svc.UpdateReport(1, "Baru", "Baru", userID, "staf")
+
+		assert.NoError(t, err)
+		assert.Equal(t, "Baru", laporan.JudulKegiatan)
+		mockReportRepo.AssertExpectations(t)
+	})
+
+	t.Run("Gagal: User update laporan orang lain", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		svc := NewReportService(mockReportRepo, nil, nil)
+
+		ownerID := uint(1)
+		otherID := uint(2)
+		laporan := &domain.Laporan{ID: 1, UserID: &ownerID}
+
+		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
+
+		err := svc.UpdateReport(1, "Baru", "Baru", otherID, "staf")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "akses ditolak")
+		mockReportRepo.AssertNotCalled(t, "Update", mock.Anything)
+	})
+
+	t.Run("Sukses: Admin update laporan siapapun", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		svc := NewReportService(mockReportRepo, nil, nil)
+
+		ownerID := uint(1)
+		adminID := uint(10)
+		laporan := &domain.Laporan{ID: 1, UserID: &ownerID}
+
+		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
+		mockReportRepo.On("Update", mock.Anything).Return(nil)
+
+		err := svc.UpdateReport(1, "Edit Admin", "", adminID, "lurah")
+
+		assert.NoError(t, err)
+		assert.Equal(t, "Edit Admin", laporan.JudulKegiatan)
+	})
+}
+
+// ============================================================
+// Test DeleteReport (ReportService)
+// ============================================================
+
+func TestDeleteReport(t *testing.T) {
+	t.Run("Sukses: Lurah hapus laporan", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		svc := NewReportService(mockReportRepo, nil, nil)
+
+		laporan := &domain.Laporan{ID: 1}
+		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
+		mockReportRepo.On("Delete", uint(1)).Return(nil)
+
+		err := svc.DeleteReport(1, 10, "lurah")
+
+		assert.NoError(t, err)
+		mockReportRepo.AssertExpectations(t)
+	})
+
+	t.Run("Gagal: Non-Lurah (Sekertaris) hapus laporan", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		svc := NewReportService(mockReportRepo, nil, nil)
+
+		laporan := &domain.Laporan{ID: 1}
+		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
+
+		err := svc.DeleteReport(1, 10, "sekertaris")
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "hanya role Lurah")
+		mockReportRepo.AssertNotCalled(t, "Delete", mock.Anything)
+	})
+}
