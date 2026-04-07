@@ -29,6 +29,7 @@ func (h *HolidayHandler) GetHolidays(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Daftar hari libur berhasil diambil",
 		"data":    holidays,
@@ -61,6 +62,7 @@ func (h *HolidayHandler) CreateHoliday(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Hari libur berhasil ditambahkan",
 		"data":    holiday,
@@ -102,6 +104,7 @@ func (h *HolidayHandler) UpdateHoliday(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Hari libur berhasil diperbarui",
 		"data":    holiday,
@@ -128,6 +131,7 @@ func (h *HolidayHandler) DeleteHoliday(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Hari libur berhasil dihapus",
 	})

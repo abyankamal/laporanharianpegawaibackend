@@ -42,6 +42,7 @@ func (h *JabatanHandler) GetAll(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data jabatan berhasil diambil",
 		"data":    response,
@@ -66,6 +67,7 @@ func (h *JabatanHandler) GetOne(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data jabatan berhasil diambil",
 		"data": JabatanModelResponse{
@@ -100,6 +102,7 @@ func (h *JabatanHandler) Create(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Jabatan berhasil dibuat",
 		"data": JabatanModelResponse{
@@ -135,6 +138,7 @@ func (h *JabatanHandler) Update(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Jabatan berhasil diperbarui",
 		"data": JabatanModelResponse{
@@ -161,6 +165,7 @@ func (h *JabatanHandler) Delete(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Jabatan berhasil dihapus",
 	})

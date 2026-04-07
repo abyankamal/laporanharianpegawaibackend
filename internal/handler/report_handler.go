@@ -119,6 +119,7 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 
 	// 7. Return response sukses dengan metadata pagination
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data laporan berhasil diambil",
 		"data":    reports,
@@ -251,6 +252,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 
 	// 8. Return response sukses
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Laporan berhasil dibuat",
 		"data": fiber.Map{
@@ -354,6 +356,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Detail laporan berhasil diambil",
 		"data":    responseMap,
@@ -431,6 +434,7 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 
 	// 5. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Rekap laporan berhasil diambil",
 		"data":    rekap,
@@ -483,6 +487,7 @@ func (h *ReportHandler) EvaluateReportHandler(c fiber.Ctx) error {
 
 	// 4. Sukses
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Evaluasi laporan berhasil disimpan",
 	})

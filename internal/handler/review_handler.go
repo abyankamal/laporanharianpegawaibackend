@@ -92,6 +92,7 @@ func (h *ReviewHandler) Create(c fiber.Ctx) error {
 
 	// 5. Return response sukses
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Penilaian berhasil disimpan",
 		"data": fiber.Map{
@@ -147,6 +148,7 @@ func (h *ReviewHandler) GetMyReviews(c fiber.Ctx) error {
 
 	// 5. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data penilaian berhasil diambil",
 		"data":    reviews,
@@ -182,6 +184,7 @@ func (h *ReviewHandler) GetMySubmittedReviews(c fiber.Ctx) error {
 
 	// 3. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data penilaian berhasil diambil",
 		"data":    reviews,

@@ -119,6 +119,7 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	responseData["assignees"] = assigneeList
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Tugas organisasi berhasil dibuat",
 		"data":    responseData,
@@ -151,6 +152,7 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 
 	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Daftar tugas organisasi berhasil diambil",
 		"data":    responseData,
@@ -170,6 +172,7 @@ func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 	responseData := h.mapTasksToResponse(tasks)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Daftar seluruh tugas organisasi berhasil diambil",
 		"data":    responseData,
@@ -273,6 +276,7 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	responseData["assignees"] = assigneeList
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Detail tugas berhasil diambil",
 		"data":    responseData,
@@ -371,6 +375,7 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 	responseData["assignees"] = assigneeList
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Tugas organisasi berhasil diperbarui",
 		"data":    responseData,
@@ -416,6 +421,7 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Tugas organisasi berhasil dihapus",
 	})

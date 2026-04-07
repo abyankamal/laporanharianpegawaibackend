@@ -53,6 +53,7 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 
 	// Return sukses dengan token
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Login berhasil",
 		"token":   token,

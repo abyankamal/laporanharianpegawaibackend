@@ -41,6 +41,7 @@ func (h *NotificationHandler) GetMy(c fiber.Ctx) error {
 
 	// 3. Return response sukses
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Notifikasi berhasil diambil",
 		"data":    notifications,
@@ -80,6 +81,7 @@ func (h *NotificationHandler) GetByID(c fiber.Ctx) error {
 
 	// 4. Return response sukses
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Notifikasi berhasil diambil",
 		"data":    notification,
@@ -119,6 +121,7 @@ func (h *NotificationHandler) MarkRead(c fiber.Ctx) error {
 
 	// 4. Return response sukses
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Notifikasi berhasil ditandai sebagai sudah dibaca",
 	})

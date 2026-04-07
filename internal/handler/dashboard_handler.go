@@ -48,6 +48,7 @@ func (h *DashboardHandler) GetSummary(c fiber.Ctx) error {
 
 	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data dashboard berhasil diambil",
 		"data":    summary,

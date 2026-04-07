@@ -27,6 +27,7 @@ func (h *WorkHourHandler) GetWorkHour(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data pengaturan berhasil diambil",
 		"data":    workHour,
@@ -60,6 +61,7 @@ func (h *WorkHourHandler) UpdateWorkHour(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Pengaturan berhasil diperbarui",
 		"data":    workHour,

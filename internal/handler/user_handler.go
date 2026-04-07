@@ -108,6 +108,7 @@ func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 
 	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data profil berhasil diambil",
 		"data":    profile,
@@ -147,6 +148,7 @@ func (h *UserHandler) GetAll(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data user berhasil diambil",
 		"data":    response,
@@ -191,6 +193,7 @@ func (h *UserHandler) GetOne(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data user berhasil diambil",
 		"data":    response,
@@ -218,6 +221,7 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "User berhasil dibuat",
 		"data": UserModelResponse{
@@ -263,6 +267,7 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "User berhasil diupdate",
 		"data": UserModelResponse{
@@ -298,6 +303,7 @@ func (h *UserHandler) Delete(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "User berhasil dihapus",
 	})
@@ -349,6 +355,7 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 
 	// 5. Return response sukses
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Password berhasil diubah",
 	})
@@ -386,6 +393,7 @@ func (h *UserHandler) ChangePhoto(c fiber.Ctx) error {
 
 	// 4. Return response sukses
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Foto profil berhasil diubah",
 		"data": fiber.Map{
@@ -426,6 +434,7 @@ func (h *UserHandler) GetSupervisors(c fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "Data atasan berhasil diambil",
 		"data":    response,
@@ -467,6 +476,7 @@ func (h *UserHandler) UpdateFCMToken(c fiber.Ctx) error {
 
 	// 4. Return response
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
 		"message": "FCM Token berhasil diperbarui",
 	})
