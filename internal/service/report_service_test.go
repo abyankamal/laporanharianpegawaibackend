@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"mime/multipart"
 	"testing"
 	"time"
 
@@ -42,7 +43,7 @@ func TestCreateReport_Success_DocumentMode(t *testing.T) {
 			LokasiLat:      "", // kosong (opsional)
 			LokasiLong:     "", // kosong (opsional)
 			AlamatLokasi:   "", // kosong (opsional)
-			FileFoto:       nil,
+			FileFoto:       &multipart.FileHeader{Filename: "dummy.jpg"},
 			FileDokumen:    nil,
 		}
 
@@ -81,7 +82,7 @@ func TestCreateReport_Success_WithLocation(t *testing.T) {
 			LokasiLat:      "-6.2088",
 			LokasiLong:     "106.8456",
 			AlamatLokasi:   "Kantor Kelurahan",
-			FileFoto:       nil,
+			FileFoto:       &multipart.FileHeader{Filename: "dummy.jpg"},
 			FileDokumen:    nil,
 		}
 
@@ -206,6 +207,7 @@ func TestCreateReport_FridayOvertime(t *testing.T) {
 			JudulKegiatan:  "Tugas Jumat",
 			DeskripsiHasil: "Selesai jam 15:30",
 			WaktuPelaporan: friday,
+			FileFoto:       &multipart.FileHeader{Filename: "dummy.jpg"},
 		}
 
 		laporan, err := reportSvc.CreateReport(input)
@@ -267,6 +269,7 @@ func TestCreateReport_Success_Backdating_Lurah(t *testing.T) {
 			JudulKegiatan:  "Tugas 2 hari yg lalu",
 			DeskripsiHasil: "Selesai 2 hari lalu",
 			WaktuPelaporan: pastTime,
+			FileFoto:       &multipart.FileHeader{Filename: "dummy.jpg"},
 		}
 
 		laporan, err := reportSvc.CreateReport(input)

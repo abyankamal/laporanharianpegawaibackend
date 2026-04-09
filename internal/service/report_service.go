@@ -23,7 +23,7 @@ import (
 type ReportInput struct {
 	UserID            uint
 	UserRole          string
-	TipeLaporan       bool // true = Pokok (linked or manual), false = Tambahan
+	TipeLaporan       bool  // true = Pokok (linked or manual), false = Tambahan
 	TugasOrganisasiID *uint // ID tugas organisasi (optional, only for linked tasks)
 	JudulKegiatan     string
 	DeskripsiHasil    string
@@ -106,14 +106,19 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	weekday := input.WaktuPelaporan.Weekday()
 	isWeekend := weekday == time.Saturday || weekday == time.Sunday
 
-	// 2. Validasi input berdasarkan tipe laporan
+	// Validasi input berdasarkan tipe laporan
 	// true = pokok (pelaporan tugas pokok)
 	// false = tambahan (kegiatan tambahan, wajib ada judul)
 	if !input.TipeLaporan && input.JudulKegiatan == "" {
 		return nil, errors.New("judul kegiatan wajib diisi untuk laporan tambahan")
 	}
 
-	// 3. Cek jam kerja dari tabel WorkHour
+	// Validasi Aturan Lampiran (Wajib minimal satu: foto atau dokumen)
+	if input.FileFoto == nil && input.FileDokumen == nil {
+		return nil, errors.New("pelaporan gagal: wajib menyertakan setidaknya satu lampiran (foto atau dokumen)")
+	}
+
+	// Cek jam kerja dari tabel WorkHour
 	workHour, err := s.workHourRepo.Get()
 	if err != nil {
 		return nil, errors.New("gagal mengambil data pengaturan jam kerja")
@@ -398,7 +403,6 @@ func (s *reportService) GetReportRecapAggregated(filter repository.ReportFilter,
 	rekap.TotalDisetujui = rekap.TotalSudahDireview
 	return rekap, nil
 }
-
 
 // EvaluateReport mengevaluasi laporan (Memberikan Masukan) berdasarkan RBAC.
 func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error {
