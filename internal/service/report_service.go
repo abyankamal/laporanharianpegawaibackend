@@ -85,9 +85,10 @@ func toStringPtr(s string) *string {
 func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error) {
 	now := time.Now()
 
-	// 0. Validasi Role: Hanya 'lurah' yang boleh melapor tidak real-time (backdating)
+	// 0. Validasi Role: Hanya 'admin' & 'lurah' yang boleh melapor tidak real-time (backdating)
 	// Untuk role lain, batasi selisih waktu maksimal 30 menit dari sekarang
-	if input.UserRole != "lurah" {
+	roleLower := strings.ToLower(input.UserRole)
+	if roleLower != "admin" && roleLower != "lurah" {
 		diff := now.Sub(input.WaktuPelaporan)
 		if diff < 0 {
 			diff = -diff // abs
@@ -210,8 +211,8 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 // - Kasi & Staf: HANYA boleh melihat laporan DIRI SENDIRI.
 func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error) {
 	switch requesterRole {
-	case "lurah":
-		// Lurah boleh melihat semua laporan — tidak ada filter tambahan
+	case "admin", "lurah":
+		// Admin & Lurah boleh melihat semua laporan — tidak ada filter tambahan
 	case "sekertaris":
 		// Sekertaris boleh melihat laporan miliknya sendiri ATAU milik staf
 		filter.UserRole = "staf"
@@ -245,7 +246,7 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 
 	// 2. Terapkan RBAC
 	switch requesterRole {
-	case "lurah":
+	case "admin", "lurah":
 		// Bebas akses
 	case "sekertaris":
 		// Sekertaris boleh melihat laporan miliknya sendiri ATAU milik staf
@@ -355,8 +356,8 @@ func (s *reportService) GetReportRecap(userID uint, startDate, endDate time.Time
 // GetReportRecapAggregated menghitung agregasi status dan total jam kerja laporan untuk banyak user (RBAC applied).
 func (s *reportService) GetReportRecapAggregated(filter repository.ReportFilter, requesterRole string, requesterID uint) (*repository.ReportRecapResponse, error) {
 	switch strings.ToLower(requesterRole) {
-	case "lurah":
-		// Lurah boleh melihat semua laporan.
+	case "admin", "lurah":
+		// Admin & Lurah boleh melihat semua laporan.
 		// Jika UserRole kosong atau "semua", biarkan kosong agar melihat semua.
 		if strings.ToLower(filter.UserRole) == "semua" {
 			filter.UserRole = ""
@@ -430,8 +431,8 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 		if targetUser.Role != "staf" {
 			return errors.New("Sekertaris hanya memiliki hak untuk mengevaluasi laporan Staf")
 		}
-	case "lurah":
-		// Lurah boleh menilai semua role
+	case "admin", "lurah":
+		// Admin & Lurah boleh menilai semua role
 	case "kasi", "staf":
 		// Kasi / Staf tidak punya hak approve laporan general
 		return errors.New("akses ditolak")
@@ -477,7 +478,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, re
 	// 2. RBAC: Admin (Lurah/Sekertaris) bisa edit semua, User lain hanya milik sendiri.
 	// Catatan: User diperbolehkan mengedit meskipun sudah direview (sesuai permintaan).
 	roleBase := strings.ToLower(requesterRole)
-	if roleBase != "lurah" && roleBase != "sekertaris" {
+	if roleBase != "admin" && roleBase != "lurah" && roleBase != "sekertaris" {
 		if laporan.UserID == nil || *laporan.UserID != requesterID {
 			return errors.New("akses ditolak: hanya dapat mengubah laporan milik sendiri")
 		}
@@ -508,8 +509,8 @@ func (s *reportService) DeleteReport(id uint, requesterID uint, requesterRole st
 		return errors.New("laporan tidak ditemukan")
 	}
 
-	// 2. RBAC: Hanya Lurah yang boleh menghapus
-	if strings.ToLower(requesterRole) != "lurah" {
+	// 2. RBAC: Hanya Admin & Lurah yang boleh menghapus
+	if strings.ToLower(requesterRole) != "admin" && strings.ToLower(requesterRole) != "lurah" {
 		return errors.New("akses ditolak: hanya role Lurah yang diperbolehkan menghapus laporan")
 	}
 
