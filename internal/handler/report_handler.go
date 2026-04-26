@@ -363,6 +363,18 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 
 	if laporan.User != nil {
 		responseMap["owner_role"] = laporan.User.Role
+		
+		userMap := fiber.Map{
+			"nama": laporan.User.Nama,
+			"nip":  laporan.User.NIP,
+		}
+		if laporan.User.Jabatan != nil {
+			userMap["jabatan"] = fiber.Map{
+				"nama_jabatan": laporan.User.Jabatan.NamaJabatan,
+			}
+		}
+		responseMap["user"] = userMap
+
 		if laporan.User.Supervisor != nil {
 			responseMap["supervisor_nip"] = laporan.User.Supervisor.NIP
 			responseMap["supervisor_nama"] = laporan.User.Supervisor.Nama
