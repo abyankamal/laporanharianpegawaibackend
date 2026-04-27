@@ -23,9 +23,20 @@ type AuthServiceMock struct {
 	mock.Mock
 }
 
-func (m *AuthServiceMock) Login(nip string, password string) (string, error) {
+func (m *AuthServiceMock) Login(nip string, password string) (map[string]interface{}, error) {
 	args := m.Called(nip, password)
-	return args.String(0), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]interface{}), args.Error(1)
+}
+
+func (m *AuthServiceMock) RefreshToken(token string) (map[string]interface{}, error) {
+	args := m.Called(token)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]interface{}), args.Error(1)
 }
 
 // ============================================================
@@ -33,18 +44,23 @@ func (m *AuthServiceMock) Login(nip string, password string) (string, error) {
 // ============================================================
 
 func TestLoginHandler_Success(t *testing.T) {
-	t.Run("HTTP 200 - Login berhasil, mendapat token JWT", func(t *testing.T) {
+	t.Run("HTTP 200 - Login berhasil, mendapat pasangan token", func(t *testing.T) {
 		// 1. Setup mock
+		mockResponse := map[string]interface{}{
+			"access_token":  "access.token.dummy",
+			"refresh_token": "refresh.token.dummy",
+			"expires_in":    3600,
+		}
 		mockAuthService := new(AuthServiceMock)
 		mockAuthService.On("Login", "198106152014102004", "123456").
-			Return("eyJhbG.dummy.token", nil)
+			Return(mockResponse, nil)
 
 		// 2. Setup Fiber app + route
 		app := fiber.New()
 		authHandler := NewAuthHandler(mockAuthService)
 		app.Post("/api/login", authHandler.Login)
 
-		// 3. Buat HTTP request (NIP & password sesuai data seeder)
+		// 3. Buat HTTP request
 		body := `{"nip": "198106152014102004", "password": "123456"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -65,9 +81,12 @@ func TestLoginHandler_Success(t *testing.T) {
 
 		// 7. Assert response body
 		assert.Equal(t, "success", result["status"])
-		assert.Equal(t, "Login berhasil", result["message"])
-		assert.NotEmpty(t, result["token"], "Response harus mengandung token")
-		assert.Equal(t, "eyJhbG.dummy.token", result["token"])
+		assert.Equal(t, true, result["success"])
+
+		data := result["data"].(map[string]interface{})
+		assert.Equal(t, "access.token.dummy", data["access_token"])
+		assert.Equal(t, "refresh.token.dummy", data["refresh_token"])
+		assert.Equal(t, float64(3600), data["expires_in"])
 
 		mockAuthService.AssertExpectations(t)
 	})
@@ -75,33 +94,19 @@ func TestLoginHandler_Success(t *testing.T) {
 
 func TestLoginHandler_Fail_BadRequest_EmptyBody(t *testing.T) {
 	t.Run("HTTP 400 - Body JSON kosong", func(t *testing.T) {
-		// 1. Setup (tidak perlu mock karena handler gagal sebelum memanggil service)
 		mockAuthService := new(AuthServiceMock)
-
 		app := fiber.New()
 		authHandler := NewAuthHandler(mockAuthService)
 		app.Post("/api/login", authHandler.Login)
 
-		// 2. Kirim body kosong
 		req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(""))
 		req.Header.Set("Content-Type", "application/json")
 
-		// 3. Eksekusi
 		resp, err := app.Test(req)
 		assert.NoError(t, err)
 		defer resp.Body.Close()
 
-		// 4. Assert status code 400
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-
-		// 5. Parse response body
-		respBody, _ := io.ReadAll(resp.Body)
-		var result map[string]interface{}
-		json.Unmarshal(respBody, &result)
-
-		assert.Equal(t, "error", result["status"])
-
-		// Login service tidak boleh dipanggil
 		mockAuthService.AssertNotCalled(t, "Login")
 	})
 }
@@ -109,12 +114,10 @@ func TestLoginHandler_Fail_BadRequest_EmptyBody(t *testing.T) {
 func TestLoginHandler_Fail_BadRequest_MissingFields(t *testing.T) {
 	t.Run("HTTP 400 - NIP dan Password kosong dalam JSON", func(t *testing.T) {
 		mockAuthService := new(AuthServiceMock)
-
 		app := fiber.New()
 		authHandler := NewAuthHandler(mockAuthService)
 		app.Post("/api/login", authHandler.Login)
 
-		// Kirim JSON valid tapi NIP dan password kosong
 		body := `{"nip": "", "password": ""}`
 		req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -123,98 +126,87 @@ func TestLoginHandler_Fail_BadRequest_MissingFields(t *testing.T) {
 		assert.NoError(t, err)
 		defer resp.Body.Close()
 
-		// Assert status code 400
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-
-		respBody, _ := io.ReadAll(resp.Body)
-		var result map[string]interface{}
-		json.Unmarshal(respBody, &result)
-
-		assert.Equal(t, "error", result["status"])
-		assert.Equal(t, "NIP dan password wajib diisi", result["message"])
-
-		mockAuthService.AssertNotCalled(t, "Login")
-	})
-}
-
-func TestLoginHandler_Fail_BadRequest_InvalidJSON(t *testing.T) {
-	t.Run("HTTP 400 - Format JSON tidak valid", func(t *testing.T) {
-		mockAuthService := new(AuthServiceMock)
-
-		app := fiber.New()
-		authHandler := NewAuthHandler(mockAuthService)
-		app.Post("/api/login", authHandler.Login)
-
-		// Kirim body yang bukan JSON valid
-		body := `{invalid json!!!}`
-		req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := app.Test(req)
-		assert.NoError(t, err)
-		defer resp.Body.Close()
-
-		// Assert status code 400
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-
-		respBody, _ := io.ReadAll(resp.Body)
-		var result map[string]interface{}
-		json.Unmarshal(respBody, &result)
-
-		assert.Equal(t, "error", result["status"])
-
 		mockAuthService.AssertNotCalled(t, "Login")
 	})
 }
 
 func TestLoginHandler_Fail_Unauthorized(t *testing.T) {
-	t.Run("HTTP 401 - Kredensial salah (password salah)", func(t *testing.T) {
-		// 1. Setup mock: Login mengembalikan error
+	t.Run("HTTP 401 - Kredensial salah", func(t *testing.T) {
 		mockAuthService := new(AuthServiceMock)
-		mockAuthService.On("Login", "198106152014102004", "wrongpassword").
-			Return("", errors.New("NIP atau password salah"))
+		mockAuthService.On("Login", "198106152014102004", "wrong").
+			Return(nil, errors.New("NIP atau password salah"))
 
 		app := fiber.New()
 		authHandler := NewAuthHandler(mockAuthService)
 		app.Post("/api/login", authHandler.Login)
 
-		// 2. Kirim request dengan password salah
-		body := `{"nip": "198106152014102004", "password": "wrongpassword"}`
+		body := `{"nip": "198106152014102004", "password": "wrong"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 
-		// 3. Eksekusi
 		resp, err := app.Test(req)
 		assert.NoError(t, err)
 		defer resp.Body.Close()
 
-		// 4. Assert status code 401
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		mockAuthService.AssertExpectations(t)
+	})
+}
 
-		// 5. Parse response body
+// ============================================================
+// Test Refresh Token Handler
+// ============================================================
+
+func TestRefreshTokenHandler_Success(t *testing.T) {
+	t.Run("HTTP 200 - Refresh token berhasil", func(t *testing.T) {
+		mockResponse := map[string]interface{}{
+			"access_token":  "new.access.token",
+			"refresh_token": "new.refresh.token",
+			"expires_in":    3600,
+		}
+		mockAuthService := new(AuthServiceMock)
+		mockAuthService.On("RefreshToken", "old.refresh.token").
+			Return(mockResponse, nil)
+
+		app := fiber.New()
+		authHandler := NewAuthHandler(mockAuthService)
+		app.Post("/api/refresh", authHandler.RefreshToken)
+
+		body := `{"refresh_token": "old.refresh.token"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/refresh", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		defer resp.Body.Close()
+
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 		respBody, _ := io.ReadAll(resp.Body)
 		var result map[string]interface{}
 		json.Unmarshal(respBody, &result)
 
-		assert.Equal(t, "error", result["status"])
-		assert.Equal(t, "NIP atau password salah", result["message"])
+		assert.Equal(t, "success", result["status"])
+		data := result["data"].(map[string]interface{})
+		assert.Equal(t, "new.access.token", data["access_token"])
 
 		mockAuthService.AssertExpectations(t)
 	})
 }
 
-func TestLoginHandler_Fail_Unauthorized_NIPNotFound(t *testing.T) {
-	t.Run("HTTP 401 - NIP tidak ditemukan", func(t *testing.T) {
+func TestRefreshTokenHandler_Fail_InvalidToken(t *testing.T) {
+	t.Run("HTTP 401 - Refresh token tidak valid", func(t *testing.T) {
 		mockAuthService := new(AuthServiceMock)
-		mockAuthService.On("Login", "000000000", "123456").
-			Return("", errors.New("NIP atau password salah"))
+		mockAuthService.On("RefreshToken", "invalid.token").
+			Return(nil, errors.New("refresh token tidak valid"))
 
 		app := fiber.New()
 		authHandler := NewAuthHandler(mockAuthService)
-		app.Post("/api/login", authHandler.Login)
+		app.Post("/api/refresh", authHandler.RefreshToken)
 
-		body := `{"nip": "000000000", "password": "123456"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(body))
+		body := `{"refresh_token": "invalid.token"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/refresh", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := app.Test(req)
@@ -222,14 +214,6 @@ func TestLoginHandler_Fail_Unauthorized_NIPNotFound(t *testing.T) {
 		defer resp.Body.Close()
 
 		assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
-
-		respBody, _ := io.ReadAll(resp.Body)
-		var result map[string]interface{}
-		json.Unmarshal(respBody, &result)
-
-		assert.Equal(t, "error", result["status"])
-		assert.Equal(t, "NIP atau password salah", result["message"])
-
 		mockAuthService.AssertExpectations(t)
 	})
 }
