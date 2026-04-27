@@ -194,7 +194,8 @@ func main() {
 	mobile := api.Group("/mobile")
 
 	// 1. Authenticated Routes for Mobile
-	mobile.Post("/login", authHandler.Login) // Public Login for Mobile
+	mobile.Post("/login", authHandler.Login)    // Public Login for Mobile
+	mobile.Post("/refresh", authHandler.RefreshToken) // Refresh Token for Mobile
 
 	mProtected := mobile.Group("", middleware.Protected())
 
@@ -251,7 +252,8 @@ func main() {
 	web := api.Group("/web")
 
 	// 1. Authenticated Routes for Web
-	web.Post("/login", authHandler.Login) // Public Login for Web
+	web.Post("/login", authHandler.Login)    // Public Login for Web
+	web.Post("/refresh", authHandler.RefreshToken) // Refresh Token for Web
 
 	wProtected := web.Group("", middleware.Protected())
 

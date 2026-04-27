@@ -12,6 +12,11 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// RefreshTokenRequest adalah struktur untuk request body refresh token.
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 // AuthHandler menangani request autentikasi.
 type AuthHandler struct {
 	authService service.AuthService
@@ -43,7 +48,7 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 	}
 
 	// Panggil service login
-	token, err := h.authService.Login(req.NIP, req.Password)
+	tokens, err := h.authService.Login(req.NIP, req.Password)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status":  "error",
@@ -51,11 +56,49 @@ func (h *AuthHandler) Login(c fiber.Ctx) error {
 		})
 	}
 
-	// Return sukses dengan token
+	// Return sukses dengan data token lengkap
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"status":  "success",
 		"message": "Login berhasil",
-		"token":   token,
+		"data":    tokens,
+	})
+}
+
+// RefreshToken menangani pembaruan token menggunakan refresh token.
+func (h *AuthHandler) RefreshToken(c fiber.Ctx) error {
+	var req RefreshTokenRequest
+
+	// Parse body request
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid",
+		})
+	}
+
+	// Validasi input
+	if req.RefreshToken == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Refresh token wajib diisi",
+		})
+	}
+
+	// Panggil service refresh token
+	tokens, err := h.authService.RefreshToken(req.RefreshToken)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// Return sukses dengan data token baru
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"status":  "success",
+		"message": "Token berhasil diperbarui",
+		"data":    tokens,
 	})
 }

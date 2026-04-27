@@ -57,6 +57,14 @@ func Protected() fiber.Handler {
 			})
 		}
 
+		// 4.5 Keamanan Tambahan: Pastikan ini adalah Access Token (Bukan Refresh Token)
+		if claims["token_type"] != "access" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"status":  "error",
+				"message": "Token bukan merupakan Access Token",
+			})
+		}
+
 		// 5. Simpan claims ke Fiber Locals untuk digunakan Handler selanjutnya
 		c.Locals("user_id", claims["user_id"])
 		c.Locals("role", claims["role"])
