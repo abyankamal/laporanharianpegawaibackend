@@ -68,8 +68,8 @@ func (m *ReportServiceMock) EvaluateReport(assessorID uint, assessorRole string,
 	return args.Error(0)
 }
 
-func (m *ReportServiceMock) UpdateReport(id uint, judul string, deskripsi string, requesterID uint, requesterRole string) error {
-	args := m.Called(id, judul, deskripsi, requesterID, requesterRole)
+func (m *ReportServiceMock) UpdateReport(id uint, judul string, deskripsi string, fileFoto *multipart.FileHeader, requesterID uint, requesterRole string) error {
+	args := m.Called(id, judul, deskripsi, fileFoto, requesterID, requesterRole)
 	return args.Error(0)
 }
 
@@ -310,7 +310,7 @@ func TestUpdateReportHandler(t *testing.T) {
 		})
 		app.Put("/reports/:id", h.Update)
 
-		mockReportService.On("UpdateReport", reportID, "New Title", "New Detail", userID, role).Return(nil)
+		mockReportService.On("UpdateReport", reportID, "New Title", "New Detail", mock.Anything, userID, role).Return(nil)
 
 		req := httptest.NewRequest(http.MethodPut, "/reports/10", strings.NewReader(`{"judul_kegiatan":"New Title", "deskripsi_hasil":"New Detail"}`))
 		req.Header.Set("Content-Type", "application/json")
@@ -338,7 +338,7 @@ func TestUpdateReportHandler(t *testing.T) {
 		})
 		app.Put("/reports/:id", h.Update)
 
-		mockReportService.On("UpdateReport", reportID, "Title", "Detail", userID, role).Return(errors.New("akses ditolak"))
+		mockReportService.On("UpdateReport", reportID, "Title", "Detail", mock.Anything, userID, role).Return(errors.New("akses ditolak"))
 
 		req := httptest.NewRequest(http.MethodPut, "/reports/10", strings.NewReader(`{"judul_kegiatan":"Title", "deskripsi_hasil":"Detail"}`))
 		req.Header.Set("Content-Type", "application/json")

@@ -305,12 +305,13 @@ func TestEvaluateReport_Success_Lurah(t *testing.T) {
 
 		req := EvaluateReportRequest{
 			ReportID: 1,
+			Status:   "disetujui",
 			Komentar: "Bagus",
 		}
 		err := reportSvc.EvaluateReport(1, "lurah", req)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "sudah_direview", laporan.Status)
+		assert.Equal(t, "disetujui", laporan.Status)
 		assert.Equal(t, "Bagus", *laporan.KomentarAtasan)
 		mockReportRepo.AssertCalled(t, "Update", mock.Anything)
 	})
@@ -337,12 +338,13 @@ func TestEvaluateReport_Success_SekertarisToStaf(t *testing.T) {
 
 		req := EvaluateReportRequest{
 			ReportID: 2,
+			Status:   "disetujui",
 			Komentar: "Perbaiki format",
 		}
 		err := reportSvc.EvaluateReport(2, "sekertaris", req)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "sudah_direview", laporan.Status)
+		assert.Equal(t, "disetujui", laporan.Status)
 		assert.Equal(t, "Perbaiki format", *laporan.KomentarAtasan)
 	})
 }
@@ -422,7 +424,7 @@ func TestUpdateReport(t *testing.T) {
 		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
 		mockReportRepo.On("Update", mock.Anything).Return(nil)
 
-		err := svc.UpdateReport(1, "Baru", "Baru", userID, "staf")
+		err := svc.UpdateReport(1, "Baru", "Baru", nil, userID, "staf")
 
 		assert.NoError(t, err)
 		assert.Equal(t, "Baru", laporan.JudulKegiatan)
@@ -439,7 +441,7 @@ func TestUpdateReport(t *testing.T) {
 
 		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
 
-		err := svc.UpdateReport(1, "Baru", "Baru", otherID, "staf")
+		err := svc.UpdateReport(1, "Baru", "Baru", nil, otherID, "staf")
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "akses ditolak")
@@ -457,7 +459,7 @@ func TestUpdateReport(t *testing.T) {
 		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
 		mockReportRepo.On("Update", mock.Anything).Return(nil)
 
-		err := svc.UpdateReport(1, "Edit Admin", "", adminID, "lurah")
+		err := svc.UpdateReport(1, "Edit Admin", "", nil, adminID, "lurah")
 
 		assert.NoError(t, err)
 		assert.Equal(t, "Edit Admin", laporan.JudulKegiatan)
