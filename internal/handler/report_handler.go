@@ -796,20 +796,27 @@ func (h *ReportHandler) Update(c fiber.Ctx) error {
 	requesterRole, _ := c.Locals("role").(string)
 
 	// 3. Parse Request Body
-	// Mendukung JSON body
+	// Mendukung JSON body untuk backward compatibility (judul/deskripsi saja)
 	type UpdateRequest struct {
 		JudulKegiatan  string `json:"judul_kegiatan"`
 		DeskripsiHasil string `json:"deskripsi_hasil"`
 	}
 	var req UpdateRequest
 	if err := c.Bind().JSON(&req); err != nil {
-		// Jika gagal parse JSON, coba ambil dari form value (fallback)
+		// Jika gagal parse JSON, coba ambil dari form value (multipart)
+		req.JudulKegiatan = c.FormValue("judul_kegiatan")
+		req.DeskripsiHasil = c.FormValue("deskripsi_hasil")
+	} else if c.FormValue("judul_kegiatan") != "" || c.FormValue("deskripsi_hasil") != "" {
+		// Jika form-data juga ada, utamakan form-data
 		req.JudulKegiatan = c.FormValue("judul_kegiatan")
 		req.DeskripsiHasil = c.FormValue("deskripsi_hasil")
 	}
 
+	// Coba ambil file foto (opsional, hanya valid untuk status ditolak)
+	fileFoto, _ := c.FormFile("foto")
+
 	// 4. Panggil Service
-	err = h.reportService.UpdateReport(uint(id), req.JudulKegiatan, req.DeskripsiHasil, requesterID, requesterRole)
+	err = h.reportService.UpdateReport(uint(id), req.JudulKegiatan, req.DeskripsiHasil, fileFoto, requesterID, requesterRole)
 	if err != nil {
 		status := fiber.StatusInternalServerError
 		if err.Error() == "laporan tidak ditemukan" {

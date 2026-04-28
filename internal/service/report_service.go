@@ -38,7 +38,8 @@ type ReportInput struct {
 // EvaluateReportRequest adalah struct untuk input evaluasi laporan.
 type EvaluateReportRequest struct {
 	ReportID uint   `json:"report_id" validate:"required"`
-	Komentar string `json:"komentar" validate:"required"`
+	Status   string `json:"status" validate:"required"` // "disetujui" atau "ditolak"
+	Komentar string `json:"komentar"`                   // opsional jika disetujui, wajib jika ditolak
 }
 
 // ReportService adalah interface untuk operasi bisnis Laporan.
@@ -49,7 +50,7 @@ type ReportService interface {
 	GetReportRecap(userID uint, startDate, endDate time.Time) (*repository.ReportRecapResponse, error)
 	GetReportRecapAggregated(filter repository.ReportFilter, requesterRole string, requesterID uint) (*repository.ReportRecapResponse, error)
 	EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error
-	UpdateReport(id uint, judul string, deskripsi string, requesterID uint, requesterRole string) error
+	UpdateReport(id uint, judul string, deskripsi string, fileFoto *multipart.FileHeader, requesterID uint, requesterRole string) error
 	DeleteReport(id uint, requesterID uint, requesterRole string) error
 }
 
@@ -178,6 +179,12 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 		dokumenURL = &uploadedPath
 	}
 
+	// Default status
+	status := "menunggu_review"
+	if strings.ToLower(input.UserRole) == "lurah" {
+		status = "disetujui" // Auto-approve untuk Lurah
+	}
+
 	// 6. Buat struct Laporan
 	userID := input.UserID
 	laporan := &domain.Laporan{
@@ -193,6 +200,7 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 		AlamatLokasi:      toStringPtr(input.AlamatLokasi),
 		FotoURL:           fotoURL,
 		DokumenURL:        dokumenURL,
+		Status:            status,
 		CreatedAt:         now,
 	}
 
@@ -408,6 +416,19 @@ func (s *reportService) GetReportRecapAggregated(filter repository.ReportFilter,
 // EvaluateReport mengevaluasi laporan (Memberikan Masukan) berdasarkan RBAC.
 func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req EvaluateReportRequest) error {
 
+	// Validasi status
+	req.Status = strings.ToLower(req.Status)
+	if req.Status != "disetujui" && req.Status != "ditolak" {
+		return errors.New("status evaluasi tidak valid (harus 'disetujui' atau 'ditolak')")
+	}
+
+	if req.Status == "ditolak" && strings.TrimSpace(req.Komentar) == "" {
+		return errors.New("alasan (komentar) wajib diisi jika laporan ditolak")
+	}
+	if req.Status == "disetujui" && strings.TrimSpace(req.Komentar) == "" {
+		req.Komentar = "Laporan disetujui"
+	}
+
 	// Ambil data laporan beserta relasi User pengirimnya
 	laporan, err := s.reportRepo.GetByID(req.ReportID)
 	if err != nil {
@@ -419,14 +440,14 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 		return errors.New("data user pemilik laporan tidak valid")
 	}
 
-	// Cek apakah laporan sudah dievaluasi sebelumnya
-	if laporan.Status == "sudah_direview" {
-		return errors.New("Laporan ini sudah dievaluasi dan tidak dapat diubah")
+	// Cek apakah laporan sudah dievaluasi sebelumnya (final)
+	if laporan.Status == "disetujui" || laporan.Status == "sudah_direview" {
+		return errors.New("Laporan ini sudah disetujui dan tidak dapat dievaluasi ulang")
 	}
 
 	// Terapkan RBAC Hierarki Penilaian
-	switch assessorRole {
-	case "sekertaris":
+	switch strings.ToLower(assessorRole) {
+	case "sekertaris", "sekretaris":
 		// Sekertaris HANYA boleh menilai staf (Permintaan User: Staf dikomentari Sekertaris & Lurah)
 		if targetUser.Role != "staf" {
 			return errors.New("Sekertaris hanya memiliki hak untuk mengevaluasi laporan Staf")
@@ -441,7 +462,7 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	}
 
 	// 3. Update field
-	laporan.Status = "sudah_direview"
+	laporan.Status = req.Status
 	laporan.KomentarAtasan = &req.Komentar
 
 	// 4. Save ke database
@@ -452,8 +473,12 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 
 	// 5. Trigger FCM Push Notification ke pembuat laporan
 	if targetUser.FCMToken != nil && *targetUser.FCMToken != "" {
-		title := "Laporan Sudah Direview"
-		body := fmt.Sprintf("Masukan Atasan: %s", req.Komentar)
+		title := "Status Laporan Diperbarui"
+		statusMsg := "Disetujui"
+		if req.Status == "ditolak" {
+			statusMsg = "Ditolak"
+		}
+		body := fmt.Sprintf("Laporan %s. Masukan: %s", statusMsg, req.Komentar)
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -467,20 +492,34 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	return nil
 }
 
-// UpdateReport memperbarui judul dan detail laporan.
-func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, requesterID uint, requesterRole string) error {
+// UpdateReport memperbarui judul, detail, dan foto laporan sesuai statusnya.
+func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fileFoto *multipart.FileHeader, requesterID uint, requesterRole string) error {
 	// 1. Ambil data laporan
 	laporan, err := s.reportRepo.GetByID(id)
 	if err != nil {
 		return errors.New("laporan tidak ditemukan")
 	}
 
-	// 2. RBAC: Admin (Lurah/Sekertaris) bisa edit semua, User lain hanya milik sendiri.
-	// Catatan: User diperbolehkan mengedit meskipun sudah direview (sesuai permintaan).
+	// 2. RBAC: User lain hanya milik sendiri. Admin/Sekertaris tidak bisa mengedit laporan orang lain secara detail dari UI (biasanya hanya approve).
 	roleBase := strings.ToLower(requesterRole)
-	if roleBase != "admin" && roleBase != "lurah" && roleBase != "sekertaris" {
+	if roleBase != "admin" {
 		if laporan.UserID == nil || *laporan.UserID != requesterID {
 			return errors.New("akses ditolak: hanya dapat mengubah laporan milik sendiri")
+		}
+	}
+
+	// Pengecekan status
+	// Lurah diperbolehkan mengedit laporannya sendiri meskipun statusnya sudah disetujui (karena auto-approve).
+	isLurahEditingOwn := roleBase == "lurah" && laporan.UserID != nil && *laporan.UserID == requesterID
+	
+	if (laporan.Status == "disetujui" || laporan.Status == "sudah_direview") && !isLurahEditingOwn {
+		return errors.New("laporan yang sudah disetujui tidak dapat diubah")
+	}
+
+	if laporan.Status == "menunggu_review" {
+		// Hanya boleh update judul dan deskripsi
+		if fileFoto != nil {
+			return errors.New("laporan yang masih menunggu review tidak dapat mengubah foto")
 		}
 	}
 
@@ -490,6 +529,29 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, re
 	}
 	if deskripsi != "" {
 		laporan.DeskripsiHasil = deskripsi
+	}
+
+	// Jika status ditolak, izinkan update foto dan kembalikan ke menunggu_review
+	if laporan.Status == "ditolak" {
+		if fileFoto != nil {
+			uploadedPath, err := s.saveFile(fileFoto, "images")
+			if err != nil {
+				return fmt.Errorf("gagal menyimpan file foto baru: %v", err)
+			}
+			
+			// Hapus foto lama jika ada
+			if laporan.FotoURL != nil && *laporan.FotoURL != "" {
+				oldPath := filepath.Join(".", *laporan.FotoURL)
+				os.Remove(oldPath) // ignore error
+			}
+
+			laporan.FotoURL = &uploadedPath
+		}
+		
+		// Reset status agar dinilai ulang
+		laporan.Status = "menunggu_review"
+		// Opsional: hapus komentar atasan sebelumnya
+		laporan.KomentarAtasan = nil
 	}
 
 	// 4. Simpan perubahan

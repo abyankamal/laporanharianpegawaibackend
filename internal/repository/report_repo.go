@@ -186,7 +186,7 @@ func (r *reportRepository) GetReportRecap(userID uint, startDate time.Time, endD
 
 	err := r.db.Model(&domain.Laporan{}).
 		Select("COUNT(id) as total_laporan, "+
-			"SUM(CASE WHEN status IN ('sudah_direview', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, "+
+			"SUM(CASE WHEN status IN ('sudah_direview', 'disetujui', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, "+
 			"SUM(CASE WHEN status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END) as total_menunggu, "+
 			"COALESCE(SUM(jam_kerja), 0) as total_jam_kerja").
 		Where("(? = 0 OR user_id = ?) AND waktu_pelaporan BETWEEN ? AND ?", userID, userID, startDate, endDate).
@@ -228,7 +228,7 @@ func (r *reportRepository) GetReportRecapAggregated(filter ReportFilter) (*Repor
 	}
 
 	err := query.Select("COUNT(laporan.id) as total_laporan, " +
-		"SUM(CASE WHEN laporan.status IN ('sudah_direview', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, " +
+		"SUM(CASE WHEN laporan.status IN ('sudah_direview', 'disetujui', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, " +
 		"SUM(CASE WHEN laporan.status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END) as total_menunggu, " +
 		"COALESCE(SUM(laporan.jam_kerja), 0) as total_jam_kerja").
 		Scan(&rekap).Error
