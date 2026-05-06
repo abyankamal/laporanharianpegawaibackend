@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1007,11 +1008,11 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	colW := []float64{8, 22, 25, 30, 50, 50.9}
 
 	type ProcessedImage struct {
-		ReportID uint
-		Img      image.Image
-		Width    float64
-		Height   float64
-		Path     string
+		ReportID  uint
+		JPEGBytes []byte
+		Width     float64
+		Height    float64
+		Path      string
 	}
 
 	processedImages := make(map[uint]ProcessedImage)
@@ -1023,7 +1024,13 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	}
 	jobs := make(chan Job, len(allReports))
 
-	numWorkers := 4
+	numWorkers := runtime.NumCPU()
+	if numWorkers < 4 {
+		numWorkers = 4
+	}
+	if numWorkers > 16 {
+		numWorkers = 16
+	}
 	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
 		go func() {
@@ -1068,15 +1075,18 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 						// Use Box filter instead of Lanczos for massive speedup
 						resized := imaging.Resize(img, targetPxW, targetPxH, imaging.Box)
 
-						mu.Lock()
-						processedImages[job.Report.ID] = ProcessedImage{
-							ReportID: job.Report.ID,
-							Img:      resized,
-							Width:    scaledW,
-							Height:   scaledH,
-							Path:     localPath,
+						var buf bytes.Buffer
+						if jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 70}) == nil {
+							mu.Lock()
+							processedImages[job.Report.ID] = ProcessedImage{
+								ReportID:  job.Report.ID,
+								JPEGBytes: buf.Bytes(),
+								Width:     scaledW,
+								Height:    scaledH,
+								Path:      localPath,
+							}
+							mu.Unlock()
 						}
-						mu.Unlock()
 					}
 				}
 			}
@@ -1251,13 +1261,13 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		photoH := 0.0
 		photoW := 0.0
 		photoPath := ""
-		var photoImg image.Image 
+		var photoBytes []byte 
 
 		if pimg, ok := processedImages[laporan.ID]; ok {
 			photoW = pimg.Width
 			photoH = pimg.Height
 			photoPath = pimg.Path
-			photoImg = pimg.Img
+			photoBytes = pimg.JPEGBytes
 		}
 
 		if photoH+4 > rowH {
@@ -1306,17 +1316,14 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.SetXY(fotoX, startY)
 		pdf.CellFormat(colW[5], rowH, "", "1", 0, "C", false, 0, "")
 
-		if photoPath != "" {
+		if photoPath != "" && len(photoBytes) > 0 {
 			imgX := fotoX + (colW[5]-photoW)/2
 			imgY := startY + (rowH-photoH)/2
 
-			var buf bytes.Buffer
-			if jpeg.Encode(&buf, photoImg, &jpeg.Options{Quality: 70}) == nil {
-				imgName := fmt.Sprintf("opt_%d", laporan.ID)
-				opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
-				pdf.RegisterImageOptionsReader(imgName, opt, &buf)
-				pdf.ImageOptions(imgName, imgX, imgY, photoW, photoH, false, opt, 0, "")
-			}
+			imgName := fmt.Sprintf("opt_%d", laporan.ID)
+			opt := fpdf.ImageOptions{ImageType: "JPEG", ReadDpi: false}
+			pdf.RegisterImageOptionsReader(imgName, opt, bytes.NewReader(photoBytes))
+			pdf.ImageOptions(imgName, imgX, imgY, photoW, photoH, false, opt, 0, "")
 		} else if laporan.FotoURL != nil && *laporan.FotoURL != "" {
 			pdf.SetXY(fotoX, startY+(rowH/2)-2)
 			pdf.SetFont("Arial", "I", 6)
@@ -1420,14 +1427,20 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Tidak ada laporan dalam periode tersebut"})
 	}
 
-	// 7. Tulis ke file/buffer
-	var buf bytes.Buffer
-	if err := pdf.Output(&buf); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal generate PDF: " + err.Error()})
-	}
-
 	filename := fmt.Sprintf("laporan_harian_%s_sd_%s.pdf", startDate.Format("20060102"), endDate.Format("20060102"))
 	c.Set("Content-Disposition", "attachment; filename="+filename)
 	c.Set("Content-Type", "application/pdf")
-	return c.Send(buf.Bytes())
+
+	// 7. Tulis ke pipe dan streaming ke response
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+		err := pdf.Output(pw)
+		if err != nil {
+			fmt.Printf("Gagal generate PDF stream: %v\n", err)
+		}
+	}()
+
+	return c.SendStream(pr)
 }
