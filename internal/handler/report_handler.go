@@ -192,6 +192,8 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	lokasiLong := c.FormValue("lokasi_long")                   // opsional
 	alamatLokasi := c.FormValue("alamat_lokasi")               // opsional
 	tugasOrganisasiIDStr := c.FormValue("tugas_organisasi_id") // opsional (hanya jika link ke tugas organisasi)
+	isOfflineSyncStr := c.FormValue("is_offline_sync")         // penanda sinkronisasi dari mode offline
+	isOfflineSync := isOfflineSyncStr == "true" || isOfflineSyncStr == "1"
 
 	var tugasOrganisasiID *uint
 	if tugasOrganisasiIDStr != "" {
@@ -276,6 +278,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 		AlamatLokasi:      alamatLokasi,
 		FileFoto:          fileFoto,
 		FileDokumen:       fileDokumen,
+		IsOfflineSync:     isOfflineSync,
 	}
 
 	// 7. Panggil service

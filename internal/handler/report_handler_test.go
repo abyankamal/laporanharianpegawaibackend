@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"laporanharianapi/internal/domain"
@@ -404,5 +405,51 @@ func TestDeleteReportHandler(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+}
+
+// ============================================================
+// Test CreateReport Handler
+// ============================================================
+
+func TestCreateReportHandler(t *testing.T) {
+	t.Run("Create Success with Offline Sync", func(t *testing.T) {
+		mockReportService := new(ReportServiceMock)
+		mockUserService := new(UserServiceMock)
+		app := fiber.New()
+		h := NewReportHandler(mockReportService, mockUserService)
+
+		userID := uint(1)
+		role := "staf"
+
+		app.Use(func(c fiber.Ctx) error {
+			c.Locals("user_id", float64(userID))
+			c.Locals("role", role)
+			return c.Next()
+		})
+		app.Post("/reports", h.Create)
+
+		mockReportService.On("CreateReport", mock.MatchedBy(func(input service.ReportInput) bool {
+			return input.IsOfflineSync == true && input.JudulKegiatan == "Offline Task"
+		})).Return(&domain.Laporan{
+			ID:         1,
+			IsOvertime: false,
+		}, nil)
+
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		_ = writer.WriteField("judul_kegiatan", "Offline Task")
+		_ = writer.WriteField("deskripsi_hasil", "Selesai offline")
+		_ = writer.WriteField("is_offline_sync", "true")
+		_ = writer.WriteField("waktu_pelaporan", "2024-03-01 10:00:00")
+		writer.Close()
+
+		req := httptest.NewRequest(http.MethodPost, "/reports", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+		mockReportService.AssertExpectations(t)
 	})
 }
