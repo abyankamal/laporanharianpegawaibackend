@@ -33,6 +33,7 @@ type ReportInput struct {
 	AlamatLokasi      string                // opsional, bisa kosong
 	FileFoto          *multipart.FileHeader // File foto lampiran (opsional)
 	FileDokumen       *multipart.FileHeader // File dokumen lampiran (opsional)
+	IsOfflineSync     bool                  // Penanda sinkronisasi offline
 }
 
 // EvaluateReportRequest adalah struct untuk input evaluasi laporan.
@@ -87,9 +88,10 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	now := time.Now()
 
 	// 0. Validasi Role: Hanya 'admin' & 'lurah' yang boleh melapor tidak real-time (backdating)
-	// Untuk role lain, batasi selisih waktu maksimal 30 menit dari sekarang
+	// Untuk role lain, batasi selisih waktu maksimal 30 menit dari sekarang,
+	// KECUALI laporan dikirim via sinkronisasi offline (IsOfflineSync == true)
 	roleLower := strings.ToLower(input.UserRole)
-	if roleLower != "admin" && roleLower != "lurah" {
+	if roleLower != "admin" && roleLower != "lurah" && !input.IsOfflineSync {
 		diff := now.Sub(input.WaktuPelaporan)
 		if diff < 0 {
 			diff = -diff // abs

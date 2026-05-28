@@ -280,6 +280,40 @@ func TestCreateReport_Success_Backdating_Lurah(t *testing.T) {
 	})
 }
 
+func TestCreateReport_Success_Backdating_OfflineSync(t *testing.T) {
+	t.Run("Sukses: non-lurah backdating lebih dari 30 menit karena sinkronisasi offline", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+
+		mockHolidayRepo.On("CheckIsHoliday", mock.Anything).Return(false, nil)
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
+		mockReportRepo.On("Create", mock.Anything).Return(nil)
+
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo)
+
+		// Waktu 2 hari yg lalu
+		pastTime := time.Now().Add(-48 * time.Hour)
+
+		input := ReportInput{
+			UserID:         1,
+			UserRole:       "staf",
+			TipeLaporan:    true,
+			JudulKegiatan:  "Tugas offline",
+			DeskripsiHasil: "Selesai 2 hari lalu offline",
+			WaktuPelaporan: pastTime,
+			FileFoto:       &multipart.FileHeader{Filename: "dummy.jpg"},
+			IsOfflineSync:  true,
+		}
+
+		laporan, err := reportSvc.CreateReport(input)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, laporan)
+		mockReportRepo.AssertExpectations(t)
+	})
+}
+
 // ============================================================
 // Test EvaluateReport (ReportService)
 // ============================================================
