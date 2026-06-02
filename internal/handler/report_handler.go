@@ -903,8 +903,21 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	roleBase := strings.ToLower(requesterRole)
 
 	// 1. Tentukan target users berdasarkan RBAC
-	targetUserIDStr := c.Query("user_id") // Lurah/Sekertaris bisa filter per user
-	targetUserID, _ := strconv.Atoi(targetUserIDStr)
+	targetUserIDsStr := c.Query("user_ids")
+	if targetUserIDsStr == "" {
+		targetUserIDsStr = c.Query("user_id")
+	}
+
+	var targetUserIDs []uint
+	if targetUserIDsStr != "" {
+		parts := strings.Split(targetUserIDsStr, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if id, err := strconv.Atoi(part); err == nil && id > 0 {
+				targetUserIDs = append(targetUserIDs, uint(id))
+			}
+		}
+	}
 
 	var targetUsers []domain.User
 
@@ -917,12 +930,18 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		targetUsers = []domain.User{*user}
 
 	case "sekertaris", "sekretaris":
-		if targetUserID > 0 {
-			user, err := h.userService.GetUserByID(uint(targetUserID))
-			if err != nil {
-				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "User tidak ditemukan"})
+		if len(targetUserIDs) > 0 {
+			for _, id := range targetUserIDs {
+				user, err := h.userService.GetUserByID(id)
+				if err != nil {
+					return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": fmt.Sprintf("User dengan ID %d tidak ditemukan", id)})
+				}
+				roleLower := strings.ToLower(user.Role)
+				if roleLower != "staf" && roleLower != "kasi" && roleLower != "sekertaris" && roleLower != "sekretaris" {
+					return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"status": "error", "message": fmt.Sprintf("Akses ditolak: Tidak dapat mengekspor laporan user dengan ID %d", id)})
+				}
+				targetUsers = append(targetUsers, *user)
 			}
-			targetUsers = []domain.User{*user}
 		} else {
 			users, err := h.userService.GetUsersByRoles([]string{"staf", "Staf", "kasi", "Kasi", "sekertaris", "Sekertaris"})
 			if err != nil {
@@ -932,12 +951,14 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		}
 
 	default: // Lurah
-		if targetUserID > 0 {
-			user, err := h.userService.GetUserByID(uint(targetUserID))
-			if err != nil {
-				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "User tidak ditemukan"})
+		if len(targetUserIDs) > 0 {
+			for _, id := range targetUserIDs {
+				user, err := h.userService.GetUserByID(id)
+				if err != nil {
+					return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": fmt.Sprintf("User dengan ID %d tidak ditemukan", id)})
+				}
+				targetUsers = append(targetUsers, *user)
 			}
-			targetUsers = []domain.User{*user}
 		} else {
 			users, err := h.userService.GetAllUsers()
 			if err != nil {
@@ -978,8 +999,13 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		EndDate:   endDate.Format("2006-01-02"),
 		SortOrder: "asc", 
 	}
-	if targetUserID > 0 {
-		filter.UserID = targetUserID
+	
+	if len(targetUserIDs) > 0 {
+		var ids []int
+		for _, u := range targetUsers {
+			ids = append(ids, int(u.ID))
+		}
+		filter.UserIDs = ids
 	}
 
 	// Menggunakan requesterRole asli dari token untuk RBAC

@@ -160,6 +160,7 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		reports := []domain.Laporan{
 			{
 				ID:             1,
+				UserID:         &userID,
 				JudulKegiatan:  "Test Kegiatan",
 				DeskripsiHasil: "Test Hasil",
 				WaktuPelaporan: time.Now(),
@@ -168,7 +169,7 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		}
 
 		mockUserService.On("GetUserByID", userID).Return(&user, nil)
-		mockReportService.On("GetAllReports", mock.Anything, "lurah", userID).Return(reports, int64(1), nil)
+		mockReportService.On("GetAllReports", mock.Anything, "staf", userID).Return(reports, int64(1), nil)
 
 		// 2. Setup Fiber
 		app := fiber.New()
@@ -214,6 +215,7 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		reports := []domain.Laporan{
 			{
 				ID:             1,
+				UserID:         &users[0].ID,
 				JudulKegiatan:  "Staff Activity",
 				WaktuPelaporan: time.Now(),
 			},
@@ -258,13 +260,14 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		reports := []domain.Laporan{
 			{
 				ID:             1,
+				UserID:         &targetUserID,
 				JudulKegiatan:  "Staff Activity",
 				WaktuPelaporan: time.Now(),
 			},
 		}
 
 		mockUserService.On("GetUserByID", targetUserID).Return(&targetUser, nil)
-		mockReportService.On("GetAllReports", mock.Anything, "lurah", requesterID).Return(reports, int64(1), nil)
+		mockReportService.On("GetAllReports", mock.Anything, "sekertaris", requesterID).Return(reports, int64(1), nil)
 
 		app := fiber.New()
 		h := NewReportHandler(mockReportService, mockUserService)
@@ -284,6 +287,85 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/pdf", resp.Header.Get("Content-Type"))
 		
+		mockUserService.AssertExpectations(t)
+		mockReportService.AssertExpectations(t)
+	})
+
+	t.Run("Success Export PDF - Lurah with multi-select user_ids", func(t *testing.T) {
+		mockReportService := new(ReportServiceMock)
+		mockUserService := new(UserServiceMock)
+
+		requesterID := uint(2)
+		role := "lurah"
+
+		user1 := domain.User{ID: 1, Nama: "Staff 1", Role: "staf"}
+		user3 := domain.User{ID: 3, Nama: "Staff 3", Role: "staf"}
+
+		reports := []domain.Laporan{
+			{
+				ID:             1,
+				UserID:         &user1.ID,
+				JudulKegiatan:  "Staff 1 Activity",
+				WaktuPelaporan: time.Now(),
+			},
+		}
+
+		mockUserService.On("GetUserByID", uint(1)).Return(&user1, nil)
+		mockUserService.On("GetUserByID", uint(3)).Return(&user3, nil)
+		mockReportService.On("GetAllReports", mock.Anything, "lurah", requesterID).Return(reports, int64(1), nil)
+
+		app := fiber.New()
+		h := NewReportHandler(mockReportService, mockUserService)
+
+		app.Use(func(c fiber.Ctx) error {
+			c.Locals("user_id", float64(requesterID))
+			c.Locals("role", role)
+			return c.Next()
+		})
+
+		app.Get("/export/pdf", h.ExportReportPDFHandler)
+
+		req := httptest.NewRequest(http.MethodGet, "/export/pdf?user_ids=1,3", nil)
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, "application/pdf", resp.Header.Get("Content-Type"))
+
+		mockUserService.AssertExpectations(t)
+		mockReportService.AssertExpectations(t)
+	})
+
+	t.Run("Forbidden Export PDF - Sekertaris with unauthorized multi-select user_ids", func(t *testing.T) {
+		mockReportService := new(ReportServiceMock)
+		mockUserService := new(UserServiceMock)
+
+		requesterID := uint(3)
+		role := "sekertaris"
+
+		user1 := domain.User{ID: 1, Nama: "Staff 1", Role: "staf"}
+		user2 := domain.User{ID: 2, Nama: "Lurah", Role: "lurah"} // Forbidden target role for Secretary
+
+		mockUserService.On("GetUserByID", uint(1)).Return(&user1, nil)
+		mockUserService.On("GetUserByID", uint(2)).Return(&user2, nil)
+
+		app := fiber.New()
+		h := NewReportHandler(mockReportService, mockUserService)
+
+		app.Use(func(c fiber.Ctx) error {
+			c.Locals("user_id", float64(requesterID))
+			c.Locals("role", role)
+			return c.Next()
+		})
+
+		app.Get("/export/pdf", h.ExportReportPDFHandler)
+
+		req := httptest.NewRequest(http.MethodGet, "/export/pdf?user_ids=1,2", nil)
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
 		mockUserService.AssertExpectations(t)
 		mockReportService.AssertExpectations(t)
 	})

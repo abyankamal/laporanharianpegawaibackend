@@ -13,6 +13,7 @@ type ReportFilter struct {
 	StartDate string // Format YYYY-MM-DD
 	EndDate   string // Format YYYY-MM-DD
 	UserID    int
+	UserIDs   []int  // Filter untuk multiple user IDs (multi-select)
 	JabatanID int
 	UserRole  string // Filter laporan berdasarkan role user (untuk RBAC)
 	OwnID     int    // Filter tambahan untuk melihat laporan milik sendiri (untuk Sekertaris)
@@ -91,8 +92,10 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 		query = query.Where("laporan.waktu_pelaporan <= ?", filter.EndDate+" 23:59:59")
 	}
 
-	// Filter berdasarkan user_id
-	if filter.UserID > 0 {
+	// Filter berdasarkan user_id / user_ids
+	if len(filter.UserIDs) > 0 {
+		query = query.Where("laporan.user_id IN ?", filter.UserIDs)
+	} else if filter.UserID > 0 {
 		query = query.Where("laporan.user_id = ?", filter.UserID)
 	}
 
