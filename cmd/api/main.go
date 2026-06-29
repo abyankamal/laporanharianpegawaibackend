@@ -116,7 +116,7 @@ func main() {
 		WriteBufferSize: 16 * 1024,
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
-			message := err.Error() // Temporarily show full error for debugging
+			message := err.Error()
 
 			if e, ok := err.(*fiber.Error); ok {
 				code = e.Code
@@ -125,6 +125,8 @@ func main() {
 			// Log detail error di server
 			if code >= 500 {
 				log.Printf("[SERVER ERROR] %d %s: %v", code, c.Path(), err)
+				// Sembunyikan detail error dari client untuk lingkungan produksi
+				message = "Terjadi kesalahan pada server"
 			}
 
 			return c.Status(code).JSON(fiber.Map{
