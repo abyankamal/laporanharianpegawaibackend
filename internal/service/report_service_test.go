@@ -533,3 +533,42 @@ func TestDeleteReport(t *testing.T) {
 		mockReportRepo.AssertNotCalled(t, "Delete", mock.Anything)
 	})
 }
+
+// ============================================================
+// Test GetReportDetail (ReportService)
+// ============================================================
+
+func TestGetReportDetail(t *testing.T) {
+	t.Run("Sukses: GetReportDetail milik sendiri", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		svc := NewReportService(mockReportRepo, nil, nil)
+
+		userID := uint(1)
+		lat := "-6.2088"
+		long := "106.8456"
+		alamat := "Kantor Kelurahan"
+		laporan := &domain.Laporan{
+			ID:           1,
+			UserID:       &userID,
+			LokasiLat:    &lat,
+			LokasiLong:   &long,
+			AlamatLokasi: &alamat,
+			User: &domain.User{
+				ID:   1,
+				Role: "staf",
+			},
+		}
+
+		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
+
+		res, err := svc.GetReportDetail(1, "staf", userID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, "-6.2088", *res.LokasiLat)
+		assert.Equal(t, "106.8456", *res.LokasiLong)
+		assert.Equal(t, "Kantor Kelurahan", *res.AlamatLokasi)
+		mockReportRepo.AssertExpectations(t)
+	})
+}
+

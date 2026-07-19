@@ -358,6 +358,8 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		"judul_laporan":     laporan.JudulKegiatan,
 		"waktu_pelaksanaan": laporan.WaktuPelaporan,
 		"lokasi":            laporan.AlamatLokasi,
+		"lokasi_lat":        laporan.LokasiLat,
+		"lokasi_long":       laporan.LokasiLong,
 		"deskripsi_hasil":   laporan.DeskripsiHasil,
 		"komentar_atasan":   laporan.KomentarAtasan,
 		"foto_url":          laporan.FotoURL,

@@ -535,3 +535,64 @@ func TestCreateReportHandler(t *testing.T) {
 		mockReportService.AssertExpectations(t)
 	})
 }
+
+// ============================================================
+// Test GetOne Report Handler
+// ============================================================
+
+func TestGetOneReportHandler(t *testing.T) {
+	t.Run("GetOne Success with Location", func(t *testing.T) {
+		mockReportService := new(ReportServiceMock)
+		mockUserService := new(UserServiceMock)
+		app := fiber.New()
+		h := NewReportHandler(mockReportService, mockUserService)
+
+		userID := uint(1)
+		role := "staf"
+		reportID := uint(10)
+		lat := "-6.2088"
+		long := "106.8456"
+		alamat := "Kantor Kelurahan"
+
+		app.Use(func(c fiber.Ctx) error {
+			c.Locals("user_id", float64(userID))
+			c.Locals("role", role)
+			return c.Next()
+		})
+		app.Get("/reports/:id", h.GetOne)
+
+		expectedReport := &domain.Laporan{
+			ID:             reportID,
+			UserID:         &userID,
+			Status:         "menunggu_review",
+			JudulKegiatan:  "Survei Lapangan",
+			WaktuPelaporan: time.Now(),
+			AlamatLokasi:   &alamat,
+			LokasiLat:      &lat,
+			LokasiLong:     &long,
+			DeskripsiHasil: "Survei selesai",
+			User: &domain.User{
+				Nama: "Test User",
+				NIP:  "12345",
+				Role: role,
+			},
+		}
+
+		mockReportService.On("GetReportDetail", reportID, role, userID).Return(expectedReport, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/reports/10", nil)
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		body, _ := io.ReadAll(resp.Body)
+		bodyStr := string(body)
+		assert.Contains(t, bodyStr, `"lokasi_lat":"-6.2088"`)
+		assert.Contains(t, bodyStr, `"lokasi_long":"106.8456"`)
+		assert.Contains(t, bodyStr, `"lokasi":"Kantor Kelurahan"`)
+
+		mockReportService.AssertExpectations(t)
+	})
+}
+
