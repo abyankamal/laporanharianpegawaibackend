@@ -13,7 +13,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/valyala/fasthttp"
+	"gorm.io/gorm"
 
+	"laporanharianapi/internal/apperror"
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/pkg/fcm"
@@ -57,9 +59,10 @@ type ReportService interface {
 
 // reportService adalah implementasi dari ReportService.
 type reportService struct {
-	reportRepo   repository.ReportRepository
-	holidayRepo  repository.HolidayRepository
-	workHourRepo repository.WorkHourRepository
+	reportRepo     repository.ReportRepository
+	holidayRepo    repository.HolidayRepository
+	workHourRepo   repository.WorkHourRepository
+	supervisorRepo repository.SupervisorRepository
 }
 
 // NewReportService membuat instance baru ReportService.
@@ -67,11 +70,13 @@ func NewReportService(
 	reportRepo repository.ReportRepository,
 	holidayRepo repository.HolidayRepository,
 	workHourRepo repository.WorkHourRepository,
+	supervisorRepo repository.SupervisorRepository,
 ) ReportService {
 	return &reportService{
-		reportRepo:   reportRepo,
-		holidayRepo:  holidayRepo,
-		workHourRepo: workHourRepo,
+		reportRepo:     reportRepo,
+		holidayRepo:    holidayRepo,
+		workHourRepo:   workHourRepo,
+		supervisorRepo: supervisorRepo,
 	}
 }
 
@@ -251,7 +256,7 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 	// 1. Ambil data laporan
 	laporan, err := s.reportRepo.GetByID(id)
 	if err != nil {
-		return nil, errors.New("laporan tidak ditemukan")
+		return nil, apperror.ErrReportNotFound
 	}
 
 	// 2. Terapkan RBAC
@@ -278,13 +283,22 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 	return laporan, nil
 }
 
-// fillLurahSupervisor mengisi data pejabat penilai secara hardcoded jika user adalah Lurah (karena atasan lurah ada di tingkat kecamatan).
+// fillLurahSupervisor mengisi data pejabat penilai secara dinamis jika user adalah Lurah (karena atasan lurah ada di tingkat kecamatan).
 func (s *reportService) fillLurahSupervisor(laporan *domain.Laporan) {
 	if laporan.User != nil && (strings.ToLower(laporan.User.Role) == "lurah" || (laporan.User.Jabatan != nil && strings.ToLower(laporan.User.Jabatan.NamaJabatan) == "lurah")) {
 		if laporan.User.Supervisor == nil {
-			laporan.User.Supervisor = &domain.User{
-				Nama: "Rena Sudrajat, S.Sos., M.Si",
-				NIP:  "197208241992031003",
+			supervisorData, err := s.supervisorRepo.GetSupervisor()
+			if err == nil {
+				laporan.User.Supervisor = &domain.User{
+					Nama: supervisorData.Nama,
+					NIP:  supervisorData.NIP,
+				}
+			} else {
+				// Fallback jika gagal ambil dari DB
+				laporan.User.Supervisor = &domain.User{
+					Nama: "Atasan Lurah",
+					NIP:  "-",
+				}
 			}
 		}
 	}
@@ -434,7 +448,7 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	// Ambil data laporan beserta relasi User pengirimnya
 	laporan, err := s.reportRepo.GetByID(req.ReportID)
 	if err != nil {
-		return errors.New("laporan tidak ditemukan")
+		return apperror.ErrReportNotFound
 	}
 
 	targetUser := laporan.User
@@ -499,7 +513,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 	// 1. Ambil data laporan
 	laporan, err := s.reportRepo.GetByID(id)
 	if err != nil {
-		return errors.New("laporan tidak ditemukan")
+		return apperror.ErrReportNotFound
 	}
 
 	// 2. RBAC: User lain hanya milik sendiri. Admin/Sekertaris tidak bisa mengedit laporan orang lain secara detail dari UI (biasanya hanya approve).
@@ -570,7 +584,7 @@ func (s *reportService) DeleteReport(id uint, requesterID uint, requesterRole st
 	// 1. Ambil data laporan
 	_, err := s.reportRepo.GetByID(id)
 	if err != nil {
-		return errors.New("laporan tidak ditemukan")
+		return apperror.ErrReportNotFound
 	}
 
 	// 2. RBAC: Hanya Admin & Lurah yang boleh menghapus

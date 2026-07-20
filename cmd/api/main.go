@@ -62,6 +62,10 @@ func main() {
 	notifService := service.NewNotificationService(notifRepo)
 	notifHandler := handler.NewNotificationHandler(notifService)
 
+	// --- Supervisor Lurah Module ---
+	supervisorRepo := repository.NewSupervisorRepository(config.DB)
+	supervisorRepo.SeedDefault()
+
 	// --- Work Hour & Holiday Modules ---
 	workHourRepo := repository.NewWorkHourRepository(config.DB)
 	workHourService := service.NewWorkHourService(workHourRepo)
@@ -75,7 +79,7 @@ func main() {
 
 	// --- Report Module ---
 	reportRepo := repository.NewReportRepository(config.DB)
-	reportService := service.NewReportService(reportRepo, holidayRepo, workHourRepo)
+	reportService := service.NewReportService(reportRepo, holidayRepo, workHourRepo, supervisorRepo)
 	reportHandler := handler.NewReportHandler(reportService, userService)
 
 	// --- Review (Penilaian) Module ---
@@ -100,7 +104,7 @@ func main() {
 
 	// --- Admin Module ---
 	adminRepo := repository.NewAdminRepository(config.DB)
-	adminService := service.NewAdminService(adminRepo, userRepo)
+	adminService := service.NewAdminService(adminRepo, userRepo, supervisorRepo)
 	adminHandler := handler.NewAdminHandler(adminService)
 
 	// =============================================
@@ -122,10 +126,8 @@ func main() {
 				code = e.Code
 			}
 
-			// Log detail error di server
 			if code >= 500 {
 				log.Printf("[SERVER ERROR] %d %s: %v", code, c.Path(), err)
-				// Sembunyikan detail error dari client untuk lingkungan produksi
 				message = "Terjadi kesalahan pada server"
 			}
 
@@ -140,11 +142,8 @@ func main() {
 	// 5. GLOBAL MIDDLEWARE
 	// =============================================
 
-	// Recover Middleware (menangkap panic dan mengubahnya menjadi HTTP 500)
 	app.Use(recover.New())
 
-	// CORS Middleware — origins dibaca dari ALLOWED_ORIGINS di .env
-	// Contoh production: ALLOWED_ORIGINS=https://siopik.com,https://admin.siopik.com
 	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
 	var allowedOrigins []string
 	if allowedOriginsEnv == "" {
@@ -166,179 +165,30 @@ func main() {
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}))
 
-	// Static file serving untuk folder uploads/photos (foto profil)
-	// Ditambahkan alias "/api" agar sesuai dengan baseImageUrl frontend yang menggunakan /api
-	app.Get("/api/uploads/photos/*", func(c fiber.Ctx) error {
-		return c.SendFile("./uploads/photos/" + c.Params("*"))
-	})
-
-	app.Get("/uploads/photos/*", func(c fiber.Ctx) error {
-		return c.SendFile("./uploads/photos/" + c.Params("*"))
-	})
-
-	// Static file serving untuk folder uploads/reports (bukti laporan)
-	app.Get("/api/uploads/reports/*", func(c fiber.Ctx) error {
-		return c.SendFile("./uploads/reports/" + c.Params("*"))
-	})
-
-	app.Get("/uploads/reports/*", func(c fiber.Ctx) error {
-		return c.SendFile("./uploads/reports/" + c.Params("*"))
-	})
+	// Static file serving
+	app.Get("/api/uploads/photos/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/photos/" + c.Params("*")) })
+	app.Get("/uploads/photos/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/photos/" + c.Params("*")) })
+	app.Get("/api/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
+	app.Get("/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
 
 	// =============================================
 	// 6. SETUP ROUTES
 	// =============================================
-	api := app.Group("/api")
-
-	// ===================================================
-	// MOBILE ROUTES (FLUTTER) - /api/mobile/v1
-	// ===================================================
-	mobile := api.Group("/mobile")
-
-	// 1. Authenticated Routes for Mobile
-	mobile.Post("/login", authHandler.Login)    // Public Login for Mobile
-	mobile.Post("/refresh", authHandler.RefreshToken) // Refresh Token for Mobile
-
-	mProtected := mobile.Group("", middleware.Protected())
-
-	// Profile & Dashboard
-	mProtected.Get("/profile", userHandler.GetProfile)
-	mProtected.Put("/profile/change-password", userHandler.ChangePassword)
-	mProtected.Put("/profile/change-photo", userHandler.ChangePhoto)
-	mProtected.Put("/users/fcm-token", userHandler.UpdateFCMToken)
-	mProtected.Get("/dashboard/summary", dashboardHandler.GetSummary)
-
-	// Directory
-	mProtected.Get("/rekan-kerja", adminHandler.GetPegawai)
-
-	// Laporan (Mobile)
-	mReport := mProtected.Group("/reports")
-	mReport.Post("/", reportHandler.Create)
-	mReport.Get("/", reportHandler.GetAll)
-	mReport.Get("/recap", reportHandler.GetReportRecapHandler)
-	mReport.Get("/recap-pegawai", adminHandler.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin"))
-	mReport.Get("/export", adminHandler.GetLaporanExport)
-	mReport.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
-	mReport.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
-	mReport.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
-	mReport.Put("/evaluate", reportHandler.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))
-	mReport.Put("/:id", reportHandler.Update)
-	mReport.Delete("/:id", reportHandler.Delete)
-	mReport.Get("/:id", reportHandler.GetOne)
-
-	// Tugas & Notifikasi (Mobile)
-	mProtected.Get("/my-tasks", taskHandler.GetMyTasks)
-	mProtected.Get("/notifications", notifHandler.GetMy)
-	mProtected.Get("/notifications/:id", notifHandler.GetByID)
-	mProtected.Put("/notifications/:id/read", notifHandler.MarkRead)
-
-	// Manajemen Tugas (Khusus Lurah di Mobile)
-	mTasks := mProtected.Group("/tasks")
-	mTasks.Get("/:id", taskHandler.GetByID) // Bisa diakses Lurah & Assignee
-	mTasks.Post("/", taskHandler.Create, middleware.AllowRoles("lurah"))
-	mTasks.Get("/", taskHandler.GetAll, middleware.AllowRoles("lurah"))
-	mTasks.Put("/:id", taskHandler.Update, middleware.AllowRoles("lurah"))
-	mTasks.Delete("/:id", taskHandler.Delete, middleware.AllowRoles("lurah"))
-
-	// Penilaian (Mobile)
-	mProtected.Get("/reviews", reviewHandler.GetMyReviews) // Semua role bisa lihat nilai diri sendiri
-
-	// Manajemen Penilaian (Khusus Lurah & Sekertaris di Mobile)
-	mReviewManage := mProtected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
-	mReviewManage.Post("/", reviewHandler.Create)
-	mReviewManage.Get("/submissions", reviewHandler.GetMySubmittedReviews)
-
-	// ===================================================
-	// WEB ROUTES (ADMIN PANEL) - /api/web/v1
-	// ===================================================
-	web := api.Group("/web")
-
-	// 1. Authenticated Routes for Web
-	web.Post("/login", authHandler.Login)    // Public Login for Web
-	web.Post("/refresh", authHandler.RefreshToken) // Refresh Token for Web
-
-	wProtected := web.Group("", middleware.Protected())
-
-	// Dashboard & Profile
-	wProtected.Get("/profile", userHandler.GetProfile)
-	wProtected.Get("/dashboard/summary", adminHandler.GetDashboardSummary)
-
-	// Rekap Laporan & Export (Kembalikan ke wProtected agar tidak merusak frontend lama)
-	wReports := wProtected.Group("/reports")
-	wReports.Get("/", reportHandler.GetAll)
-	wReports.Post("/", reportHandler.Create)
-	wReports.Get("/recap", adminHandler.GetRekapLaporan)
-	wReports.Get("/export", adminHandler.GetLaporanExport)
-	wReports.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
-	wReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
-	wReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
-	wReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
-	wReports.Get("/:id", reportHandler.GetOne)
-
-	// Admin Specific (Only Lurah/Sekertaris/Admin)
-	adminOnly := wProtected.Group("/admin", middleware.AdminOnly())
-
-	// App Settings
-	adminOnly.Get("/jam-kerja", workHourHandler.GetWorkHour)
-	adminOnly.Put("/jam-kerja", workHourHandler.UpdateWorkHour)
-	adminOnly.Get("/hari-libur", holidayHandler.GetHolidays)
-	adminOnly.Post("/hari-libur", holidayHandler.CreateHoliday)
-	adminOnly.Put("/hari-libur/:id", holidayHandler.UpdateHoliday)
-	adminOnly.Delete("/hari-libur/:id", holidayHandler.DeleteHoliday)
-
-	// User Management
-	userManage := wProtected.Group("/users", middleware.AllowRoles("lurah", "sekertaris"))
-	userManage.Get("/", userHandler.GetAll)
-	userManage.Get("/supervisors", userHandler.GetSupervisors)
-	userManage.Get("/:id", userHandler.GetOne)
-	userManage.Post("/", userHandler.Create)
-	userManage.Put("/:id", userHandler.Update)
-	userManage.Delete("/:id", userHandler.Delete)
-
-	// Manajemen Pegawai
-	pegawaiManage := adminOnly.Group("/pegawai")
-	pegawaiManage.Get("/", adminHandler.GetPegawai)
-	pegawaiManage.Post("/", adminHandler.CreatePegawai)
-	pegawaiManage.Put("/:id", adminHandler.UpdatePegawai)
-	pegawaiManage.Delete("/:id", adminHandler.DeletePegawai)
-
-	// Alias untuk standarisasi (agar /api/web/admin/reports juga bekerja)
-	wAdminReports := adminOnly.Group("/reports")
-	wAdminReports.Get("/", reportHandler.GetAll)
-	wAdminReports.Post("/", reportHandler.Create)
-	wAdminReports.Get("/recap", adminHandler.GetRekapLaporan)
-	wAdminReports.Get("/export", adminHandler.GetLaporanExport)
-	wAdminReports.Get("/export/excel", reportHandler.ExportReportRecapExcelHandler)
-	wAdminReports.Get("/export/pdf", reportHandler.ExportReportPDFHandler)
-	wAdminReports.Get("/export/attachments", reportHandler.ExportReportAttachmentsHandler)
-	wAdminReports.Put("/evaluate", reportHandler.EvaluateReportHandler)
-	wAdminReports.Get("/:id", reportHandler.GetOne)
-
-	// Pusat Pengumuman
-	pengumuman := adminOnly.Group("/pengumuman")
-	pengumuman.Get("/", adminHandler.GetPengumuman)
-	pengumuman.Post("/", adminHandler.CreatePengumuman)
-	pengumuman.Put("/:id", adminHandler.UpdatePengumuman)
-	pengumuman.Delete("/:id", adminHandler.DeletePengumuman)
-
-	// Manajemen Tugas (Lurah)
-	wTasks := wProtected.Group("/tasks", middleware.AllowRoles("lurah"))
-	wTasks.Post("/", taskHandler.Create)
-	wTasks.Get("/", taskHandler.GetAll)
-	wTasks.Put("/:id", taskHandler.Update)
-	wTasks.Delete("/:id", taskHandler.Delete)
-
-	// Manajemen Penilaian
-	wReviews := wProtected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
-	wReviews.Post("/", reviewHandler.Create)
-	wReviews.Get("/submissions", reviewHandler.GetMySubmittedReviews)
-
-	// Manajemen Jabatan
-	adminOnly.Get("/jabatan", jabatanHandler.GetAll)
-	adminOnly.Get("/jabatan/:id", jabatanHandler.GetOne)
-	adminOnly.Post("/jabatan", jabatanHandler.Create)
-	adminOnly.Put("/jabatan/:id", jabatanHandler.Update)
-	adminOnly.Delete("/jabatan/:id", jabatanHandler.Delete)
+	h := Handlers{
+		Auth:       authHandler,
+		User:       userHandler,
+		Notif:      notifHandler,
+		WorkHour:   workHourHandler,
+		Holiday:    holidayHandler,
+		Report:     reportHandler,
+		Review:     reviewHandler,
+		Task:       taskHandler,
+		Dashboard:  dashboardHandler,
+		Jabatan:    jabatanHandler,
+		Admin:      adminHandler,
+	}
+	
+	setupRoutes(app, h)
 
 	// =============================================
 	// 7. BACKGROUND JOBS
@@ -357,25 +207,6 @@ func main() {
 	log.Printf("🚀 Server berjalan di http://localhost:%s", port)
 	log.Println("🌍 Timezone : Asia/Jakarta (WIB)")
 	log.Println("✅ FCM Push  : Ready (Firebase Admin SDK)")
-	log.Println("================================================")
-	log.Println("")
-	log.Println("📌 Daftar Endpoints Utama:")
-	log.Println("   [MOBILE - /api/mobile]")
-	log.Println("   POST   /login                    - Authentication")
-	log.Println("   GET    /profile                  - Profile & FCM Token")
-	log.Println("   POST   /reports                  - Submit Laporan")
-	log.Println("   GET    /reports/recap            - History Laporan")
-	log.Println("   GET    /my-tasks                 - Tugas Pokok")
-	log.Println("")
-	log.Println("   [WEB - /api/web]")
-	log.Println("   POST   /login                    - Admin Login")
-	log.Println("   GET    /dashboard/summary        - Dashboard Statistik")
-	log.Println("   GET    /users                    - User Management")
-	log.Println("   GET    /reports/recap            - Monitoring Laporan")
-	log.Println("   GET    /reports/export/pdf       - Export PDF Report")
-	log.Println("================================================")
-	log.Println("   [BACKGROUND JOBS]")
-	log.Println("   ⏰ Daily Reminder                         - Jam 15:00 (Hari Kerja)")
 	log.Println("================================================")
 
 	log.Fatal(app.Listen(":" + port))

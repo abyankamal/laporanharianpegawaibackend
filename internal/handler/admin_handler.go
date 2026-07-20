@@ -442,3 +442,51 @@ func (h *AdminHandler) DeletePengumuman(c fiber.Ctx) error {
 		"message": "Berhasil menghapus pengumuman",
 	})
 }
+
+// ---------------------------------------------------------
+// SUPERVISOR LURAH HANDLERS
+// ---------------------------------------------------------
+
+func (h *AdminHandler) GetSupervisorLurah(c fiber.Ctx) error {
+	supervisor, err := h.adminService.GetSupervisorLurahAdmin()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengambil data supervisor lurah",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Berhasil mengambil data supervisor lurah",
+		"data":    supervisor,
+	})
+}
+
+func (h *AdminHandler) UpdateSupervisorLurah(c fiber.Ctx) error {
+	var body struct {
+		Nama string `json:"nama"`
+		NIP  string `json:"nip"`
+	}
+
+	if err := c.Bind().JSON(&body); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Format request tidak valid",
+		})
+	}
+
+	if err := h.adminService.UpdateSupervisorLurahAdmin(body.Nama, body.NIP); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal memperbarui supervisor lurah",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Berhasil memperbarui supervisor lurah",
+	})
+}

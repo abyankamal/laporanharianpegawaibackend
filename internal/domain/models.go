@@ -176,3 +176,15 @@ type WorkHour struct {
 func (WorkHour) TableName() string {
 	return "work_hour"
 }
+
+// LurahSupervisor adalah tabel untuk menyimpan data atasan Lurah (Camat/Sekcam) yang menandatangani PDF.
+type LurahSupervisor struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Nama      string    `gorm:"column:nama;type:varchar(255);not null" json:"nama"`
+	NIP       string    `gorm:"column:nip;type:varchar(50);not null" json:"nip"`
+	UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (LurahSupervisor) TableName() string {
+	return "lurah_supervisor"
+}

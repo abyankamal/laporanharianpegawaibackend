@@ -29,17 +29,23 @@ type AdminService interface {
 	CreatePengumumanAdmin(pengumuman *domain.Notification) error
 	UpdatePengumumanAdmin(id uint, pengumuman *domain.Notification) error
 	DeletePengumumanAdmin(id uint) error
+
+	// Supervisor Lurah
+	GetSupervisorLurahAdmin() (*domain.LurahSupervisor, error)
+	UpdateSupervisorLurahAdmin(nama, nip string) error
 }
 
 type adminService struct {
-	adminRepo repository.AdminRepository
-	userRepo  repository.UserRepository // Tambahkan ini
+	adminRepo      repository.AdminRepository
+	userRepo       repository.UserRepository
+	supervisorRepo repository.SupervisorRepository
 }
 
-func NewAdminService(adminRepo repository.AdminRepository, userRepo repository.UserRepository) AdminService {
+func NewAdminService(adminRepo repository.AdminRepository, userRepo repository.UserRepository, supervisorRepo repository.SupervisorRepository) AdminService {
 	return &adminService{
-		adminRepo: adminRepo,
-		userRepo:  userRepo,
+		adminRepo:      adminRepo,
+		userRepo:       userRepo,
+		supervisorRepo: supervisorRepo,
 	}
 }
 
@@ -194,3 +200,19 @@ func (s *adminService) UpdatePengumumanAdmin(id uint, pengumuman *domain.Notific
 func (s *adminService) DeletePengumumanAdmin(id uint) error {
 	return s.adminRepo.DeletePengumumanAdmin(id)
 }
+
+// ---------------------------------------------------------
+// SUPERVISOR LURAH MANAGEMENT
+// ---------------------------------------------------------
+
+func (s *adminService) GetSupervisorLurahAdmin() (*domain.LurahSupervisor, error) {
+	return s.supervisorRepo.GetSupervisor()
+}
+
+func (s *adminService) UpdateSupervisorLurahAdmin(nama, nip string) error {
+	if nama == "" || nip == "" {
+		return errors.New("nama dan NIP atasan tidak boleh kosong")
+	}
+	return s.supervisorRepo.UpdateSupervisor(nama, nip)
+}
+

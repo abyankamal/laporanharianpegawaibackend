@@ -73,21 +73,6 @@ type PengumumanStatistik struct {
 // REPOSITORY INTERFACE & SETUP
 // ---------------------------------------------------------
 
-// Struct untuk Response JSON berlapis Dashboard Summary
-type DashboardSummaryResponse struct {
-	Statistik      StatistikDashboard       `json:"statistik"`
-	LaporanTerbaru []domain.Laporan         `json:"laporan_terbaru"`
-	Notifikasi     *domain.Notification     `json:"notifikasi"` // Pointer agar bisa nil jika kosong
-	Agenda         []domain.TugasOrganisasi `json:"agenda"`
-}
-
-type StatistikDashboard struct {
-	TotalPegawai int64 `json:"total_pegawai"`
-	LaporanMasuk int64 `json:"laporan_masuk"`
-	TepatWaktu   int64 `json:"tepat_waktu"`
-	Lembur       int64 `json:"lembur"`
-}
-
 type AdminRepository interface {
 	GetRekapLaporanAdmin(filter AdminReportFilter) (*AdminReportResponse, error)
 	GetLaporanExportAdmin(filter AdminReportFilter) ([]domain.Laporan, error)

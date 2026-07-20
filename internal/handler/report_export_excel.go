@@ -1,0 +1,265 @@
+package handler
+
+import (
+	"archive/zip"
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/xuri/excelize/v2"
+
+	"laporanharianapi/internal/domain"
+)
+
+func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
+	// 1. Ambil requester
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Role tidak ditemukan"})
+	}
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
+	}
+	requesterID := uint(requesterIDFloat)
+
+	var targetUsers []domain.User
+	roleBase := strings.ToLower(requesterRole)
+	switch roleBase {
+	case "staf", "kasi":
+		// Only self
+		user, err := h.userService.GetUserByID(requesterID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+		}
+		targetUsers = []domain.User{*user}
+	case "sekertaris", "sekretaris":
+		// Sendiri dan staf
+		users, err := h.userService.GetUsersByRoles([]string{"staf", "Staf", "sekertaris", "Sekertaris"})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+		}
+		targetUsers = users
+	default:
+		// Lurah (All users)
+		users, err := h.userService.GetAllUsers()
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+		}
+		targetUsers = users
+	}
+
+	// 2. Parse query parameters
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+
+	var startDate, endDate time.Time
+	var err error
+
+	if startDateStr != "" && endDateStr != "" {
+		startDate, err = time.ParseInLocation("2006-01-02", startDateStr, time.Local)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format start_date tidak valid"})
+		}
+		endDate, err = time.ParseInLocation("2006-01-02", endDateStr, time.Local)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
+		}
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
+	} else {
+		now := time.Now()
+		startDate = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+		endDate = startDate.AddDate(0, 1, -1)
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
+	}
+
+	// 3. Setup excelize
+	f := excelize.NewFile()
+	defer f.Close()
+	sheetName := "Rekap Laporan"
+	f.SetSheetName("Sheet1", sheetName)
+
+	headers := []string{"No", "NIP", "Nama Pegawai", "Jabatan", "Total Laporan", "Sudah Direview", "Menunggu Review", "Total Jam Kerja"}
+	for i, head := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheetName, cell, head)
+	}
+
+	// Style header
+	style, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{Bold: true},
+	})
+	f.SetRowStyle(sheetName, 1, 1, style)
+
+	row := 2
+	for index, user := range targetUsers {
+		rekap, err := h.reportService.GetReportRecap(user.ID, startDate, endDate)
+		if err != nil {
+			continue // skip error
+		}
+
+		f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), index+1)
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), user.NIP)
+		f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), user.Nama)
+		if user.Jabatan != nil {
+			f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), user.Jabatan.NamaJabatan)
+		} else {
+			f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), "-")
+		}
+
+		f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), rekap.TotalLaporan)
+		f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), rekap.TotalSudahDireview)
+		f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), rekap.TotalMenunggu)
+		f.SetCellValue(sheetName, fmt.Sprintf("H%d", row), rekap.TotalJamKerja)
+		row++
+	}
+
+	// 4. Send to client as download
+	buffer, err := f.WriteToBuffer()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal generate excel"})
+	}
+
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=rekap_laporan_%s_to_%s.xlsx", startDate.Format("20060102"), endDate.Format("20060102")))
+	return c.Type("xlsx").Send(buffer.Bytes())
+}
+
+// ExportReportAttachmentsHandler mendownload semua lampiran laporan dalam bentuk ZIP
+func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
+	}
+	requesterID := uint(requesterIDFloat)
+	requesterRole, ok := c.Locals("role").(string)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Role tidak ditemukan"})
+	}
+
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+
+	userID := 0
+	if u := c.Query("user_id"); u != "" {
+		userID, _ = strconv.Atoi(u)
+	}
+
+	roleBase := strings.ToLower(requesterRole)
+	switch roleBase {
+	case "staf", "kasi", "pegawai":
+		userID = int(requesterID)
+	case "sekertaris", "sekretaris":
+		// Validasi apakah target user bawahan atau staff jika userID beda dengan requester
+		if userID != 0 && userID != int(requesterID) {
+			targetUser, err := h.userService.GetUserByID(uint(userID))
+			if err != nil {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "User yang dipilih tidak ditemukan"})
+			}
+			targetRole := strings.ToLower(targetUser.Role)
+			if targetRole != "staf" {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"status": "error", "message": "Akses ditolak: Hanya dapat mengunduh laporan staf atau diri sendiri"})
+			}
+		}
+	} // Lurah tidak butuh validasi target user
+
+	if startDateStr == "" || endDateStr == "" {
+		// default to beginning and end of current month if not provided
+		now := time.Now()
+		startDateStr = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+		endDateStr = time.Date(now.Year(), now.Month()+1, 0, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+	}
+
+	filter := repository.ReportFilter{
+		StartDate: startDateStr,
+		EndDate:   endDateStr,
+		UserID:    int(userID),
+		JabatanID: 0,
+		Limit:     100000, // get all without pagination
+		Offset:    0,
+	}
+
+	reports, _, err := h.reportService.GetAllReports(filter, requesterRole, requesterID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data laporan: " + err.Error()})
+	}
+
+	// Buat buffer untuk zip
+	buf := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(buf)
+
+	for _, laporan := range reports {
+		dateFolder := laporan.WaktuPelaporan.Format("20060102")
+		employeeName := "Unknown"
+		if laporan.User != nil {
+			employeeName = laporan.User.Nama
+		}
+
+		folderName := fmt.Sprintf("%s_%s", dateFolder, employeeName)
+
+		// Fungsi helper untuk include file ke zip
+		addFileToZip := func(fileUrl string, folder string) {
+			if fileUrl == "" {
+				return
+			}
+
+			// Di database, path sudah disimpan relatif (misal: uploads/reports/images/uuid.jpg)
+			// Kita tinggal gunakan path tersebut.
+			localPath := filepath.Join(".", fileUrl)
+
+			if _, err := os.Stat(localPath); err == nil {
+				f, err := os.Open(localPath)
+				if err != nil {
+					return
+				}
+				defer f.Close()
+
+				// Nama file di dalam zip
+				filename := filepath.Base(fileUrl)
+				zipEntryPath := filepath.Join(folder, filename)
+				w, err := zipWriter.Create(zipEntryPath)
+				if err != nil {
+					return
+				}
+				io.Copy(w, f)
+			}
+		}
+
+		if laporan.FotoURL != nil {
+			addFileToZip(*laporan.FotoURL, folderName)
+		}
+		if laporan.DokumenURL != nil {
+			addFileToZip(*laporan.DokumenURL, folderName)
+		}
+	}
+
+	err = zipWriter.Close()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal membuat zip"})
+	}
+
+	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=lampiran_laporan_%s_to_%s.zip", startDateStr, endDateStr))
+	return c.Type("zip").Send(buf.Bytes())
+}
+
+// Update menangani pembaruan data laporan (Judul & Detail).
+func (h *ReportHandler) Update(c fiber.Ctx) error {
+	// 1. Ambil ID dari URL parameter
+	idParam := c.Params("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID laporan tidak valid",
+		})
+	}
+
+	// 2. Ambil info requester untuk RBAC
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

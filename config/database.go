@@ -61,6 +61,7 @@ func ConnectDatabase() {
 		&domain.Notification{},
 		&domain.Holiday{},
 		&domain.WorkHour{},
+		&domain.LurahSupervisor{},
 	)
 	if err != nil {
 		log.Fatalf("Gagal melakukan auto migration: %v", err)
