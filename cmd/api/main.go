@@ -37,6 +37,11 @@ func main() {
 		log.Println("⚠️  File .env tidak ditemukan, menggunakan environment variables sistem")
 	}
 
+	// Validasi JWT_SECRET wajib ada
+	if os.Getenv("JWT_SECRET") == "" {
+		log.Fatal("❌ FATAL: JWT_SECRET tidak dikonfigurasi! Server tidak bisa berjalan tanpa JWT_SECRET.")
+	}
+
 	// 2. Koneksi ke Database
 	config.ConnectDatabase()
 	log.Println("✅ Database terhubung")

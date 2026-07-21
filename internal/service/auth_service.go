@@ -98,13 +98,13 @@ func (s *authService) generateTokenPair(userID uint, role string, jabatanID *uin
 
 	now := time.Now()
 
-	// --- 1. Access Token (Umur Pendek: 1 Jam) ---
+	// --- 1. Access Token (Umur Panjang: 24 Jam) ---
 	accessClaims := jwt.MapClaims{
 		"user_id":    userID,
 		"role":       role,
 		"jabatan_id": jabatanID,
 		"token_type": "access", // Penanda akses biasa
-		"exp":        now.Add(1 * time.Hour).Unix(),
+		"exp":        now.Add(24 * time.Hour).Unix(),
 		"iat":        now.Unix(),
 	}
 	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).SignedString([]byte(jwtSecret))
@@ -129,6 +129,6 @@ func (s *authService) generateTokenPair(userID uint, role string, jabatanID *uin
 	return map[string]interface{}{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
-		"expires_in":    3600, // 1 jam dalam detik
+		"expires_in":    86400, // 24 jam dalam detik
 	}, nil
 }

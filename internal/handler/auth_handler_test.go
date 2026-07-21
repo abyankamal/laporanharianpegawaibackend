@@ -49,7 +49,7 @@ func TestLoginHandler_Success(t *testing.T) {
 		mockResponse := map[string]interface{}{
 			"access_token":  "access.token.dummy",
 			"refresh_token": "refresh.token.dummy",
-			"expires_in":    3600,
+			"expires_in":    86400,
 		}
 		mockAuthService := new(AuthServiceMock)
 		mockAuthService.On("Login", "198106152014102004", "123456").
@@ -86,7 +86,7 @@ func TestLoginHandler_Success(t *testing.T) {
 		data := result["data"].(map[string]interface{})
 		assert.Equal(t, "access.token.dummy", data["access_token"])
 		assert.Equal(t, "refresh.token.dummy", data["refresh_token"])
-		assert.Equal(t, float64(3600), data["expires_in"])
+		assert.Equal(t, float64(86400), data["expires_in"])
 
 		mockAuthService.AssertExpectations(t)
 	})
@@ -163,7 +163,7 @@ func TestRefreshTokenHandler_Success(t *testing.T) {
 		mockResponse := map[string]interface{}{
 			"access_token":  "new.access.token",
 			"refresh_token": "new.refresh.token",
-			"expires_in":    3600,
+			"expires_in":    86400,
 		}
 		mockAuthService := new(AuthServiceMock)
 		mockAuthService.On("RefreshToken", "old.refresh.token").
