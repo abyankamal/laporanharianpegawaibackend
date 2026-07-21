@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: laporanharian_db
+    restart: always
+    environment:
+      # Karena di .env DB_PASSWORD kosong, kita izinkan empty password
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: laporan_harian
+    ports:
+      - "3306:3306"
+    volumes:
+      # Inisialisasi awal database dari file db.sql
+      - ./db.sql:/docker-entrypoint-initdb.d/init.sql
+      # Menyimpan data database agar persisten
+      - db_data:/var/lib/mysql
+
+  api:
+    build: .
+    container_name: laporanharian_api
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      # Meng-override DB_HOST agar mengarah ke service 'db' (bukan localhost)
+      - DB_HOST=db
+    env_file:
+      - .env
+    depends_on:
+      - db
+    volumes:
+      # Menyimpan folder images agar persisten di host (jika ada upload file)
+      - ./images:/app/images
+
+volumes:
+  db_data:
