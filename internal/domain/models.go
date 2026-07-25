@@ -22,9 +22,10 @@ type User struct {
 	Role         string    `gorm:"column:role;type:varchar(50);not null" json:"role"` // 'lurah', 'sekertaris', 'kasi', 'staf'
 	JabatanID    *uint     `gorm:"column:jabatan_id" json:"jabatan_id"`
 	SupervisorID *uint     `gorm:"column:supervisor_id" json:"supervisor_id"`
-	FotoPath     *string   `gorm:"column:foto_path;type:varchar(255)" json:"foto_path"`
-	FCMToken     *string   `gorm:"column:fcm_token;type:varchar(255)" json:"fcm_token"`
-	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
+	FotoPath         *string   `gorm:"column:foto_path;type:varchar(255)" json:"foto_path"`
+	FCMToken         *string   `gorm:"column:fcm_token;type:varchar(255)" json:"fcm_token"`
+	KategoriPegawai  string    `gorm:"column:kategori_pegawai;type:varchar(50);default:'pns'" json:"kategori_pegawai"` // 'pns', 'p3k_penuh', 'p3k_paruh'
+	CreatedAt        time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
 	Jabatan    *RefJabatan `gorm:"foreignKey:JabatanID" json:"jabatan,omitempty"`
@@ -167,10 +168,14 @@ func (Holiday) TableName() string {
 // WorkHour adalah tabel untuk menyimpan pengaturan sistem seperti jam kerja (hanya 1 record/baris).
 type WorkHour struct {
 	ID             uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	JamMasuk       string `gorm:"column:jam_masuk;type:varchar(5)" json:"jam_masuk"`   // Senin-Kamis
-	JamPulang      string `gorm:"column:jam_pulang;type:varchar(5)" json:"jam_pulang"` // Senin-Kamis
-	JamMasukJumat  string `gorm:"column:jam_masuk_jumat;type:varchar(5)" json:"jam_masuk_jumat"`
-	JamPulangJumat string `gorm:"column:jam_pulang_jumat;type:varchar(5)" json:"jam_pulang_jumat"`
+	JamMasuk          string  `gorm:"column:jam_masuk;type:varchar(5)" json:"jam_masuk"`   // Senin-Kamis
+	JamPulang         string  `gorm:"column:jam_pulang;type:varchar(5)" json:"jam_pulang"` // Senin-Kamis
+	JamMasukJumat     string  `gorm:"column:jam_masuk_jumat;type:varchar(5)" json:"jam_masuk_jumat"`
+	JamPulangJumat    string  `gorm:"column:jam_pulang_jumat;type:varchar(5)" json:"jam_pulang_jumat"`
+	KantorLat         *string `gorm:"column:kantor_lat;type:varchar(50)" json:"kantor_lat"`
+	KantorLong        *string `gorm:"column:kantor_long;type:varchar(50)" json:"kantor_long"`
+	RadiusMeter       int     `gorm:"column:radius_meter;default:60" json:"radius_meter"`
+	GeofencingEnabled bool    `gorm:"column:geofencing_enabled;default:false" json:"geofencing_enabled"`
 }
 
 func (WorkHour) TableName() string {
@@ -187,4 +192,53 @@ type LurahSupervisor struct {
 
 func (LurahSupervisor) TableName() string {
 	return "lurah_supervisor"
+}
+
+// Absensi adalah tabel untuk menyimpan data absensi harian pegawai.
+type Absensi struct {
+	ID               uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID           uint       `gorm:"column:user_id;not null;uniqueIndex:idx_absensi_user_tanggal" json:"user_id"`
+	Tanggal          time.Time  `gorm:"column:tanggal;type:date;not null;uniqueIndex:idx_absensi_user_tanggal" json:"tanggal"`
+	JamMasuk         *time.Time `gorm:"column:jam_masuk" json:"jam_masuk"`
+	SelfieMasukPath  *string    `gorm:"column:selfie_masuk_path;type:varchar(255)" json:"selfie_masuk_path"`
+	LokasiMasukLat   *string    `gorm:"column:lokasi_masuk_lat;type:varchar(50)" json:"lokasi_masuk_lat"`
+	LokasiMasukLong  *string    `gorm:"column:lokasi_masuk_long;type:varchar(50)" json:"lokasi_masuk_long"`
+	JamPulang        *time.Time `gorm:"column:jam_pulang" json:"jam_pulang"`
+	SelfiePulangPath *string    `gorm:"column:selfie_pulang_path;type:varchar(255)" json:"selfie_pulang_path"`
+	LokasiPulangLat  *string    `gorm:"column:lokasi_pulang_lat;type:varchar(50)" json:"lokasi_pulang_lat"`
+	LokasiPulangLong *string    `gorm:"column:lokasi_pulang_long;type:varchar(50)" json:"lokasi_pulang_long"`
+	FaceVerified     bool       `gorm:"column:face_verified;default:false" json:"face_verified"`
+	Status           string     `gorm:"column:status;type:varchar(50);not null;default:'alpha'" json:"status"` // hadir, terlambat, pulang_cepat, alpha, izin, sakit, cuti, dinas_luar
+	CreatedAt        time.Time  `gorm:"column:created_at" json:"created_at"`
+
+	// Relasi
+	User *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (Absensi) TableName() string {
+	return "absensi"
+}
+
+// PengajuanIzin adalah tabel untuk menyimpan pengajuan izin/sakit/cuti pegawai.
+type PengajuanIzin struct {
+	ID               uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID           uint       `gorm:"column:user_id;not null" json:"user_id"`
+	JenisIzin        string     `gorm:"column:jenis_izin;type:varchar(50);not null" json:"jenis_izin"` // sakit, cuti, izin, dinas_luar
+	TanggalMulai     time.Time  `gorm:"column:tanggal_mulai;type:date;not null" json:"tanggal_mulai"`
+	TanggalSelesai   time.Time  `gorm:"column:tanggal_selesai;type:date;not null" json:"tanggal_selesai"`
+	Keterangan       string     `gorm:"column:keterangan;type:text" json:"keterangan"`
+	DokumenPath      *string    `gorm:"column:dokumen_path;type:varchar(255)" json:"dokumen_path"`
+	StatusApproval   string     `gorm:"column:status_approval;type:varchar(50);not null;default:'menunggu'" json:"status_approval"` // menunggu, disetujui, ditolak
+	ApprovedBy       *uint      `gorm:"column:approved_by" json:"approved_by"`
+	ApprovedAt       *time.Time `gorm:"column:approved_at" json:"approved_at"`
+	KomentarApprover *string    `gorm:"column:komentar_approver;type:text" json:"komentar_approver"`
+	CreatedAt        time.Time  `gorm:"column:created_at" json:"created_at"`
+
+	// Relasi
+	User     *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Approver *User `gorm:"foreignKey:ApprovedBy" json:"approver,omitempty"`
+}
+
+func (PengajuanIzin) TableName() string {
+	return "pengajuan_izin"
 }

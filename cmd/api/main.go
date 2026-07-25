@@ -112,6 +112,16 @@ func main() {
 	adminService := service.NewAdminService(adminRepo, userRepo, supervisorRepo)
 	adminHandler := handler.NewAdminHandler(adminService)
 
+	// --- Absensi Module ---
+	absensiRepo := repository.NewAbsensiRepository(config.DB)
+	absensiService := service.NewAbsensiService(absensiRepo, holidayRepo, workHourRepo)
+	absensiHandler := handler.NewAbsensiHandler(absensiService, userService)
+
+	// --- Izin Module ---
+	izinRepo := repository.NewIzinRepository(config.DB)
+	izinService := service.NewIzinService(izinRepo, absensiRepo)
+	izinHandler := handler.NewIzinHandler(izinService)
+
 	// =============================================
 	// 4. SETUP FIBER APP
 	// =============================================
@@ -175,6 +185,10 @@ func main() {
 	app.Get("/uploads/photos/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/photos/" + c.Params("*")) })
 	app.Get("/api/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
 	app.Get("/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
+	app.Get("/api/uploads/absensi/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/absensi/" + c.Params("*")) })
+	app.Get("/uploads/absensi/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/absensi/" + c.Params("*")) })
+	app.Get("/api/uploads/izin/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/izin/" + c.Params("*")) })
+	app.Get("/uploads/izin/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/izin/" + c.Params("*")) })
 
 	// =============================================
 	// 6. SETUP ROUTES
@@ -191,6 +205,8 @@ func main() {
 		Dashboard:  dashboardHandler,
 		Jabatan:    jabatanHandler,
 		Admin:      adminHandler,
+		Absensi:    absensiHandler,
+		Izin:       izinHandler,
 	}
 	
 	setupRoutes(app, h)

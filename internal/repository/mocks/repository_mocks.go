@@ -399,3 +399,111 @@ func (m *HolidayRepositoryMock) CheckIsHoliday(date time.Time) (bool, error) {
 	args := m.Called(date)
 	return args.Bool(0), args.Error(1)
 }
+
+// ============================================================
+// AbsensiRepositoryMock
+// ============================================================
+
+type AbsensiRepositoryMock struct {
+	mock.Mock
+}
+
+func (m *AbsensiRepositoryMock) Create(absensi *domain.Absensi) error {
+	args := m.Called(absensi)
+	return args.Error(0)
+}
+
+func (m *AbsensiRepositoryMock) Update(absensi *domain.Absensi) error {
+	args := m.Called(absensi)
+	return args.Error(0)
+}
+
+func (m *AbsensiRepositoryMock) GetByUserAndDate(userID uint, tanggal time.Time) (*domain.Absensi, error) {
+	args := m.Called(userID, tanggal)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Absensi), args.Error(1)
+}
+
+func (m *AbsensiRepositoryMock) GetByUserAndMonth(userID uint, bulan int, tahun int) ([]domain.Absensi, error) {
+	args := m.Called(userID, bulan, tahun)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Absensi), args.Error(1)
+}
+
+func (m *AbsensiRepositoryMock) GetAllByMonth(bulan int, tahun int) ([]domain.Absensi, error) {
+	args := m.Called(bulan, tahun)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Absensi), args.Error(1)
+}
+
+func (m *AbsensiRepositoryMock) GetTodayAbsensi(userID uint) (*domain.Absensi, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Absensi), args.Error(1)
+}
+
+func (m *AbsensiRepositoryMock) GetAbsensiRecap(userID uint, bulan int, tahun int) (*repository.AbsensiRecapResponse, error) {
+	args := m.Called(userID, bulan, tahun)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.AbsensiRecapResponse), args.Error(1)
+}
+
+// ============================================================
+// IzinRepositoryMock
+// ============================================================
+
+type IzinRepositoryMock struct {
+	mock.Mock
+}
+
+func (m *IzinRepositoryMock) Create(izin *domain.PengajuanIzin) error {
+	args := m.Called(izin)
+	return args.Error(0)
+}
+
+func (m *IzinRepositoryMock) Update(izin *domain.PengajuanIzin) error {
+	args := m.Called(izin)
+	return args.Error(0)
+}
+
+func (m *IzinRepositoryMock) GetByID(id uint) (*domain.PengajuanIzin, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.PengajuanIzin), args.Error(1)
+}
+
+func (m *IzinRepositoryMock) GetByUserID(userID uint) ([]domain.PengajuanIzin, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.PengajuanIzin), args.Error(1)
+}
+
+func (m *IzinRepositoryMock) GetPendingApprovals() ([]domain.PengajuanIzin, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.PengajuanIzin), args.Error(1)
+}
+
+func (m *IzinRepositoryMock) GetApprovedByUserAndDateRange(userID uint, start, end time.Time) ([]domain.PengajuanIzin, error) {
+	args := m.Called(userID, start, end)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.PengajuanIzin), args.Error(1)
+}

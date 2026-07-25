@@ -20,6 +20,8 @@ type Handlers struct {
 	Dashboard  *handler.DashboardHandler
 	Jabatan    *handler.JabatanHandler
 	Admin      *handler.AdminHandler
+	Absensi    *handler.AbsensiHandler
+	Izin       *handler.IzinHandler
 }
 
 // setupRoutes mengatur semua routing aplikasi
@@ -86,6 +88,22 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mReviewManage := mProtected.Group("/reviews", middleware.AllowRoles("lurah", "sekertaris"))
 	mReviewManage.Post("/", h.Review.Create)
 	mReviewManage.Get("/submissions", h.Review.GetMySubmittedReviews)
+
+	// Absensi
+	mAbsensi := mProtected.Group("/absensi")
+	mAbsensi.Post("/check-in", h.Absensi.CheckIn)
+	mAbsensi.Post("/check-out", h.Absensi.CheckOut)
+	mAbsensi.Get("/today", h.Absensi.GetTodayStatus)
+	mAbsensi.Get("/recap", h.Absensi.GetMonthlyRecap)
+	mAbsensi.Get("/recap/all", h.Absensi.GetAllRecap, middleware.AllowRoles("lurah", "sekertaris"))
+	mAbsensi.Get("/export/pdf", h.Absensi.ExportPDF)
+
+	// Pengajuan Izin
+	mIzin := mProtected.Group("/izin")
+	mIzin.Post("/", h.Izin.Create)
+	mIzin.Get("/", h.Izin.GetMy)
+	mIzin.Get("/pending", h.Izin.GetPending, middleware.AllowRoles("lurah"))
+	mIzin.Put("/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah"))
 }
 
 func setupWebRoutes(api fiber.Router, h Handlers) {
@@ -182,4 +200,18 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	adminOnly.Post("/jabatan", h.Jabatan.Create)
 	adminOnly.Put("/jabatan/:id", h.Jabatan.Update)
 	adminOnly.Delete("/jabatan/:id", h.Jabatan.Delete)
+
+	// Absensi (Web Admin)
+	wAbsensi := wProtected.Group("/absensi")
+	wAbsensi.Get("/recap", h.Absensi.GetAllRecap)
+	wAbsensi.Get("/export/pdf", h.Absensi.ExportPDF)
+
+	// Geofencing Settings (Admin Only)
+	adminOnly.Get("/geofencing", h.WorkHour.GetWorkHour)
+	adminOnly.Put("/geofencing", h.WorkHour.UpdateWorkHour)
+
+	// Pengajuan Izin (Web Admin)
+	wIzin := wProtected.Group("/izin", middleware.AllowRoles("lurah"))
+	wIzin.Get("/pending", h.Izin.GetPending)
+	wIzin.Put("/:id/approve", h.Izin.Approve)
 }
