@@ -51,6 +51,7 @@ func ConnectDatabase() {
 
 	// Auto Migration untuk semua model
 	err = db.AutoMigrate(
+		&domain.RefKategoriPegawai{},
 		&domain.User{},
 		&domain.RefJabatan{},
 		&domain.TugasOrganisasi{}, // Mengaktifkan AutoMigrate — akan membuat tabel tugas_organisasi + tugas_assignees (M2M)

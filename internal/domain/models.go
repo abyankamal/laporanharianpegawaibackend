@@ -13,23 +13,36 @@ func (RefJabatan) TableName() string {
 	return "ref_jabatan"
 }
 
+// RefKategoriPegawai adalah tabel master untuk kategori pegawai.
+type RefKategoriPegawai struct {
+	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	NamaKategori string    `gorm:"column:nama_kategori;type:varchar(255);not null;unique" json:"nama_kategori"`
+	KodeKategori string    `gorm:"column:kode_kategori;type:varchar(50);not null;unique" json:"kode_kategori"` // 'pns', 'p3k_penuh', 'p3k_paruh'
+	CreatedAt    time.Time `gorm:"column:created_at" json:"created_at"`
+}
+
+func (RefKategoriPegawai) TableName() string {
+	return "ref_kategori_pegawai"
+}
+
 // User adalah tabel untuk data pengguna sistem.
 type User struct {
-	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	NIP          string    `gorm:"column:nip;type:varchar(20);unique;not null" json:"nip"`
-	Nama         string    `gorm:"column:nama;type:varchar(255);not null" json:"nama"`
-	Password     string    `gorm:"column:password;type:varchar(255);not null" json:"-"`
-	Role         string    `gorm:"column:role;type:varchar(50);not null" json:"role"` // 'lurah', 'sekertaris', 'kasi', 'staf'
-	JabatanID    *uint     `gorm:"column:jabatan_id" json:"jabatan_id"`
-	SupervisorID *uint     `gorm:"column:supervisor_id" json:"supervisor_id"`
-	FotoPath         *string   `gorm:"column:foto_path;type:varchar(255)" json:"foto_path"`
-	FCMToken         *string   `gorm:"column:fcm_token;type:varchar(255)" json:"fcm_token"`
-	KategoriPegawai  string    `gorm:"column:kategori_pegawai;type:varchar(50);default:'pns'" json:"kategori_pegawai"` // 'pns', 'p3k_penuh', 'p3k_paruh'
-	CreatedAt        time.Time `gorm:"column:created_at" json:"created_at"`
+	ID                uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	NIP               string    `gorm:"column:nip;type:varchar(20);unique;not null" json:"nip"`
+	Nama              string    `gorm:"column:nama;type:varchar(255);not null" json:"nama"`
+	Password          string    `gorm:"column:password;type:varchar(255);not null" json:"-"`
+	Role              string    `gorm:"column:role;type:varchar(50);not null" json:"role"` // 'lurah', 'sekertaris', 'kasi', 'staf'
+	JabatanID         *uint     `gorm:"column:jabatan_id" json:"jabatan_id"`
+	SupervisorID      *uint     `gorm:"column:supervisor_id" json:"supervisor_id"`
+	KategoriPegawaiID *uint     `gorm:"column:kategori_pegawai_id" json:"kategori_pegawai_id"`
+	FotoPath          *string   `gorm:"column:foto_path;type:varchar(255)" json:"foto_path"`
+	FCMToken          *string   `gorm:"column:fcm_token;type:varchar(255)" json:"fcm_token"`
+	CreatedAt         time.Time `gorm:"column:created_at" json:"created_at"`
 
 	// Relasi
-	Jabatan    *RefJabatan `gorm:"foreignKey:JabatanID" json:"jabatan,omitempty"`
-	Supervisor *User       `gorm:"foreignKey:SupervisorID" json:"supervisor,omitempty"`
+	Jabatan         *RefJabatan         `gorm:"foreignKey:JabatanID" json:"jabatan,omitempty"`
+	Supervisor      *User               `gorm:"foreignKey:SupervisorID" json:"supervisor,omitempty"`
+	KategoriPegawai *RefKategoriPegawai `gorm:"foreignKey:KategoriPegawaiID" json:"kategori_pegawai,omitempty"`
 }
 
 func (User) TableName() string {

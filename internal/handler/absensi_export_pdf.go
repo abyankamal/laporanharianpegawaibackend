@@ -146,7 +146,10 @@ func generateAbsensiPDF(
 	// Kelompokkan user berdasarkan kategori
 	var pnsUsers, p3kUsers []domain.User
 	for _, u := range users {
-		kategori := strings.ToLower(u.KategoriPegawai)
+		kategori := ""
+		if u.KategoriPegawai != nil {
+			kategori = strings.ToLower(u.KategoriPegawai.KodeKategori)
+		}
 		if kategori == "p3k_penuh" || kategori == "p3k_paruh" {
 			p3kUsers = append(p3kUsers, u)
 		} else {

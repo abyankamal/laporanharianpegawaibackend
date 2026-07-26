@@ -54,7 +54,7 @@ func (r *absensiRepository) Update(absensi *domain.Absensi) error {
 func (r *absensiRepository) GetByUserAndDate(userID uint, tanggal time.Time) (*domain.Absensi, error) {
 	var absensi domain.Absensi
 	dateOnly := tanggal.Format("2006-01-02")
-	err := r.db.Preload("User").Preload("User.Jabatan").
+	err := r.db.Preload("User").Preload("User.Jabatan").Preload("User.KategoriPegawai").
 		Where("user_id = ? AND tanggal = ?", userID, dateOnly).
 		First(&absensi).Error
 	if err != nil {
@@ -69,7 +69,7 @@ func (r *absensiRepository) GetByUserAndMonth(userID uint, bulan int, tahun int)
 	startDate := time.Date(tahun, time.Month(bulan), 1, 0, 0, 0, 0, time.Local)
 	endDate := startDate.AddDate(0, 1, -1)
 
-	err := r.db.Preload("User").Preload("User.Jabatan").
+	err := r.db.Preload("User").Preload("User.Jabatan").Preload("User.KategoriPegawai").
 		Where("user_id = ? AND tanggal BETWEEN ? AND ?", userID, startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).
 		Order("tanggal ASC").
 		Find(&list).Error
@@ -82,7 +82,7 @@ func (r *absensiRepository) GetAllByMonth(bulan int, tahun int) ([]domain.Absens
 	startDate := time.Date(tahun, time.Month(bulan), 1, 0, 0, 0, 0, time.Local)
 	endDate := startDate.AddDate(0, 1, -1)
 
-	err := r.db.Preload("User").Preload("User.Jabatan").
+	err := r.db.Preload("User").Preload("User.Jabatan").Preload("User.KategoriPegawai").
 		Where("tanggal BETWEEN ? AND ?", startDate.Format("2006-01-02"), endDate.Format("2006-01-02")).
 		Order("user_id ASC, tanggal ASC").
 		Find(&list).Error
@@ -93,7 +93,7 @@ func (r *absensiRepository) GetAllByMonth(bulan int, tahun int) ([]domain.Absens
 func (r *absensiRepository) GetTodayAbsensi(userID uint) (*domain.Absensi, error) {
 	var absensi domain.Absensi
 	today := time.Now().Format("2006-01-02")
-	err := r.db.Preload("User").
+	err := r.db.Preload("User").Preload("User.KategoriPegawai").
 		Where("user_id = ? AND tanggal = ?", userID, today).
 		First(&absensi).Error
 	if err != nil {

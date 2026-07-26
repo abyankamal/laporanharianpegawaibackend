@@ -47,7 +47,7 @@ func (r *userRepository) FindByNIP(nip string) (*domain.User, error) {
 // FindAll mengambil semua user dengan preload relasi Jabatan.
 func (r *userRepository) FindAll() ([]domain.User, error) {
 	var users []domain.User
-	result := r.db.Preload("Jabatan").Preload("Supervisor").Find(&users)
+	result := r.db.Preload("Jabatan").Preload("Supervisor").Preload("KategoriPegawai").Find(&users)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -57,7 +57,7 @@ func (r *userRepository) FindAll() ([]domain.User, error) {
 // FindByID mengambil user berdasarkan ID dengan preload relasi Jabatan.
 func (r *userRepository) FindByID(id uint) (*domain.User, error) {
 	var user domain.User
-	result := r.db.Preload("Jabatan").Preload("Supervisor").First(&user, id)
+	result := r.db.Preload("Jabatan").Preload("Supervisor").Preload("KategoriPegawai").First(&user, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -190,7 +190,7 @@ func (r *userRepository) UpdateFCMToken(userID uint, token string) error {
 // FindByRoles mengambil daftar user berdasarkan beberapa role.
 func (r *userRepository) FindByRoles(roles []string) ([]domain.User, error) {
 	var users []domain.User
-	result := r.db.Preload("Jabatan").Preload("Supervisor").Where("role IN ?", roles).Find(&users)
+	result := r.db.Preload("Jabatan").Preload("Supervisor").Preload("KategoriPegawai").Where("role IN ?", roles).Find(&users)
 	if result.Error != nil {
 		return nil, result.Error
 	}
