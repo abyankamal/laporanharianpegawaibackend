@@ -58,6 +58,20 @@ func TestIzinService_CreatePengajuan(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "tanggal selesai tidak boleh lebih awal")
 	})
+
+	t.Run("CreateByAdmin fails if user_id is 0", func(t *testing.T) {
+		input := service.PengajuanIzinInput{
+			UserID:         0,
+			JenisIzin:      "cuti",
+			TanggalMulai:   "2026-07-27",
+			TanggalSelesai: "2026-07-28",
+			Keterangan:     "Cuti tahunan",
+		}
+
+		_, err := izinService.CreateByAdmin(input, 100)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "pegawai (user_id) wajib dipilih")
+	})
 }
 
 func TestIzinService_GetMyPengajuan(t *testing.T) {

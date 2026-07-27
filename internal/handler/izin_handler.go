@@ -19,6 +19,47 @@ func NewIzinHandler(izinService service.IzinService) *IzinHandler {
 	return &IzinHandler{izinService: izinService}
 }
 
+// CreateByAdmin menangani pencatatan izin/sakit/cuti pegawai oleh Admin/Lurah dari Web Admin.
+// POST /api/web/izin
+func (h *IzinHandler) CreateByAdmin(c fiber.Ctx) error {
+	adminIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"status": "error", "message": "User tidak terautentikasi",
+		})
+	}
+
+	targetUserID, _ := strconv.Atoi(c.FormValue("user_id"))
+	jenisIzin := c.FormValue("jenis_izin")
+	tanggalMulai := c.FormValue("tanggal_mulai")
+	tanggalSelesai := c.FormValue("tanggal_selesai")
+	keterangan := c.FormValue("keterangan")
+
+	fileDokumen, _ := c.FormFile("dokumen")
+
+	input := service.PengajuanIzinInput{
+		UserID:         uint(targetUserID),
+		JenisIzin:      jenisIzin,
+		TanggalMulai:   tanggalMulai,
+		TanggalSelesai: tanggalSelesai,
+		Keterangan:     keterangan,
+		FileDokumen:    fileDokumen,
+	}
+
+	izin, err := h.izinService.CreateByAdmin(input, uint(adminIDFloat))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status": "error", "message": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"status":  "success",
+		"message": "Pencatatan izin pegawai berhasil disimpan dan disetujui",
+		"data":    izin,
+	})
+}
+
 // Create menangani request pembuatan pengajuan izin baru.
 // POST /api/mobile/izin/
 func (h *IzinHandler) Create(c fiber.Ctx) error {

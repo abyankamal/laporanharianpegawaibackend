@@ -29,6 +29,7 @@ type PengajuanIzinInput struct {
 // IzinService adalah interface untuk operasi bisnis PengajuanIzin.
 type IzinService interface {
 	CreatePengajuan(input PengajuanIzinInput) (*domain.PengajuanIzin, error)
+	CreateByAdmin(input PengajuanIzinInput, adminID uint) (*domain.PengajuanIzin, error)
 	ApprovePengajuan(izinID uint, approverID uint, approved bool, komentar string) error
 	GetMyPengajuan(userID uint) ([]domain.PengajuanIzin, error)
 	GetPendingApprovals() ([]domain.PengajuanIzin, error)
@@ -107,6 +108,83 @@ func (s *izinService) CreatePengajuan(input PengajuanIzinInput) (*domain.Pengaju
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan pengajuan izin: %v", err)
 	}
+
+	return izin, nil
+}
+
+// CreateByAdmin membuat dan langsung menyetujui pencatatan izin/sakit/cuti oleh Admin atau Lurah di Web.
+func (s *izinService) CreateByAdmin(input PengajuanIzinInput, adminID uint) (*domain.PengajuanIzin, error) {
+	// 1. Validasi jenis izin
+	jenisLower := strings.ToLower(input.JenisIzin)
+	validJenis := map[string]bool{
+		"sakit":      true,
+		"cuti":       true,
+		"izin":       true,
+		"dinas_luar": true,
+	}
+	if !validJenis[jenisLower] {
+		return nil, errors.New("jenis izin tidak valid (gunakan: sakit, cuti, izin, atau dinas_luar)")
+	}
+
+	if input.UserID == 0 {
+		return nil, errors.New("pegawai (user_id) wajib dipilih")
+	}
+
+	// 2. Validasi keterangan
+	if strings.TrimSpace(input.Keterangan) == "" {
+		return nil, errors.New("keterangan wajib diisi")
+	}
+
+	// 3. Parse tanggal
+	tanggalMulai, err := time.ParseInLocation("2006-01-02", input.TanggalMulai, time.Local)
+	if err != nil {
+		return nil, errors.New("format tanggal mulai tidak valid (gunakan YYYY-MM-DD)")
+	}
+
+	tanggalSelesai, err := time.ParseInLocation("2006-01-02", input.TanggalSelesai, time.Local)
+	if err != nil {
+		return nil, errors.New("format tanggal selesai tidak valid (gunakan YYYY-MM-DD)")
+	}
+
+	if tanggalSelesai.Before(tanggalMulai) {
+		return nil, errors.New("tanggal selesai tidak boleh lebih awal dari tanggal mulai")
+	}
+
+	// 4. Simpan dokumen pendukung jika ada
+	var dokumenPath *string
+	if input.FileDokumen != nil {
+		path, err := s.saveDokumenIzin(input.FileDokumen)
+		if err != nil {
+			return nil, fmt.Errorf("gagal menyimpan dokumen: %v", err)
+		}
+		dokumenPath = &path
+	}
+
+	now := time.Now()
+	komentar := "Dicatat langsung oleh Admin/Lurah"
+
+	// 5. Buat record izin dengan status langsung 'disetujui'
+	izin := &domain.PengajuanIzin{
+		UserID:           input.UserID,
+		JenisIzin:        jenisLower,
+		TanggalMulai:     tanggalMulai,
+		TanggalSelesai:   tanggalSelesai,
+		Keterangan:       input.Keterangan,
+		DokumenPath:      dokumenPath,
+		StatusApproval:   "disetujui",
+		ApprovedBy:       &adminID,
+		ApprovedAt:       &now,
+		KomentarApprover: &komentar,
+		CreatedAt:        now,
+	}
+
+	err = s.izinRepo.Create(izin)
+	if err != nil {
+		return nil, fmt.Errorf("gagal menyimpan pencatatan izin: %v", err)
+	}
+
+	// 6. Langsung update record absensi pada tanggal-tanggal tersebut
+	s.updateAbsensiForApprovedIzin(izin)
 
 	return izin, nil
 }

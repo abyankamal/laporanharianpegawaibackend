@@ -97,13 +97,6 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mAbsensi.Get("/recap", h.Absensi.GetMonthlyRecap)
 	mAbsensi.Get("/recap/all", h.Absensi.GetAllRecap, middleware.AllowRoles("lurah", "sekertaris"))
 	mAbsensi.Get("/export/pdf", h.Absensi.ExportPDF)
-
-	// Pengajuan Izin
-	mIzin := mProtected.Group("/izin")
-	mIzin.Post("/", h.Izin.Create)
-	mIzin.Get("/", h.Izin.GetMy)
-	mIzin.Get("/pending", h.Izin.GetPending, middleware.AllowRoles("lurah"))
-	mIzin.Put("/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah"))
 }
 
 func setupWebRoutes(api fiber.Router, h Handlers) {
@@ -210,8 +203,9 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	adminOnly.Get("/geofencing", h.WorkHour.GetWorkHour)
 	adminOnly.Put("/geofencing", h.WorkHour.UpdateWorkHour)
 
-	// Pengajuan Izin (Web Admin)
-	wIzin := wProtected.Group("/izin", middleware.AllowRoles("lurah"))
+	// Pencatatan & Kelola Izin/Sakit/Cuti (Web Admin - Admin, Lurah, Sekertaris)
+	wIzin := wProtected.Group("/izin", middleware.AllowRoles("admin", "lurah", "sekertaris"))
+	wIzin.Post("/", h.Izin.CreateByAdmin)
 	wIzin.Get("/pending", h.Izin.GetPending)
 	wIzin.Put("/:id/approve", h.Izin.Approve)
 }
