@@ -280,7 +280,7 @@ func (s *izinService) GetPendingApprovals() ([]domain.PengajuanIzin, error) {
 
 // saveDokumenIzin menyimpan file dokumen pendukung izin.
 func (s *izinService) saveDokumenIzin(fileHeader *multipart.FileHeader) (string, error) {
-	uploadDir := "./uploads/izin"
+	uploadDir := "./uploads/leave"
 	err := os.MkdirAll(uploadDir, os.ModePerm)
 	if err != nil {
 		return "", err

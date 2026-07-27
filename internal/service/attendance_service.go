@@ -418,7 +418,7 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 
 // saveSelfie menyimpan file selfie absensi.
 func (s *absensiService) saveSelfie(fileHeader *multipart.FileHeader, subDir string) (string, error) {
-	uploadDir := filepath.Join("./uploads/absensi", subDir)
+	uploadDir := filepath.Join("./uploads/attendance", subDir)
 	err := os.MkdirAll(uploadDir, os.ModePerm)
 	if err != nil {
 		return "", err

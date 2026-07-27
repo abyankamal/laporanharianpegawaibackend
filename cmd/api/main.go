@@ -185,10 +185,10 @@ func main() {
 	app.Get("/uploads/photos/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/photos/" + c.Params("*")) })
 	app.Get("/api/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
 	app.Get("/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
-	app.Get("/api/uploads/absensi/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/absensi/" + c.Params("*")) })
-	app.Get("/uploads/absensi/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/absensi/" + c.Params("*")) })
-	app.Get("/api/uploads/izin/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/izin/" + c.Params("*")) })
-	app.Get("/uploads/izin/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/izin/" + c.Params("*")) })
+	app.Get("/api/uploads/attendance/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/attendance/" + c.Params("*")) })
+	app.Get("/uploads/attendance/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/attendance/" + c.Params("*")) })
+	app.Get("/api/uploads/leave/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/leave/" + c.Params("*")) })
+	app.Get("/uploads/leave/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/leave/" + c.Params("*")) })
 
 	// =============================================
 	// 6. SETUP ROUTES
