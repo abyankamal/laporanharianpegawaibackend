@@ -4,7 +4,9 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
@@ -98,6 +100,64 @@ func TestLogin_Fail_WrongPassword(t *testing.T) {
 	assert.Error(t, err)
 	assert.Empty(t, token)
 	assert.Equal(t, "NIP atau password salah", err.Error())
+	mockUserRepo.AssertExpectations(t)
+}
+
+func TestRefreshToken_Success(t *testing.T) {
+	mockUserRepo := new(mocks.UserRepositoryMock)
+
+	os.Setenv("JWT_SECRET", "test-secret-key-for-unit-test")
+	defer os.Unsetenv("JWT_SECRET")
+
+	// Generate valid refresh token
+	refreshClaims := jwt.MapClaims{
+		"user_id":    float64(1),
+		"role":       "staf",
+		"token_type": "refresh",
+		"exp":        time.Now().Add(30 * 24 * time.Hour).Unix(),
+	}
+	tokenString, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte("test-secret-key-for-unit-test"))
+
+	mockUserRepo.On("FindByID", uint(1)).Return(&domain.User{
+		ID:   1,
+		Nama: "Pegawai Aktif",
+		Role: "kasi", // Role updated in DB
+	}, nil)
+
+	authSvc := NewAuthService(mockUserRepo)
+
+	res, err := authSvc.RefreshToken(tokenString)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.NotEmpty(t, res["access_token"])
+	assert.NotEmpty(t, res["refresh_token"])
+	mockUserRepo.AssertExpectations(t)
+}
+
+func TestRefreshToken_Fail_UserNotFound(t *testing.T) {
+	mockUserRepo := new(mocks.UserRepositoryMock)
+
+	os.Setenv("JWT_SECRET", "test-secret-key-for-unit-test")
+	defer os.Unsetenv("JWT_SECRET")
+
+	refreshClaims := jwt.MapClaims{
+		"user_id":    float64(99),
+		"role":       "staf",
+		"token_type": "refresh",
+		"exp":        time.Now().Add(30 * 24 * time.Hour).Unix(),
+	}
+	tokenString, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte("test-secret-key-for-unit-test"))
+
+	mockUserRepo.On("FindByID", uint(99)).Return(nil, errors.New("user not found"))
+
+	authSvc := NewAuthService(mockUserRepo)
+
+	res, err := authSvc.RefreshToken(tokenString)
+
+	assert.Error(t, err)
+	assert.Nil(t, res)
+	assert.Equal(t, "user tidak ditemukan atau akun tidak aktif", err.Error())
 	mockUserRepo.AssertExpectations(t)
 }
 

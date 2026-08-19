@@ -75,18 +75,15 @@ func (s *authService) RefreshToken(refreshTokenString string) (map[string]interf
 		return nil, errors.New("bukan tipe refresh token")
 	}
 
-	// 4. Ambil data user dari claims
+	// 4. Ambil data user dari claims dan verifikasi ke database
 	userID := uint(claims["user_id"].(float64))
-	role := claims["role"].(string)
-	
-	var jabatanID *uint
-	if claims["jabatan_id"] != nil {
-		jID := uint(claims["jabatan_id"].(float64))
-		jabatanID = &jID
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil || user == nil {
+		return nil, errors.New("user tidak ditemukan atau akun tidak aktif")
 	}
 
-	// 5. Generate pasangan token baru (Refresh Token Rotation)
-	return s.generateTokenPair(userID, role, jabatanID)
+	// 5. Generate pasangan token baru (Refresh Token Rotation) dengan data user terkini
+	return s.generateTokenPair(user.ID, user.Role, user.JabatanID)
 }
 
 // generateTokenPair adalah helper untuk membuat Access Token (1 jam) dan Refresh Token (30 hari).
