@@ -43,6 +43,7 @@ func TestGetWorkHour_Error(t *testing.T) {
 
 func TestUpdateWorkHour_Success(t *testing.T) {
 	mockRepo := new(mocks.WorkHourRepositoryMock)
+	mockRepo.On("Get").Return(&domain.WorkHour{ID: 1}, nil)
 	mockRepo.On("Update", mock.AnythingOfType("*domain.WorkHour")).Return(nil)
 
 	svc := NewWorkHourService(mockRepo)
@@ -87,6 +88,7 @@ func TestUpdateWorkHour_InvalidJamPulang(t *testing.T) {
 
 func TestUpdateWorkHour_DBError(t *testing.T) {
 	mockRepo := new(mocks.WorkHourRepositoryMock)
+	mockRepo.On("Get").Return(&domain.WorkHour{ID: 1}, nil)
 	mockRepo.On("Update", mock.AnythingOfType("*domain.WorkHour")).Return(errors.New("db error"))
 
 	svc := NewWorkHourService(mockRepo)
@@ -98,3 +100,25 @@ func TestUpdateWorkHour_DBError(t *testing.T) {
 	assert.Equal(t, "db error", err.Error())
 	mockRepo.AssertExpectations(t)
 }
+
+func TestUpdateGeofencing_Success(t *testing.T) {
+	mockRepo := new(mocks.WorkHourRepositoryMock)
+	mockRepo.On("Get").Return(&domain.WorkHour{ID: 1, JamMasuk: "07:30", JamPulang: "16:00"}, nil)
+	mockRepo.On("Update", mock.AnythingOfType("*domain.WorkHour")).Return(nil)
+
+	svc := NewWorkHourService(mockRepo)
+
+	lat := "-6.2088"
+	long := "106.8456"
+	workHour, err := svc.UpdateGeofencing(&lat, &long, 100, true)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, workHour)
+	assert.Equal(t, &lat, workHour.KantorLat)
+	assert.Equal(t, &long, workHour.KantorLong)
+	assert.Equal(t, 100, workHour.RadiusMeter)
+	assert.True(t, workHour.GeofencingEnabled)
+	assert.Equal(t, "07:30", workHour.JamMasuk)
+	mockRepo.AssertExpectations(t)
+}
+

@@ -266,8 +266,8 @@ func generateAbsensiPDF(
 				if exists && (status == "hadir" || status == "terlambat" || status == "dinas_luar") {
 					pdf.SetFont("Arial", "B", 8)
 					pdf.SetXY(cellX, startY+2)
-					// Gunakan karakter centang sederhana
-					pdf.CellFormat(dayW, 6, "\u2713", "", 0, "C", false, 0, "")
+					// Gunakan karakter centang ASCII
+					pdf.CellFormat(dayW, 6, "v", "", 0, "C", false, 0, "")
 					pdf.SetFont("Arial", "", 7)
 				}
 			}

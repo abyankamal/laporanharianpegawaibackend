@@ -3,6 +3,8 @@ package service
 import (
 	"errors"
 	"log"
+	"os"
+	"path/filepath"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -141,7 +143,19 @@ func (s *adminService) DeletePegawaiAdmin(userID uint) error {
 	if err != nil {
 		return errors.New("pegawai tidak ditemukan")
 	}
-	return s.userRepo.Delete(userID)
+
+	filePaths, err := s.userRepo.DeleteWithCleanup(userID)
+	if err != nil {
+		return errors.New("gagal menghapus pegawai dan data terkait")
+	}
+
+	for _, path := range filePaths {
+		if path != "" {
+			os.Remove(filepath.FromSlash(path))
+		}
+	}
+
+	return nil
 }
 
 // ---------------------------------------------------------

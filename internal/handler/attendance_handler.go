@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
+	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/service"
 )
 
@@ -201,14 +202,14 @@ func (h *AbsensiHandler) GetAllRecap(c fiber.Ctx) error {
 	}
 
 	// Filter hanya pegawai non-admin
-	var users []interface{}
+	var users []domain.User
 	for _, u := range allUsers {
 		if strings.ToLower(u.Role) != "admin" {
 			users = append(users, u)
 		}
 	}
 
-	recaps, err := h.absensiService.GetAllMonthlyRecap(bulan, tahun, allUsers)
+	recaps, err := h.absensiService.GetAllMonthlyRecap(bulan, tahun, users)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status": "error", "message": "Gagal mengambil rekap absensi",

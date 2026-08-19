@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/valyala/fasthttp"
 	"golang.org/x/crypto/bcrypt"
 
 	"laporanharianapi/internal/domain"
@@ -59,12 +59,16 @@ type UserService interface {
 
 // userService adalah implementasi dari UserService.
 type userService struct {
-	userRepo repository.UserRepository
+	userRepo       repository.UserRepository
+	supervisorRepo repository.SupervisorRepository
 }
 
 // NewUserService membuat instance baru UserService.
-func NewUserService(userRepo repository.UserRepository) UserService {
-	return &userService{userRepo: userRepo}
+func NewUserService(userRepo repository.UserRepository, supervisorRepo repository.SupervisorRepository) UserService {
+	return &userService{
+		userRepo:       userRepo,
+		supervisorRepo: supervisorRepo,
+	}
 }
 
 // GetAllUsers mengambil semua user.
@@ -104,9 +108,19 @@ func (s *userService) GetUserByID(id uint) (*domain.User, error) {
 func (s *userService) fillLurahSupervisor(user *domain.User) {
 	if user != nil && (strings.ToLower(user.Role) == "lurah" || (user.Jabatan != nil && strings.ToLower(user.Jabatan.NamaJabatan) == "lurah")) {
 		if user.Supervisor == nil {
+			if s.supervisorRepo != nil {
+				supervisorData, err := s.supervisorRepo.GetSupervisor()
+				if err == nil && supervisorData != nil {
+					user.Supervisor = &domain.User{
+						Nama: supervisorData.Nama,
+						NIP:  supervisorData.NIP,
+					}
+					return
+				}
+			}
 			user.Supervisor = &domain.User{
-				Nama: "Rena Sudrajat, S.Sos., M.Si",
-				NIP:  "197208241992031003",
+				Nama: "Atasan Lurah",
+				NIP:  "-",
 			}
 		}
 	}
@@ -124,28 +138,31 @@ func (s *userService) CreateUser(req CreateUserRequest) (*domain.User, error) {
 	if req.Password == "" {
 		return nil, errors.New("password wajib diisi")
 	}
+	if len(req.Password) < 8 {
+		return nil, errors.New("password minimal 8 karakter")
+	}
 	if req.Role == "" {
 		return nil, errors.New("role wajib diisi")
 	}
 
-	// Normalisasi role agar sesuai dengan sistem (sekertaris)
-	role := strings.ToLower(req.Role)
-	if role == "sekretaris" {
-		role = "sekertaris"
+	// Cek apakah NIP sudah terdaftar
+	existingUser, _ := s.userRepo.FindByNIP(req.NIP)
+	if existingUser != nil {
+		return nil, errors.New("NIP sudah terdaftar")
 	}
 
-	// Hash password
+	// Hash password menggunakan bcrypt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("gagal mengenkripsi password")
 	}
 
-	// Buat domain User
+	// Buat objek user
 	user := &domain.User{
 		NIP:          req.NIP,
 		Nama:         req.Nama,
 		Password:     string(hashedPassword),
-		Role:         role,
+		Role:         req.Role,
 		JabatanID:    req.JabatanID,
 		SupervisorID: req.SupervisorID,
 		CreatedAt:    time.Now(),
@@ -154,57 +171,74 @@ func (s *userService) CreateUser(req CreateUserRequest) (*domain.User, error) {
 	// Simpan ke database
 	err = s.userRepo.Create(user)
 	if err != nil {
-		return nil, errors.New("gagal menyimpan user, pastikan NIP belum digunakan")
+		return nil, errors.New("gagal membuat user")
 	}
 
-	return user, nil
+	// Return user yang baru dibuat
+	createdUser, err := s.userRepo.FindByID(user.ID)
+	if err != nil {
+		return user, nil
+	}
+
+	return createdUser, nil
 }
 
-// UpdateUser mengupdate user berdasarkan ID.
+// UpdateUser memperbarui data user.
 func (s *userService) UpdateUser(id uint, req UpdateUserRequest) (*domain.User, error) {
 	// Cek apakah user ada
-	user, err := s.userRepo.FindByID(id)
+	existingUser, err := s.userRepo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("user tidak ditemukan")
 	}
 
-	// Update field yang diisi
-	if req.NIP != "" {
-		user.NIP = req.NIP
+	// Validasi NIP unik jika diubah
+	if req.NIP != "" && req.NIP != existingUser.NIP {
+		userWithNIP, _ := s.userRepo.FindByNIP(req.NIP)
+		if userWithNIP != nil {
+			return nil, errors.New("NIP sudah digunakan oleh user lain")
+		}
+		existingUser.NIP = req.NIP
 	}
+
+	// Update fields jika disediakan
 	if req.Nama != "" {
-		user.Nama = req.Nama
+		existingUser.Nama = req.Nama
 	}
 	if req.Role != "" {
-		role := strings.ToLower(req.Role)
-		if role == "sekretaris" {
-			role = "sekertaris"
-		}
-		user.Role = role
+		existingUser.Role = req.Role
+	}
+	if req.JabatanID != nil {
+		existingUser.JabatanID = req.JabatanID
+	}
+	if req.SupervisorID != nil {
+		existingUser.SupervisorID = req.SupervisorID
 	}
 
-	// Update JabatanID (bisa null)
-	user.JabatanID = req.JabatanID
-
-	// Update SupervisorID (bisa null)
-	user.SupervisorID = req.SupervisorID
-
-	// Jika password diisi, hash password baru
+	// Update password jika disediakan
 	if req.Password != "" {
+		if len(req.Password) < 8 {
+			return nil, errors.New("password minimal 8 karakter")
+		}
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			return nil, errors.New("gagal mengenkripsi password")
 		}
-		user.Password = string(hashedPassword)
+		existingUser.Password = string(hashedPassword)
 	}
 
-	// Update ke database
-	err = s.userRepo.Update(user)
+	// Simpan perubahan ke database
+	err = s.userRepo.Update(existingUser)
 	if err != nil {
-		return nil, errors.New("gagal mengupdate user")
+		return nil, errors.New("gagal memperbarui data user")
 	}
 
-	return user, nil
+	// Return user yang sudah diupdate
+	updatedUser, err := s.userRepo.FindByID(id)
+	if err != nil {
+		return existingUser, nil
+	}
+
+	return updatedUser, nil
 }
 
 // DeleteUser menghapus user berdasarkan ID beserta data terkait dan file fisik.
@@ -234,38 +268,40 @@ func (s *userService) DeleteUser(id uint) error {
 
 // ChangePassword mengubah password user dengan validasi old password.
 func (s *userService) ChangePassword(userID uint, req ChangePasswordRequest) error {
-	// 1. Validasi input
+	// 1. Validasi input tidak boleh kosong
 	if req.OldPassword == "" {
 		return errors.New("password lama wajib diisi")
 	}
 	if req.NewPassword == "" {
 		return errors.New("password baru wajib diisi")
 	}
+
+	// 2. Validasi panjang password baru minimal 8 karakter
 	if len(req.NewPassword) < 8 {
 		return errors.New("password baru minimal 8 karakter")
 	}
 
-	// 2. Ambil data user dari database
+	// 3. Ambil data user dari database
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
 		return errors.New("user tidak ditemukan")
 	}
 
-	// 3. Verifikasi password lama dengan bcrypt
+	// 4. Verifikasi old_password cocok dengan hash di database
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword))
 	if err != nil {
 		return errors.New("password lama tidak sesuai")
 	}
 
-	// 4. Validasi: password baru tidak boleh sama dengan password lama
+	// Validasi password baru tidak boleh sama dengan password lama
 	if req.OldPassword == req.NewPassword {
 		return errors.New("password baru tidak boleh sama dengan password lama")
 	}
 
-	// 5. Hash password baru
+	// 5. Hash new_password menggunakan bcrypt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 	if err != nil {
-		return errors.New("gagal mengenkripsi password")
+		return errors.New("gagal mengenkripsi password baru")
 	}
 
 	// 6. Update password di database (hanya field password)
@@ -307,10 +343,21 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 	newFileName := uuid.New().String() + ext
 	destPath := filepath.Join(uploadDir, newFileName)
 
-	// Lakukan simpan langsung dengan fasthttp.SaveMultipartFile
-	err = fasthttp.SaveMultipartFile(fileHeader, destPath)
+	src, err := fileHeader.Open()
 	if err != nil {
-		return "", fmt.Errorf("gagal memproses dan menyimpan foto: %v", err)
+		return "", fmt.Errorf("gagal membuka file foto: %w", err)
+	}
+	defer src.Close()
+
+	dst, err := os.Create(destPath)
+	if err != nil {
+		return "", fmt.Errorf("gagal membuat file tujuan foto: %w", err)
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", fmt.Errorf("gagal menyalin isi file foto: %w", err)
 	}
 
 	// 6. Update foto_path di database

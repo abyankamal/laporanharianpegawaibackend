@@ -136,10 +136,34 @@ func (r *userRepository) DeleteWithCleanup(id uint) ([]string, error) {
 		}
 		tx.Where("created_by = ?", id).Delete(&domain.TugasOrganisasi{})
 
-		// 7. Nullify supervisor_id bagi yang dibawahi user ini
+		// 7. Bersihkan Absensi dan kumpulkan file selfie
+		var absensis []domain.Absensi
+		tx.Where("user_id = ?", id).Find(&absensis)
+		for _, a := range absensis {
+			if a.SelfieMasukPath != nil && *a.SelfieMasukPath != "" {
+				filePaths = append(filePaths, *a.SelfieMasukPath)
+			}
+			if a.SelfiePulangPath != nil && *a.SelfiePulangPath != "" {
+				filePaths = append(filePaths, *a.SelfiePulangPath)
+			}
+		}
+		tx.Where("user_id = ?", id).Delete(&domain.Absensi{})
+
+		// 8. Bersihkan Pengajuan Izin dan kumpulkan dokumen lampiran
+		var izins []domain.PengajuanIzin
+		tx.Where("user_id = ?", id).Find(&izins)
+		for _, iz := range izins {
+			if iz.DokumenPath != nil && *iz.DokumenPath != "" {
+				filePaths = append(filePaths, *iz.DokumenPath)
+			}
+		}
+		tx.Model(&domain.PengajuanIzin{}).Where("approved_by = ?", id).Update("approved_by", nil)
+		tx.Where("user_id = ?", id).Delete(&domain.PengajuanIzin{})
+
+		// 9. Nullify supervisor_id bagi yang dibawahi user ini
 		tx.Model(&domain.User{}).Where("supervisor_id = ?", id).Update("supervisor_id", nil)
 
-		// 8. Akhirnya hapus User
+		// 10. Akhirnya hapus User
 		if err := tx.Delete(&domain.User{}, id).Error; err != nil {
 			return err
 		}

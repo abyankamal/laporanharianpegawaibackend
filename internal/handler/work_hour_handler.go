@@ -34,7 +34,7 @@ func (h *WorkHourHandler) GetWorkHour(c fiber.Ctx) error {
 	})
 }
 
-// UpdateWorkHourRequest adalah struct untuk request update pengaturan.
+// UpdateWorkHourRequest adalah struct untuk request update pengaturan jam kerja.
 type UpdateWorkHourRequest struct {
 	JamMasuk       string `json:"jam_masuk"`
 	JamPulang      string `json:"jam_pulang"`
@@ -63,7 +63,41 @@ func (h *WorkHourHandler) UpdateWorkHour(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success": true,
 		"status":  "success",
-		"message": "Pengaturan berhasil diperbarui",
+		"message": "Pengaturan jam kerja berhasil diperbarui",
+		"data":    workHour,
+	})
+}
+
+// UpdateGeofencingRequest adalah struct untuk request update koordinat geofencing.
+type UpdateGeofencingRequest struct {
+	KantorLat         *string `json:"kantor_lat"`
+	KantorLong        *string `json:"kantor_long"`
+	RadiusMeter       int     `json:"radius_meter"`
+	GeofencingEnabled bool    `json:"geofencing_enabled"`
+}
+
+// UpdateGeofencing memperbarui konfigurasi koordinat dan radius geofencing kantor.
+func (h *WorkHourHandler) UpdateGeofencing(c fiber.Ctx) error {
+	var req UpdateGeofencingRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid",
+		})
+	}
+
+	workHour, err := h.service.UpdateGeofencing(req.KantorLat, req.KantorLong, req.RadiusMeter, req.GeofencingEnabled)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"status":  "success",
+		"message": "Pengaturan geofencing berhasil diperbarui",
 		"data":    workHour,
 	})
 }

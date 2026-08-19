@@ -29,10 +29,10 @@ func (r *notificationRepository) Create(notif *domain.Notification) error {
 	return r.db.Create(notif).Error
 }
 
-// FindByUserID mengambil semua notifikasi milik user tertentu, diurutkan terbaru di atas.
+// FindByUserID mengambil semua notifikasi milik user tertentu atau pengumuman global (user_id = 0), diurutkan terbaru di atas.
 func (r *notificationRepository) FindByUserID(userID int) ([]domain.Notification, error) {
 	var notifications []domain.Notification
-	err := r.db.Where("user_id = ?", userID).
+	err := r.db.Where("user_id = ? OR user_id = 0", userID).
 		Order("created_at DESC").
 		Find(&notifications).Error
 	if err != nil {
@@ -41,10 +41,10 @@ func (r *notificationRepository) FindByUserID(userID int) ([]domain.Notification
 	return notifications, nil
 }
 
-// FindByID mengambil satu notifikasi spesifik milik user tertentu.
+// FindByID mengambil satu notifikasi spesifik milik user tertentu atau pengumuman global.
 func (r *notificationRepository) FindByID(id int, userID int) (*domain.Notification, error) {
 	var notif domain.Notification
-	err := r.db.Where("id = ? AND user_id = ?", id, userID).First(&notif).Error
+	err := r.db.Where("id = ? AND (user_id = ? OR user_id = 0)", id, userID).First(&notif).Error
 	if err != nil {
 		return nil, err
 	}
@@ -52,10 +52,10 @@ func (r *notificationRepository) FindByID(id int, userID int) (*domain.Notificat
 }
 
 // MarkAsRead menandai notifikasi sebagai sudah dibaca.
-// Hanya bisa menandai notifikasi milik user yang bersangkutan (keamanan).
+// Hanya bisa menandai notifikasi milik user yang bersangkutan atau pengumuman global.
 func (r *notificationRepository) MarkAsRead(notifID int, userID int) error {
 	result := r.db.Model(&domain.Notification{}).
-		Where("id = ? AND user_id = ?", notifID, userID).
+		Where("id = ? AND (user_id = ? OR user_id = 0)", notifID, userID).
 		Update("is_read", true)
 	if result.Error != nil {
 		return result.Error

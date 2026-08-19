@@ -1,31 +1,17 @@
 package handler
 
 import (
-	"archive/zip"
-	"bytes"
+	"errors"
 	"fmt"
-	"image"
-	"image/color"
-	"image/draw"
-	"image/jpeg"
-	"io"
 	"math"
-	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/disintegration/imaging"
-	"github.com/go-pdf/fpdf"
 	"github.com/gofiber/fiber/v3"
-	"github.com/xuri/excelize/v2"
 
 	"laporanharianapi/internal/apperror"
-	embedImages "laporanharianapi/images"
-	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/internal/service"
 )
@@ -514,7 +500,22 @@ func (h *ReportHandler) EvaluateReportHandler(c fiber.Ctx) error {
 	})
 }
 
-// ExportReportRecapExcelHandler mengambil rekapitulasi agregasi laporan dan mengekspornya ke file Excel.
+// Update menangani pembaruan data laporan (Judul & Detail).
+func (h *ReportHandler) Update(c fiber.Ctx) error {
+	// 1. Ambil ID dari URL parameter
+	idParam := c.Params("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID laporan tidak valid",
+		})
+	}
+
+	// 2. Ambil info requester untuk RBAC
+	requesterIDFloat, ok := c.Locals("user_id").(float64)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"status":  "error",
 			"message": "User tidak terautentikasi",
 		})
@@ -610,5 +611,3 @@ func (h *ReportHandler) Delete(c fiber.Ctx) error {
 		"message": "Laporan berhasil dihapus",
 	})
 }
-
-// ExportReportPDFHandler mengekspor laporan harian menjadi file PDF berformat F4.

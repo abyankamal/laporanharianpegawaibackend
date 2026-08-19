@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/valyala/fasthttp"
-	"gorm.io/gorm"
 
 	"laporanharianapi/internal/apperror"
 	"laporanharianapi/internal/domain"
@@ -337,30 +335,21 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 	newFileName := uuid.New().String() + ext
 	destPath := filepath.Join(uploadDir, newFileName)
 
-	if subDir == "images" {
-		// Simpan langsung menggunakan fasthttp.SaveMultipartFile
-		err = fasthttp.SaveMultipartFile(fileHeader, destPath)
-		if err != nil {
-			return "", fmt.Errorf("gagal menyimpan file foto: %w", err)
-		}
-	} else {
-		// Copy file biasa tanpa diproses image kompresi
-		src, err := fileHeader.Open()
-		if err != nil {
-			return "", err
-		}
-		defer src.Close()
+	src, err := fileHeader.Open()
+	if err != nil {
+		return "", fmt.Errorf("gagal membuka file: %w", err)
+	}
+	defer src.Close()
 
-		dst, err := os.Create(destPath)
-		if err != nil {
-			return "", err
-		}
-		defer dst.Close()
+	dst, err := os.Create(destPath)
+	if err != nil {
+		return "", fmt.Errorf("gagal membuat file tujuan: %w", err)
+	}
+	defer dst.Close()
 
-		_, err = io.Copy(dst, src)
-		if err != nil {
-			return "", err
-		}
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", fmt.Errorf("gagal menyalin isi file: %w", err)
 	}
 
 	return filepath.ToSlash(destPath), nil

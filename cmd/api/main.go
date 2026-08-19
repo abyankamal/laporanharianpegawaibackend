@@ -13,7 +13,6 @@ import (
 
 	"laporanharianapi/config"
 	"laporanharianapi/internal/handler"
-	"laporanharianapi/internal/middleware"
 	"laporanharianapi/internal/repository"
 
 	// "laporanharianapi/internal/scheduler"
@@ -59,17 +58,18 @@ func main() {
 	userRepo := repository.NewUserRepository(config.DB)
 	authService := service.NewAuthService(userRepo)
 	authHandler := handler.NewAuthHandler(authService)
-	userService := service.NewUserService(userRepo)
+
+	// --- Supervisor Lurah Module ---
+	supervisorRepo := repository.NewSupervisorRepository(config.DB)
+	supervisorRepo.SeedDefault()
+
+	userService := service.NewUserService(userRepo, supervisorRepo)
 	userHandler := handler.NewUserHandler(userService)
 
 	// --- Notification Module ---
 	notifRepo := repository.NewNotificationRepository(config.DB)
 	notifService := service.NewNotificationService(notifRepo)
 	notifHandler := handler.NewNotificationHandler(notifService)
-
-	// --- Supervisor Lurah Module ---
-	supervisorRepo := repository.NewSupervisorRepository(config.DB)
-	supervisorRepo.SeedDefault()
 
 	// --- Work Hour & Holiday Modules ---
 	workHourRepo := repository.NewWorkHourRepository(config.DB)

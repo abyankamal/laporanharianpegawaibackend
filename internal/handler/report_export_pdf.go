@@ -7,9 +7,11 @@ import (
 	"image/color"
 	"image/draw"
 	"image/jpeg"
-	"math"
+	"io"
+	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +22,7 @@ import (
 
 	embedImages "laporanharianapi/images"
 	"laporanharianapi/internal/domain"
+	"laporanharianapi/internal/repository"
 )
 
 var (
@@ -237,7 +240,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 					continue
 				}
 
-				p := strings.ReplaceAll(*job.Report.FotoURL, "\", "/")
+				p := strings.ReplaceAll(*job.Report.FotoURL, "\\", "/")
 				p = strings.TrimPrefix(p, "/")
 				localPath := filepath.Join(baseDir, filepath.FromSlash(p))
 				if _, statErr := os.Stat(localPath); statErr != nil {
@@ -372,10 +375,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		return fmt.Sprintf("%02d %s %d", t.Day(), getIndonesianMonth(t.Month()), t.Year())
 	}
 
-	colHeaders := []string{"No", "Waktu
-Pelaksanaan", "Jenis
-Laporan", "Judul
-Laporan", "Deskripsi", "Foto"}
+	colHeaders := []string{"No", "Waktu\nPelaksanaan", "Jenis\nLaporan", "Judul\nLaporan", "Deskripsi", "Foto"}
 
 	headerBgR, headerBgG, headerBgB := 255, 255, 255
 	headerFgR, headerFgG, headerFgB := 0, 0, 0
@@ -393,8 +393,7 @@ Laporan", "Deskripsi", "Foto"}
 		for i, w := range colW {
 			pdf.SetXY(startX, startY)
 			pdf.CellFormat(w, headerH, "", "1", 0, "C", false, 0, "")
-			lines := strings.Split(colHeaders[i], "
-")
+			lines := strings.Split(colHeaders[i], "\n")
 			lineH := 4.0
 			totalTextH := float64(len(lines)) * lineH
 			offsetY := (headerH - totalTextH) / 2
@@ -440,15 +439,13 @@ Laporan", "Deskripsi", "Foto"}
 		if laporan.TipeLaporan {
 			jenis = "Organisasi"
 			if laporan.TugasOrganisasi != nil {
-				jenis = "Organisasi
-" + laporan.TugasOrganisasi.JudulTugas
+				jenis = "Organisasi\n" + laporan.TugasOrganisasi.JudulTugas
 			}
 		}
 
 		judul := laporan.JudulKegiatan
 		desc := laporan.DeskripsiHasil
-		tanggal := fmt.Sprintf("%02d/%02d/%d
-%02d:%02d", laporan.WaktuPelaporan.Day(), int(laporan.WaktuPelaporan.Month()), laporan.WaktuPelaporan.Year(), laporan.WaktuPelaporan.Hour(), laporan.WaktuPelaporan.Minute())
+		tanggal := fmt.Sprintf("%02d/%02d/%d\n%02d:%02d", laporan.WaktuPelaporan.Day(), int(laporan.WaktuPelaporan.Month()), laporan.WaktuPelaporan.Year(), laporan.WaktuPelaporan.Hour(), laporan.WaktuPelaporan.Minute())
 
 		rowsJenis := calcTextRows(jenis, colW[2], 7)
 		rowsJudul := calcTextRows(judul, colW[3], 7)
@@ -641,8 +638,7 @@ Laporan", "Deskripsi", "Foto"}
 		defer pw.Close()
 		err := pdf.Output(pw)
 		if err != nil {
-			fmt.Printf("Gagal generate PDF stream: %v
-", err)
+			fmt.Printf("Gagal generate PDF stream: %v\n", err)
 		}
 	}()
 

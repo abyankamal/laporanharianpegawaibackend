@@ -291,7 +291,19 @@ func (s *izinService) saveDokumenIzin(fileHeader *multipart.FileHeader) (string,
 		return "", errors.New("ukuran dokumen maksimal 20MB")
 	}
 
-	ext := filepath.Ext(fileHeader.Filename)
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	allowedExts := map[string]bool{
+		".pdf":  true,
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+		".doc":  true,
+		".docx": true,
+	}
+	if !allowedExts[ext] {
+		return "", errors.New("format dokumen tidak valid. Gunakan PDF, JPG, PNG, atau DOC/DOCX")
+	}
+
 	newFileName := uuid.New().String() + ext
 	destPath := filepath.Join(uploadDir, newFileName)
 

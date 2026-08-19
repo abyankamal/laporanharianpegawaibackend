@@ -15,6 +15,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"laporanharianapi/internal/domain"
+	"laporanharianapi/internal/repository"
 )
 
 func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
@@ -246,20 +247,3 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=lampiran_laporan_%s_to_%s.zip", startDateStr, endDateStr))
 	return c.Type("zip").Send(buf.Bytes())
 }
-
-// Update menangani pembaruan data laporan (Judul & Detail).
-func (h *ReportHandler) Update(c fiber.Ctx) error {
-	// 1. Ambil ID dari URL parameter
-	idParam := c.Params("id")
-	id, err := strconv.ParseUint(idParam, 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID laporan tidak valid",
-		})
-	}
-
-	// 2. Ambil info requester untuk RBAC
-	requesterIDFloat, ok := c.Locals("user_id").(float64)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

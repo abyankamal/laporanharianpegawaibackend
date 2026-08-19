@@ -507,3 +507,30 @@ func (m *IzinRepositoryMock) GetApprovedByUserAndDateRange(userID uint, start, e
 	}
 	return args.Get(0).([]domain.PengajuanIzin), args.Error(1)
 }
+
+// ============================================================
+// SupervisorRepositoryMock
+// ============================================================
+
+type SupervisorRepositoryMock struct {
+	mock.Mock
+}
+
+func (m *SupervisorRepositoryMock) GetSupervisor() (*domain.LurahSupervisor, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.LurahSupervisor), args.Error(1)
+}
+
+func (m *SupervisorRepositoryMock) UpdateSupervisor(nama, nip string) error {
+	args := m.Called(nama, nip)
+	return args.Error(0)
+}
+
+func (m *SupervisorRepositoryMock) SeedDefault() error {
+	args := m.Called()
+	return args.Error(0)
+}
+

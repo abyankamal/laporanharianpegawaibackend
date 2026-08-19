@@ -125,7 +125,7 @@ func TestChangePassword_Success(t *testing.T) {
 	mockUserRepo.On("UpdatePassword", uint(1), mock.AnythingOfType("string")).Return(nil)
 
 	// Buat service
-	userSvc := NewUserService(mockUserRepo)
+	userSvc := NewUserService(mockUserRepo, nil)
 
 	// Execute
 	req := ChangePasswordRequest{
@@ -157,7 +157,7 @@ func TestChangePassword_Fail_WrongOldPassword(t *testing.T) {
 	mockUserRepo.On("FindByID", uint(1)).Return(existingUser, nil)
 
 	// Buat service
-	userSvc := NewUserService(mockUserRepo)
+	userSvc := NewUserService(mockUserRepo, nil)
 
 	// Execute: kirim old password yang salah
 	req := ChangePasswordRequest{
@@ -177,7 +177,7 @@ func TestChangePassword_Fail_WrongOldPassword(t *testing.T) {
 func TestChangePassword_Fail_EmptyOldPassword(t *testing.T) {
 	// Setup
 	mockUserRepo := new(mocks.UserRepositoryMock)
-	userSvc := NewUserService(mockUserRepo)
+	userSvc := NewUserService(mockUserRepo, nil)
 
 	// Execute: old password kosong
 	req := ChangePasswordRequest{
@@ -194,7 +194,7 @@ func TestChangePassword_Fail_EmptyOldPassword(t *testing.T) {
 func TestChangePassword_Fail_NewPasswordTooShort(t *testing.T) {
 	// Setup
 	mockUserRepo := new(mocks.UserRepositoryMock)
-	userSvc := NewUserService(mockUserRepo)
+	userSvc := NewUserService(mockUserRepo, nil)
 
 	// Execute: password baru kurang dari 8 karakter
 	req := ChangePasswordRequest{
@@ -220,7 +220,7 @@ func TestChangePassword_Fail_SameAsOldPassword(t *testing.T) {
 	}
 
 	mockUserRepo.On("FindByID", uint(1)).Return(existingUser, nil)
-	userSvc := NewUserService(mockUserRepo)
+	userSvc := NewUserService(mockUserRepo, nil)
 
 	// Execute: password baru sama dengan password lama
 	req := ChangePasswordRequest{
@@ -241,7 +241,7 @@ func TestChangePassword_Fail_SameAsOldPassword(t *testing.T) {
 func TestDeleteUser_Success(t *testing.T) {
 	// Setup
 	mockUserRepo := new(mocks.UserRepositoryMock)
-	userSvc := NewUserService(mockUserRepo)
+	userSvc := NewUserService(mockUserRepo, nil)
 
 	existingUser := &domain.User{ID: 1, NIP: "123"}
 	mockUserRepo.On("FindByID", uint(1)).Return(existingUser, nil)
@@ -261,7 +261,7 @@ func TestDeleteUser_Success(t *testing.T) {
 func TestDeleteUser_Fail_UserNotFound(t *testing.T) {
 	// Setup
 	mockUserRepo := new(mocks.UserRepositoryMock)
-	userSvc := NewUserService(mockUserRepo)
+	userSvc := NewUserService(mockUserRepo, nil)
 
 	mockUserRepo.On("FindByID", uint(1)).Return(nil, errors.New("not found"))
 
@@ -273,3 +273,29 @@ func TestDeleteUser_Fail_UserNotFound(t *testing.T) {
 	assert.Equal(t, "user tidak ditemukan", err.Error())
 	mockUserRepo.AssertNotCalled(t, "DeleteWithCleanup")
 }
+
+func TestGetUserByID_LurahDynamicSupervisor(t *testing.T) {
+	mockUserRepo := new(mocks.UserRepositoryMock)
+	mockSupervisorRepo := new(mocks.SupervisorRepositoryMock)
+
+	lurahUser := &domain.User{ID: 1, Nama: "Iis Yuniawardani", Role: "lurah"}
+	mockUserRepo.On("FindByID", uint(1)).Return(lurahUser, nil)
+
+	mockSupervisorRepo.On("GetSupervisor").Return(&domain.LurahSupervisor{
+		Nama: "Drs. H. Camat Sukajadi",
+		NIP:  "196501011990031001",
+	}, nil)
+
+	userSvc := NewUserService(mockUserRepo, mockSupervisorRepo)
+
+	res, err := userSvc.GetUserByID(1)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, res)
+	assert.NotNil(t, res.Supervisor)
+	assert.Equal(t, "Drs. H. Camat Sukajadi", res.Supervisor.Nama)
+	assert.Equal(t, "196501011990031001", res.Supervisor.NIP)
+	mockUserRepo.AssertExpectations(t)
+	mockSupervisorRepo.AssertExpectations(t)
+}
+
