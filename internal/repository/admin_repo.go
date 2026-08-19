@@ -256,9 +256,10 @@ func buildRekapLaporanQuery(db *gorm.DB, filter AdminReportFilter) *gorm.DB {
 
 	// Filter Status Waktu ("Tepat Waktu" atau "Lembur") (Bukan "Semua")
 	if filter.StatusWaktu != "" && filter.StatusWaktu != "Semua" {
-		if filter.StatusWaktu == "Tepat Waktu" {
+		switch filter.StatusWaktu {
+		case "Tepat Waktu":
 			query = query.Where("laporan.is_overtime = ?", false)
-		} else if filter.StatusWaktu == "Lembur" {
+		case "Lembur":
 			query = query.Where("laporan.is_overtime = ?", true)
 		}
 	}
