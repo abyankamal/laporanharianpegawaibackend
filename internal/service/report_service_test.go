@@ -47,7 +47,7 @@ func TestCreateReport_Success_DocumentMode(t *testing.T) {
 		// Mock: Simpan laporan berhasil
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		// Execute: input tanpa lokasi (mode dokumen dari meja kantor)
 		input := ReportInput{
@@ -86,7 +86,7 @@ func TestCreateReport_Success_WithLocation(t *testing.T) {
 		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		// Execute: input dengan lokasi lengkap
 		input := ReportInput{
@@ -125,7 +125,7 @@ func TestCreateReport_Holiday_Overtime(t *testing.T) {
 		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		input := ReportInput{
 			UserID:         1,
@@ -155,7 +155,7 @@ func TestCreateReport_Fail_MissingJudulForTambahan(t *testing.T) {
 
 		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		// Execute: tipe laporan = tambahan (false) tapi judul kegiatan kosong
 		input := ReportInput{
@@ -186,7 +186,7 @@ func TestCreateReport_Fail_CheckHolidayError(t *testing.T) {
 		// Mock: CheckIsHoliday mengembalikan error
 		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, errors.New("db error"))
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		input := ReportInput{
 			UserID:         1,
@@ -215,7 +215,7 @@ func TestCreateReport_FridayOvertime(t *testing.T) {
 		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00", JamPulangJumat: "15:00"}, nil)
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		// Create a Friday date: 2024-03-08 (Friday)
 		friday := time.Date(2024, 3, 8, 15, 30, 0, 0, time.Local)
@@ -244,7 +244,7 @@ func TestCreateReport_Fail_Backdating_NonLurah(t *testing.T) {
 		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		// Waktu 1 jam yg lalu
 		pastTime := time.Now().Add(-1 * time.Hour)
@@ -277,7 +277,7 @@ func TestCreateReport_Success_Backdating_Lurah(t *testing.T) {
 		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		// Waktu 2 hari yg lalu
 		pastTime := time.Now().Add(-48 * time.Hour)
@@ -310,7 +310,7 @@ func TestCreateReport_Success_Backdating_OfflineSync(t *testing.T) {
 		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		// Waktu 2 hari yg lalu
 		pastTime := time.Now().Add(-48 * time.Hour)
@@ -343,7 +343,7 @@ func TestEvaluateReport_Success_Lurah(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
 		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		laporan := &domain.Laporan{
 			ID:     1,
@@ -376,7 +376,7 @@ func TestEvaluateReport_Success_SekertarisToStaf(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
 		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		laporan := &domain.Laporan{
 			ID:     2,
@@ -408,7 +408,7 @@ func TestEvaluateReport_Fail_SekertarisToKasiWithoutSupervisorID(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
 		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		laporan := &domain.Laporan{
 			ID:     3,
@@ -440,7 +440,7 @@ func TestEvaluateReport_Fail_Kasi(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
 		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
-		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil)
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
 
 		laporan := &domain.Laporan{
 			ID:     4,
@@ -472,7 +472,7 @@ func TestEvaluateReport_Fail_Kasi(t *testing.T) {
 func TestUpdateReport(t *testing.T) {
 	t.Run("Sukses: User update laporan sendiri", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		svc := NewReportService(mockReportRepo, nil, nil, nil)
+		svc := NewReportService(mockReportRepo, nil, nil, nil, nil, nil)
 
 		userID := uint(1)
 		laporan := &domain.Laporan{ID: 1, UserID: &userID, JudulKegiatan: "Lama", DeskripsiHasil: "Lama"}
@@ -489,7 +489,7 @@ func TestUpdateReport(t *testing.T) {
 
 	t.Run("Gagal: User update laporan orang lain", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		svc := NewReportService(mockReportRepo, nil, nil, nil)
+		svc := NewReportService(mockReportRepo, nil, nil, nil, nil, nil)
 
 		ownerID := uint(1)
 		otherID := uint(2)
@@ -506,7 +506,7 @@ func TestUpdateReport(t *testing.T) {
 
 	t.Run("Sukses: Admin update laporan siapapun", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		svc := NewReportService(mockReportRepo, nil, nil, nil)
+		svc := NewReportService(mockReportRepo, nil, nil, nil, nil, nil)
 
 		ownerID := uint(1)
 		adminID := uint(10)
@@ -529,7 +529,7 @@ func TestUpdateReport(t *testing.T) {
 func TestDeleteReport(t *testing.T) {
 	t.Run("Sukses: Lurah hapus laporan", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		svc := NewReportService(mockReportRepo, nil, nil, nil)
+		svc := NewReportService(mockReportRepo, nil, nil, nil, nil, nil)
 
 		laporan := &domain.Laporan{ID: 1}
 		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
@@ -543,7 +543,7 @@ func TestDeleteReport(t *testing.T) {
 
 	t.Run("Gagal: Non-Lurah (Sekertaris) hapus laporan", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		svc := NewReportService(mockReportRepo, nil, nil, nil)
+		svc := NewReportService(mockReportRepo, nil, nil, nil, nil, nil)
 
 		laporan := &domain.Laporan{ID: 1}
 		mockReportRepo.On("GetByID", uint(1)).Return(laporan, nil)
@@ -563,7 +563,7 @@ func TestDeleteReport(t *testing.T) {
 func TestGetReportDetail(t *testing.T) {
 	t.Run("Sukses: GetReportDetail milik sendiri", func(t *testing.T) {
 		mockReportRepo := new(mocks.ReportRepositoryMock)
-		svc := NewReportService(mockReportRepo, nil, nil, nil)
+		svc := NewReportService(mockReportRepo, nil, nil, nil, nil, nil)
 
 		userID := uint(1)
 		lat := "-6.2088"
@@ -591,6 +591,53 @@ func TestGetReportDetail(t *testing.T) {
 		assert.Equal(t, "106.8456", *res.LokasiLong)
 		assert.Equal(t, "Kantor Kelurahan", *res.AlamatLokasi)
 		mockReportRepo.AssertExpectations(t)
+	})
+}
+
+// ============================================================
+// Test CreateReport with Supervisor Notification
+// ============================================================
+
+func TestCreateReport_SendsNotificationToSupervisor(t *testing.T) {
+	t.Run("Sukses mengirim notifikasi ke supervisor saat bawahan submit laporan", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		mockHolidayRepo.On("CheckIsHoliday", mock.AnythingOfType("time.Time")).Return(false, nil)
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
+		mockReportRepo.On("Create", mock.Anything).Return(nil)
+
+		supervisorID := uint(2)
+		fcmToken := "supervisor-token-123"
+		userStaff := &domain.User{ID: 1, Nama: "Budi Santoso", Role: "staf", SupervisorID: &supervisorID}
+		userSupervisor := &domain.User{ID: 2, Nama: "Pak Kasi", Role: "kasi", FCMToken: &fcmToken}
+
+		mockUserRepo.On("FindByID", uint(1)).Return(userStaff, nil)
+		mockUserRepo.On("FindByID", uint(2)).Return(userSupervisor, nil)
+		mockNotifRepo.On("Create", mock.Anything).Return(nil)
+
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, mockUserRepo, mockNotifRepo)
+
+		input := ReportInput{
+			UserID:         1,
+			UserRole:       "staf",
+			TipeLaporan:    true,
+			JudulKegiatan:  "Penanganan Berkas",
+			DeskripsiHasil: "Berkas telah selesai diproses",
+			WaktuPelaporan: time.Now(),
+			FileFoto:       createMockFileHeader("dummy.jpg", "image bytes"),
+		}
+
+		laporan, err := reportSvc.CreateReport(input)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, laporan)
+		mockNotifRepo.AssertCalled(t, "Create", mock.MatchedBy(func(n *domain.Notification) bool {
+			return n.UserID == 2 && n.Kategori == "Laporan" && n.Judul == "Laporan Harian Baru"
+		}))
 	})
 }
 

@@ -84,7 +84,7 @@ func main() {
 
 	// --- Report Module ---
 	reportRepo := repository.NewReportRepository(config.DB)
-	reportService := service.NewReportService(reportRepo, holidayRepo, workHourRepo, supervisorRepo)
+	reportService := service.NewReportService(reportRepo, holidayRepo, workHourRepo, supervisorRepo, userRepo, notifRepo)
 	reportHandler := handler.NewReportHandler(reportService, userService)
 
 	// --- Review (Penilaian) Module ---
@@ -114,7 +114,7 @@ func main() {
 
 	// --- Absensi Module ---
 	absensiRepo := repository.NewAbsensiRepository(config.DB)
-	absensiService := service.NewAbsensiService(absensiRepo, holidayRepo, workHourRepo)
+	absensiService := service.NewAbsensiService(absensiRepo, holidayRepo, workHourRepo, userRepo)
 	absensiHandler := handler.NewAbsensiHandler(absensiService, userService)
 
 	// --- Izin Module ---

@@ -57,6 +57,7 @@ type absensiService struct {
 	absensiRepo  repository.AbsensiRepository
 	holidayRepo  repository.HolidayRepository
 	workHourRepo repository.WorkHourRepository
+	userRepo     repository.UserRepository
 }
 
 // NewAbsensiService membuat instance baru AbsensiService.
@@ -64,11 +65,13 @@ func NewAbsensiService(
 	absensiRepo repository.AbsensiRepository,
 	holidayRepo repository.HolidayRepository,
 	workHourRepo repository.WorkHourRepository,
+	userRepo repository.UserRepository,
 ) AbsensiService {
 	return &absensiService{
 		absensiRepo:  absensiRepo,
 		holidayRepo:  holidayRepo,
 		workHourRepo: workHourRepo,
+		userRepo:     userRepo,
 	}
 }
 
@@ -109,6 +112,15 @@ func (s *absensiService) CheckIn(input AbsensiCheckInInput) (*domain.Absensi, er
 	existing, _ := s.absensiRepo.GetTodayAbsensi(input.UserID)
 	if existing != nil && existing.JamMasuk != nil {
 		return nil, errors.New("Anda sudah melakukan absensi masuk hari ini")
+	}
+
+	// 2.5 Validasi foto profil terdaftar untuk verifikasi wajah
+	user, err := s.userRepo.FindByID(input.UserID)
+	if err != nil || user == nil {
+		return nil, errors.New("user tidak ditemukan")
+	}
+	if user.FotoPath == nil || *user.FotoPath == "" {
+		return nil, errors.New("Anda belum mendaftarkan foto profil. Silakan unggah foto profil terlebih dahulu untuk verifikasi absensi wajah")
 	}
 
 	// 3. Validasi face verification
@@ -189,6 +201,15 @@ func (s *absensiService) CheckOut(input AbsensiCheckOutInput) (*domain.Absensi, 
 	}
 	if existing.JamPulang != nil {
 		return nil, errors.New("Anda sudah melakukan absensi pulang hari ini")
+	}
+
+	// 1.5 Validasi foto profil terdaftar untuk verifikasi wajah
+	user, err := s.userRepo.FindByID(input.UserID)
+	if err != nil || user == nil {
+		return nil, errors.New("user tidak ditemukan")
+	}
+	if user.FotoPath == nil || *user.FotoPath == "" {
+		return nil, errors.New("Anda belum mendaftarkan foto profil. Silakan unggah foto profil terlebih dahulu untuk verifikasi absensi wajah")
 	}
 
 	// 2. Validasi face verification

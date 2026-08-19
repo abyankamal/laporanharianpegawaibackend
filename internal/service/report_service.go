@@ -61,6 +61,8 @@ type reportService struct {
 	holidayRepo    repository.HolidayRepository
 	workHourRepo   repository.WorkHourRepository
 	supervisorRepo repository.SupervisorRepository
+	userRepo       repository.UserRepository
+	notifRepo      repository.NotificationRepository
 }
 
 // NewReportService membuat instance baru ReportService.
@@ -69,12 +71,16 @@ func NewReportService(
 	holidayRepo repository.HolidayRepository,
 	workHourRepo repository.WorkHourRepository,
 	supervisorRepo repository.SupervisorRepository,
+	userRepo repository.UserRepository,
+	notifRepo repository.NotificationRepository,
 ) ReportService {
 	return &reportService{
 		reportRepo:     reportRepo,
 		holidayRepo:    holidayRepo,
 		workHourRepo:   workHourRepo,
 		supervisorRepo: supervisorRepo,
+		userRepo:       userRepo,
+		notifRepo:      notifRepo,
 	}
 }
 
@@ -213,6 +219,44 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 	err = s.reportRepo.Create(laporan)
 	if err != nil {
 		return nil, fmt.Errorf("gagal menyimpan laporan: %v", err)
+	}
+
+	// 8. Kirim Notifikasi ke Atasan jika user memiliki supervisor
+	if s.userRepo != nil && s.notifRepo != nil {
+		user, errUser := s.userRepo.FindByID(input.UserID)
+		if errUser == nil && user != nil && user.SupervisorID != nil {
+			supervisor, errSup := s.userRepo.FindByID(*user.SupervisorID)
+			if errSup == nil && supervisor != nil {
+				judulNotif := "Laporan Harian Baru"
+				pesanNotif := fmt.Sprintf("Pegawai %s telah mengirimkan laporan kegiatan: '%s'", user.Nama, input.JudulKegiatan)
+				if input.JudulKegiatan == "" {
+					pesanNotif = fmt.Sprintf("Pegawai %s telah mengirimkan laporan tugas pokok baru.", user.Nama)
+				}
+				notif := &domain.Notification{
+					UserID:    int(supervisor.ID),
+					Kategori:  "Laporan",
+					Judul:     judulNotif,
+					Pesan:     pesanNotif,
+					TerkaitID: int(laporan.ID),
+					CreatedAt: now,
+				}
+				if errNotif := s.notifRepo.Create(notif); errNotif != nil {
+					log.Printf("⚠️ Gagal membuat notifikasi laporan ke atasan: %v", errNotif)
+				}
+
+				if supervisor.FCMToken != nil && *supervisor.FCMToken != "" {
+					fcmToken := *supervisor.FCMToken
+					go func() {
+						defer func() {
+							if r := recover(); r != nil {
+								log.Printf("⚠️ Recovered from panic in FCM goroutine: %v", r)
+							}
+						}()
+						fcm.SendPushNotification(fcmToken, judulNotif, pesanNotif)
+					}()
+				}
+			}
+		}
 	}
 
 	return laporan, nil
@@ -476,21 +520,37 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 		return fmt.Errorf("gagal mengevaluasi laporan: %v", err)
 	}
 
-	// 5. Trigger FCM Push Notification ke pembuat laporan
-	if targetUser.FCMToken != nil && *targetUser.FCMToken != "" {
-		title := "Status Laporan Diperbarui"
-		statusMsg := "Disetujui"
-		if req.Status == "ditolak" {
-			statusMsg = "Ditolak"
+	// 5. In-App Notification & FCM Push Notification ke pembuat laporan
+	title := "Status Laporan Diperbarui"
+	statusMsg := "Disetujui"
+	if req.Status == "ditolak" {
+		statusMsg = "Ditolak"
+	}
+	body := fmt.Sprintf("Laporan %s. Masukan: %s", statusMsg, req.Komentar)
+
+	if s.notifRepo != nil {
+		notif := &domain.Notification{
+			UserID:    int(targetUser.ID),
+			Kategori:  "Laporan",
+			Judul:     title,
+			Pesan:     body,
+			TerkaitID: int(laporan.ID),
+			CreatedAt: time.Now(),
 		}
-		body := fmt.Sprintf("Laporan %s. Masukan: %s", statusMsg, req.Komentar)
+		if errNotif := s.notifRepo.Create(notif); errNotif != nil {
+			log.Printf("⚠️ Gagal membuat in-app notifikasi evaluasi laporan: %v", errNotif)
+		}
+	}
+
+	if targetUser.FCMToken != nil && *targetUser.FCMToken != "" {
+		fcmToken := *targetUser.FCMToken
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Printf("⚠️ Recovered from panic in FCM goroutine: %v", r)
 				}
 			}()
-			fcm.SendPushNotification(*targetUser.FCMToken, title, body)
+			fcm.SendPushNotification(fcmToken, title, body)
 		}()
 	}
 

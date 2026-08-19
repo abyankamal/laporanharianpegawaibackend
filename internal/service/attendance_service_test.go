@@ -18,8 +18,9 @@ func TestAbsensiService_IsWorkday(t *testing.T) {
 	mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
 	mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 	mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+	mockUserRepo := new(mocks.UserRepositoryMock)
 
-	absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo)
+	absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo)
 
 	t.Run("Saturday is not workday", func(t *testing.T) {
 		saturday := time.Date(2026, 7, 25, 10, 0, 0, 0, time.Local) // 25 July 2026 is Saturday
@@ -57,28 +58,49 @@ func TestAbsensiService_IsWorkday(t *testing.T) {
 }
 
 func TestAbsensiService_CheckIn(t *testing.T) {
+	t.Run("Fails if user has no registered profile photo", func(t *testing.T) {
+		mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+
+		absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo)
+
+		mockHolidayRepo.On("CheckIsHoliday", mock.Anything).Return(false, nil).Maybe()
+		mockAbsensiRepo.On("GetTodayAbsensi", uint(1)).Return(nil, errors.New("not found")).Maybe()
+		mockUserRepo.On("FindByID", uint(1)).Return(&domain.User{ID: 1, FotoPath: nil}, nil).Once()
+
+		input := service.AbsensiCheckInInput{
+			UserID:       1,
+			FaceVerified: true,
+		}
+
+		_, err := absensiService.CheckIn(input)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "belum mendaftarkan foto profil")
+	})
+
 	t.Run("Fails if face verification failed", func(t *testing.T) {
 		mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
 		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
 
-		absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo)
+		absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo)
 
-		// Make sure today is a workday for test or mock CheckIsHoliday
-		now := time.Now()
-		if now.Weekday() != time.Saturday && now.Weekday() != time.Sunday {
-			mockHolidayRepo.On("CheckIsHoliday", mock.Anything).Return(false, nil).Maybe()
-			mockAbsensiRepo.On("GetTodayAbsensi", uint(1)).Return(nil, errors.New("not found")).Maybe()
+		foto := "uploads/photos/foto.jpg"
+		mockHolidayRepo.On("CheckIsHoliday", mock.Anything).Return(false, nil).Maybe()
+		mockAbsensiRepo.On("GetTodayAbsensi", uint(1)).Return(nil, errors.New("not found")).Maybe()
+		mockUserRepo.On("FindByID", uint(1)).Return(&domain.User{ID: 1, FotoPath: &foto}, nil).Maybe()
 
-			input := service.AbsensiCheckInInput{
-				UserID:       1,
-				FaceVerified: false,
-			}
-
-			_, err := absensiService.CheckIn(input)
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "verifikasi wajah gagal")
+		input := service.AbsensiCheckInInput{
+			UserID:       1,
+			FaceVerified: false,
 		}
+
+		_, err := absensiService.CheckIn(input)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "verifikasi wajah gagal")
 	})
 }
 
@@ -86,8 +108,9 @@ func TestAbsensiService_GetMonthlyRecap(t *testing.T) {
 	mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
 	mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 	mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+	mockUserRepo := new(mocks.UserRepositoryMock)
 
-	absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo)
+	absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo)
 
 	t.Run("Returns recap and details", func(t *testing.T) {
 		expectedDetails := []domain.Absensi{

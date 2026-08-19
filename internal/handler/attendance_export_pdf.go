@@ -260,10 +260,10 @@ func generateAbsensiPDF(
 			pdf.SetXY(cellX, startY)
 			pdf.CellFormat(dayW, rowH, "", "1", 0, "C", true, 0, "")
 
-			// Tandai kehadiran dengan centang jika hari kerja dan status hadir/terlambat
+			// Tandai kehadiran dengan centang jika hari kerja dan status hadir/terlambat/pulang_cepat/dinas_luar
 			if !isHoliday && userAbsensi != nil {
 				status, exists := userAbsensi[d]
-				if exists && (status == "hadir" || status == "terlambat" || status == "dinas_luar") {
+				if exists && (status == "hadir" || status == "terlambat" || status == "pulang_cepat" || status == "dinas_luar") {
 					pdf.SetFont("Arial", "B", 8)
 					pdf.SetXY(cellX, startY+2)
 					// Gunakan karakter centang ASCII

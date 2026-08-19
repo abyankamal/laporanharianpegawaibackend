@@ -360,15 +360,17 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 		return "", fmt.Errorf("gagal menyalin isi file foto: %w", err)
 	}
 
+	destPathSlash := filepath.ToSlash(destPath)
+
 	// 6. Update foto_path di database
-	err = s.userRepo.UpdateFoto(userID, destPath)
+	err = s.userRepo.UpdateFoto(userID, destPathSlash)
 	if err != nil {
 		// Hapus file yang baru diupload jika gagal update DB
 		os.Remove(destPath)
 		return "", errors.New("gagal mengupdate foto profil")
 	}
 
-	return filepath.ToSlash(destPath), nil
+	return destPathSlash, nil
 }
 
 // GetSupervisors mengambil daftar atasan secara dinamis berdasarkan query parameter roleFilter.

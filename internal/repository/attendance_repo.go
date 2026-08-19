@@ -10,14 +10,15 @@ import (
 
 // AbsensiRecapResponse adalah struct untuk response rekap absensi bulanan.
 type AbsensiRecapResponse struct {
-	TotalHariKerja int `json:"total_hari_kerja"`
-	TotalHadir     int `json:"total_hadir"`
-	TotalTerlambat int `json:"total_terlambat"`
-	TotalAlpha     int `json:"total_alpha"`
-	TotalIzin      int `json:"total_izin"`
-	TotalSakit     int `json:"total_sakit"`
-	TotalCuti      int `json:"total_cuti"`
-	TotalDinasLuar int `json:"total_dinas_luar"`
+	TotalHariKerja  int `json:"total_hari_kerja"`
+	TotalHadir      int `json:"total_hadir"`
+	TotalTerlambat  int `json:"total_terlambat"`
+	TotalPulangCepat int `json:"total_pulang_cepat"`
+	TotalAlpha      int `json:"total_alpha"`
+	TotalIzin       int `json:"total_izin"`
+	TotalSakit      int `json:"total_sakit"`
+	TotalCuti       int `json:"total_cuti"`
+	TotalDinasLuar  int `json:"total_dinas_luar"`
 }
 
 // AbsensiRepository adalah interface untuk operasi database Absensi.
@@ -129,6 +130,8 @@ func (r *absensiRepository) GetAbsensiRecap(userID uint, bulan int, tahun int) (
 			recap.TotalHadir = r.Total
 		case "terlambat":
 			recap.TotalTerlambat = r.Total
+		case "pulang_cepat":
+			recap.TotalPulangCepat = r.Total
 		case "alpha":
 			recap.TotalAlpha = r.Total
 		case "izin":
@@ -142,9 +145,9 @@ func (r *absensiRepository) GetAbsensiRecap(userID uint, bulan int, tahun int) (
 		}
 	}
 
-	// Hitung total hari kerja (hadir + terlambat = hadir di kantor)
-	recap.TotalHariKerja = recap.TotalHadir + recap.TotalTerlambat + recap.TotalAlpha +
-		recap.TotalIzin + recap.TotalSakit + recap.TotalCuti + recap.TotalDinasLuar
+	// Hitung total hari kerja (hadir + terlambat + pulang_cepat = hadir di kantor)
+	recap.TotalHariKerja = recap.TotalHadir + recap.TotalTerlambat + recap.TotalPulangCepat +
+		recap.TotalAlpha + recap.TotalIzin + recap.TotalSakit + recap.TotalCuti + recap.TotalDinasLuar
 
 	return recap, nil
 }
