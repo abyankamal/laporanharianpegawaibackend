@@ -30,12 +30,22 @@ func ConnectDatabase() {
 		user, password, host, port, dbName,
 	)
 
-	// Buka koneksi ke database
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-	})
+	// Buka koneksi ke database dengan retry mechanism (menghindari race condition saat container startup)
+	var db *gorm.DB
+	var err error
+	maxRetries := 15
+	for i := 1; i <= maxRetries; i++ {
+		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Info),
+		})
+		if err == nil {
+			break
+		}
+		log.Printf("⏳ Percobaan koneksi database (%d/%d) belum berhasil: %v. Menunggu 2 detik...", i, maxRetries, err)
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
-		log.Fatalf("Gagal terhubung ke database: %v", err)
+		log.Fatalf("❌ Gagal terhubung ke database setelah %d percobaan: %v", maxRetries, err)
 	}
 
 	// Ambil underlying *sql.DB untuk konfigurasi connection pool

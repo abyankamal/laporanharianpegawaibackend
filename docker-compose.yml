@@ -4,34 +4,40 @@ services:
     container_name: laporanharian_db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: ${DB_NAME:-laporan_harian}
     ports:
-      - "3306:3306"
+      - "${DB_PORT:-3306}:3306"
     volumes:
       # Inisialisasi awal database dari file db.sql
       - ./db.sql:/docker-entrypoint-initdb.d/init.sql
       # Menyimpan data database agar persisten
       - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build: .
     container_name: laporanharian_api
     restart: always
     ports:
-      - "5000:5000"
+      - "${APP_PORT:-5000}:${APP_PORT:-5000}"
     environment:
       # Meng-override DB_HOST agar mengarah ke service 'db' (bukan localhost)
       - DB_HOST=db
     env_file:
       - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
-      # Menyimpan folder images agar persisten di host (jika ada upload file)
+      # Menyimpan folder images dan uploads agar persisten di host
       - ./images:/app/images
+      - ./uploads:/app/uploads
 
 volumes:
   db_data:
