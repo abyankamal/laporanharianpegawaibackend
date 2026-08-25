@@ -19,9 +19,9 @@ type userBasic struct {
 
 // StartDailyReminder menjalankan background job untuk mengirim notifikasi pengingat
 // kepada pegawai yang belum membuat laporan kinerja pada hari tersebut.
-// Job berjalan setiap hari kerja (Senin-Jumat) pukul 15:00 waktu lokal.
+// Job berjalan setiap hari kerja (Senin-Jumat) pukul 15:00 waktu lokal (tidak aktif pada hari libur).
 // Fungsi ini non-blocking karena menggunakan goroutine.
-func StartDailyReminder(db *gorm.DB, notifRepo repository.NotificationRepository, workHourRepo repository.WorkHourRepository) {
+func StartDailyReminder(db *gorm.DB, notifRepo repository.NotificationRepository, workHourRepo repository.WorkHourRepository, holidayRepo repository.HolidayRepository) {
 	go func() {
 		// Recover dari panic agar goroutine tidak crash
 		defer func() {
@@ -54,7 +54,7 @@ func StartDailyReminder(db *gorm.DB, notifRepo repository.NotificationRepository
 					}
 				}()
 
-				executeReminder(db, notifRepo, workHourRepo)
+				executeReminder(db, notifRepo, workHourRepo, holidayRepo)
 			}()
 		}
 	}()
@@ -84,8 +84,18 @@ func nextWeekdayTarget(now time.Time, hour, min, sec int) time.Time {
 }
 
 // executeReminder menjalankan logika utama: query user yang belum lapor, lalu kirim notifikasi.
-func executeReminder(db *gorm.DB, notifRepo repository.NotificationRepository, workHourRepo repository.WorkHourRepository) {
+func executeReminder(db *gorm.DB, notifRepo repository.NotificationRepository, workHourRepo repository.WorkHourRepository, holidayRepo repository.HolidayRepository) {
 	now := time.Now()
+
+	// Cek apakah hari ini adalah hari libur di database
+	if holidayRepo != nil {
+		isHoliday, err := holidayRepo.CheckIsHoliday(now)
+		if err == nil && isHoliday {
+			log.Printf("🏖️ [Scheduler] Hari ini (%s) adalah hari libur. Pengingat laporan tidak dikirim.", now.Format("2006-01-02"))
+			return
+		}
+	}
+
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	todayEnd := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, now.Location())
 
