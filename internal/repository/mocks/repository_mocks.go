@@ -534,3 +534,123 @@ func (m *SupervisorRepositoryMock) SeedDefault() error {
 	return args.Error(0)
 }
 
+// ============================================================
+// AdminRepositoryMock
+// ============================================================
+
+type AdminRepositoryMock struct {
+	mock.Mock
+}
+
+func (m *AdminRepositoryMock) GetRekapLaporanAdmin(filter repository.AdminReportFilter) (*repository.AdminReportResponse, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.AdminReportResponse), args.Error(1)
+}
+
+func (m *AdminRepositoryMock) GetLaporanExportAdmin(filter repository.AdminReportFilter) ([]domain.Laporan, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.Laporan), args.Error(1)
+}
+
+func (m *AdminRepositoryMock) GetDashboardSummaryAdmin() (*repository.DashboardSummaryResponse, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.DashboardSummaryResponse), args.Error(1)
+}
+
+func (m *AdminRepositoryMock) GetPegawaiAdmin(filter repository.AdminPegawaiFilter) (*repository.AdminPegawaiResponse, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.AdminPegawaiResponse), args.Error(1)
+}
+
+func (m *AdminRepositoryMock) GetPegawaiStatistik() (*repository.PegawaiStatistik, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.PegawaiStatistik), args.Error(1)
+}
+
+func (m *AdminRepositoryMock) GetPengumumanAdmin(filter repository.AdminPengumumanFilter) (*repository.AdminPengumumanResponse, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.AdminPengumumanResponse), args.Error(1)
+}
+
+func (m *AdminRepositoryMock) GetPengumumanStatistikAdmin() (*repository.PengumumanStatistik, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.PengumumanStatistik), args.Error(1)
+}
+
+func (m *AdminRepositoryMock) CreatePengumumanAdmin(pengumuman *domain.Notification) error {
+	args := m.Called(pengumuman)
+	return args.Error(0)
+}
+
+func (m *AdminRepositoryMock) UpdatePengumumanAdmin(id uint, pengumuman *domain.Notification) error {
+	args := m.Called(id, pengumuman)
+	return args.Error(0)
+}
+
+func (m *AdminRepositoryMock) DeletePengumumanAdmin(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+// ============================================================
+// JabatanRepositoryMock
+// ============================================================
+
+type JabatanRepositoryMock struct {
+	mock.Mock
+}
+
+func (m *JabatanRepositoryMock) GetAll() ([]domain.RefJabatan, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.RefJabatan), args.Error(1)
+}
+
+func (m *JabatanRepositoryMock) GetByID(id uint) (*domain.RefJabatan, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.RefJabatan), args.Error(1)
+}
+
+func (m *JabatanRepositoryMock) Create(jabatan *domain.RefJabatan) error {
+	args := m.Called(jabatan)
+	return args.Error(0)
+}
+
+func (m *JabatanRepositoryMock) Update(jabatan *domain.RefJabatan) error {
+	args := m.Called(jabatan)
+	return args.Error(0)
+}
+
+func (m *JabatanRepositoryMock) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+
+
