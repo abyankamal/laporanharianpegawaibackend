@@ -36,7 +36,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mobile := api.Group("/mobile")
 
 	// Public Routes
-	mobile.Post("/login", h.Auth.Login)
+	mobile.Post("/login", middleware.LoginLimiter(), h.Auth.Login)
 	mobile.Post("/refresh", h.Auth.RefreshToken)
 
 	// Protected Routes
@@ -110,7 +110,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	web := api.Group("/web")
 
 	// Public Routes
-	web.Post("/login", h.Auth.Login)
+	web.Post("/login", middleware.LoginLimiter(), h.Auth.Login)
 	web.Post("/refresh", h.Auth.RefreshToken)
 
 	// Protected Routes
