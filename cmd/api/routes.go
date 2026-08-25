@@ -154,6 +154,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	userManage.Get("/:id", h.User.GetOne)
 	userManage.Post("/", h.User.Create)
 	userManage.Put("/:id", h.User.Update)
+	userManage.Put("/:id/reset-password", h.User.ResetPassword)
 	userManage.Delete("/:id", h.User.Delete)
 
 	// Manajemen Pegawai
@@ -161,6 +162,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	pegawaiManage.Get("/", h.Admin.GetPegawai)
 	pegawaiManage.Post("/", h.Admin.CreatePegawai)
 	pegawaiManage.Put("/:id", h.Admin.UpdatePegawai)
+	pegawaiManage.Put("/:id/reset-password", h.Admin.ResetPasswordPegawai)
 	pegawaiManage.Delete("/:id", h.Admin.DeletePegawai)
 
 	// Alias admin/reports

@@ -116,6 +116,11 @@ func (m *UserServiceMock) ChangePassword(userID uint, req service.ChangePassword
 	return args.Error(0)
 }
 
+func (m *UserServiceMock) ResetPasswordByAdmin(targetUserID uint, newPassword string) error {
+	args := m.Called(targetUserID, newPassword)
+	return args.Error(0)
+}
+
 func (m *UserServiceMock) UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error) {
 	args := m.Called(userID, fileHeader)
 	return args.String(0), args.Error(1)

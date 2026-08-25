@@ -260,6 +260,36 @@ func (h *AdminHandler) DeletePegawai(c fiber.Ctx) error {
 	})
 }
 
+// ResetPasswordPegawai menghandle request PUT /api/web/admin/pegawai/:id/reset-password
+func (h *AdminHandler) ResetPasswordPegawai(c fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "ID pegawai tidak valid",
+		})
+	}
+
+	var req struct {
+		NewPassword string `json:"new_password"`
+	}
+	_ = c.Bind().JSON(&req)
+
+	if err := h.adminService.ResetPasswordPegawaiAdmin(uint(id), req.NewPassword); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"status":  "success",
+		"message": "Password pegawai berhasil direset",
+	})
+}
+
 // ---------------------------------------------------------
 // PENGUMUMAN MANAGEMENT HANDLERS
 // ---------------------------------------------------------

@@ -361,6 +361,37 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 	})
 }
 
+// ResetPassword mereset password user oleh admin/sekertaris.
+func (h *UserHandler) ResetPassword(c fiber.Ctx) error {
+	idParam := c.Params("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "ID tidak valid",
+		})
+	}
+
+	var req struct {
+		NewPassword string `json:"new_password"`
+	}
+	_ = c.Bind().JSON(&req)
+
+	err = h.userService.ResetPasswordByAdmin(uint(id), req.NewPassword)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"status":  "success",
+		"message": "Password user berhasil direset",
+	})
+}
+
 // ChangePhoto mengubah foto profil user yang sedang login.
 func (h *UserHandler) ChangePhoto(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token

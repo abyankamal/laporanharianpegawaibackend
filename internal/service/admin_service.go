@@ -24,6 +24,7 @@ type AdminService interface {
 	CreatePegawaiAdmin(req *domain.User) error
 	UpdatePegawaiAdmin(userID uint, req *domain.User) error
 	DeletePegawaiAdmin(userID uint) error
+	ResetPasswordPegawaiAdmin(userID uint, newPassword string) error
 
 	// Pengumuman Management
 	GetPengumumanAdmin(filter repository.AdminPengumumanFilter) (*repository.AdminPengumumanResponse, error)
@@ -156,6 +157,31 @@ func (s *adminService) DeletePegawaiAdmin(userID uint) error {
 	}
 
 	return nil
+}
+
+func (s *adminService) ResetPasswordPegawaiAdmin(userID uint, newPassword string) error {
+	// 1. Validasi input: Jika kosong, gunakan default password
+	if newPassword == "" {
+		newPassword = "password123"
+	}
+	if len(newPassword) < 8 {
+		return errors.New("password baru minimal 8 karakter")
+	}
+
+	// 2. Cari pegawai
+	_, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		return errors.New("pegawai tidak ditemukan")
+	}
+
+	// 3. Hash password baru
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal mengenkripsi kata sandi baru")
+	}
+
+	// 4. Update password di database
+	return s.userRepo.UpdatePassword(userID, string(hashedPassword))
 }
 
 // ---------------------------------------------------------

@@ -51,6 +51,7 @@ type UserService interface {
 	UpdateUser(id uint, req UpdateUserRequest) (*domain.User, error)
 	DeleteUser(id uint) error
 	ChangePassword(userID uint, req ChangePasswordRequest) error
+	ResetPasswordByAdmin(targetUserID uint, newPassword string) error
 	UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error)
 	UpdateFCMToken(userID uint, token string) error
 	GetSupervisors(roleFilter string) ([]domain.User, error)
@@ -308,6 +309,38 @@ func (s *userService) ChangePassword(userID uint, req ChangePasswordRequest) err
 	err = s.userRepo.UpdatePassword(userID, string(hashedPassword))
 	if err != nil {
 		return errors.New("gagal mengubah password")
+	}
+
+	return nil
+}
+
+// ResetPasswordByAdmin mereset password user oleh admin/sekertaris tanpa memerlukan password lama.
+func (s *userService) ResetPasswordByAdmin(targetUserID uint, newPassword string) error {
+	// 1. Validasi input: Jika kosong, gunakan default password
+	if newPassword == "" {
+		newPassword = "password123"
+	}
+
+	if len(newPassword) < 8 {
+		return errors.New("password baru minimal 8 karakter")
+	}
+
+	// 2. Cek keberadaan user
+	_, err := s.userRepo.FindByID(targetUserID)
+	if err != nil {
+		return errors.New("user tidak ditemukan")
+	}
+
+	// 3. Hash password baru menggunakan bcrypt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal mengenkripsi password baru")
+	}
+
+	// 4. Update password di database
+	err = s.userRepo.UpdatePassword(targetUserID, string(hashedPassword))
+	if err != nil {
+		return errors.New("gagal mereset password")
 	}
 
 	return nil
