@@ -283,6 +283,35 @@ func (s *absensiService) GetMonthlyRecap(userID uint, bulan, tahun int) ([]domai
 	return details, recap, nil
 }
 
+// calculateAbsensiRecap menghitung rekapitulasi statistik absensi dari list data absensi secara in-memory.
+func calculateAbsensiRecap(details []domain.Absensi) *repository.AbsensiRecapResponse {
+	recap := &repository.AbsensiRecapResponse{}
+	for _, a := range details {
+		switch a.Status {
+		case "hadir":
+			recap.TotalHadir++
+		case "terlambat":
+			recap.TotalTerlambat++
+		case "pulang_cepat":
+			recap.TotalPulangCepat++
+		case "alpha":
+			recap.TotalAlpha++
+		case "izin":
+			recap.TotalIzin++
+		case "sakit":
+			recap.TotalSakit++
+		case "cuti":
+			recap.TotalCuti++
+		case "dinas_luar":
+			recap.TotalDinasLuar++
+		}
+	}
+
+	recap.TotalHariKerja = recap.TotalHadir + recap.TotalTerlambat + recap.TotalPulangCepat +
+		recap.TotalAlpha + recap.TotalIzin + recap.TotalSakit + recap.TotalCuti + recap.TotalDinasLuar
+	return recap
+}
+
 // GetAllMonthlyRecap mengambil rekap absensi semua pegawai dalam satu bulan.
 func (s *absensiService) GetAllMonthlyRecap(bulan, tahun int, users []domain.User) ([]UserAbsensiRecap, error) {
 	allAbsensi, err := s.absensiRepo.GetAllByMonth(bulan, tahun)
@@ -299,11 +328,7 @@ func (s *absensiService) GetAllMonthlyRecap(bulan, tahun int, users []domain.Use
 	var result []UserAbsensiRecap
 	for _, user := range users {
 		details := absensiMap[user.ID]
-
-		recap, err := s.absensiRepo.GetAbsensiRecap(user.ID, bulan, tahun)
-		if err != nil {
-			recap = &repository.AbsensiRecapResponse{}
-		}
+		recap := calculateAbsensiRecap(details)
 
 		result = append(result, UserAbsensiRecap{
 			User:    user,

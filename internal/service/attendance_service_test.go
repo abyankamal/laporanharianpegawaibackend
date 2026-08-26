@@ -131,3 +131,59 @@ func TestAbsensiService_GetMonthlyRecap(t *testing.T) {
 		mockAbsensiRepo.AssertExpectations(t)
 	})
 }
+
+func TestAbsensiService_GetAllMonthlyRecap(t *testing.T) {
+	mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
+	mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+	mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+	mockUserRepo := new(mocks.UserRepositoryMock)
+
+	absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo)
+
+	t.Run("Calculates batch recap accurately in-memory without extra DB queries", func(t *testing.T) {
+		users := []domain.User{
+			{ID: 1, Nama: "Pegawai 1"},
+			{ID: 2, Nama: "Pegawai 2"},
+		}
+
+		allAbsensi := []domain.Absensi{
+			{ID: 1, UserID: 1, Status: "hadir"},
+			{ID: 2, UserID: 1, Status: "terlambat"},
+			{ID: 3, UserID: 1, Status: "pulang_cepat"},
+			{ID: 4, UserID: 2, Status: "izin"},
+			{ID: 5, UserID: 2, Status: "sakit"},
+			{ID: 6, UserID: 2, Status: "alpha"},
+			{ID: 7, UserID: 2, Status: "cuti"},
+			{ID: 8, UserID: 2, Status: "dinas_luar"},
+		}
+
+		// Only GetAllByMonth should be called, NOT GetAbsensiRecap (eliminating N+1)
+		mockAbsensiRepo.On("GetAllByMonth", 7, 2026).Return(allAbsensi, nil).Once()
+
+		result, err := absensiService.GetAllMonthlyRecap(7, 2026, users)
+		assert.NoError(t, err)
+		assert.Len(t, result, 2)
+
+		// User 1 verification
+		assert.Equal(t, uint(1), result[0].User.ID)
+		assert.Len(t, result[0].Details, 3)
+		assert.Equal(t, 3, result[0].Recap.TotalHariKerja)
+		assert.Equal(t, 1, result[0].Recap.TotalHadir)
+		assert.Equal(t, 1, result[0].Recap.TotalTerlambat)
+		assert.Equal(t, 1, result[0].Recap.TotalPulangCepat)
+		assert.Equal(t, 0, result[0].Recap.TotalAlpha)
+
+		// User 2 verification
+		assert.Equal(t, uint(2), result[1].User.ID)
+		assert.Len(t, result[1].Details, 5)
+		assert.Equal(t, 5, result[1].Recap.TotalHariKerja)
+		assert.Equal(t, 1, result[1].Recap.TotalIzin)
+		assert.Equal(t, 1, result[1].Recap.TotalSakit)
+		assert.Equal(t, 1, result[1].Recap.TotalAlpha)
+		assert.Equal(t, 1, result[1].Recap.TotalCuti)
+		assert.Equal(t, 1, result[1].Recap.TotalDinasLuar)
+
+		mockAbsensiRepo.AssertExpectations(t)
+	})
+}
+
