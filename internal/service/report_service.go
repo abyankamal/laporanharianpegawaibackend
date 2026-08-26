@@ -286,8 +286,16 @@ func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterR
 		return nil, 0, err
 	}
 
+	var lurahSupervisor *domain.User
 	for i := range reports {
-		s.fillLurahSupervisor(&reports[i])
+		if reports[i].User != nil && (strings.ToLower(reports[i].User.Role) == "lurah" || (reports[i].User.Jabatan != nil && strings.ToLower(reports[i].User.Jabatan.NamaJabatan) == "lurah")) {
+			if reports[i].User.Supervisor == nil {
+				if lurahSupervisor == nil {
+					lurahSupervisor = s.getLurahSupervisorUser()
+				}
+				reports[i].User.Supervisor = lurahSupervisor
+			}
+		}
 	}
 
 	return reports, total, nil
@@ -325,23 +333,29 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 	return laporan, nil
 }
 
+// getLurahSupervisorUser mengambil data atasan lurah untuk mengisi field Supervisor pada user Lurah.
+func (s *reportService) getLurahSupervisorUser() *domain.User {
+	if s.supervisorRepo != nil {
+		supervisorData, err := s.supervisorRepo.GetSupervisor()
+		if err == nil && supervisorData != nil {
+			return &domain.User{
+				Nama: supervisorData.Nama,
+				NIP:  supervisorData.NIP,
+			}
+		}
+	}
+	// Fallback jika gagal ambil dari DB atau nil
+	return &domain.User{
+		Nama: "Atasan Lurah",
+		NIP:  "-",
+	}
+}
+
 // fillLurahSupervisor mengisi data pejabat penilai secara dinamis jika user adalah Lurah (karena atasan lurah ada di tingkat kecamatan).
 func (s *reportService) fillLurahSupervisor(laporan *domain.Laporan) {
 	if laporan.User != nil && (strings.ToLower(laporan.User.Role) == "lurah" || (laporan.User.Jabatan != nil && strings.ToLower(laporan.User.Jabatan.NamaJabatan) == "lurah")) {
 		if laporan.User.Supervisor == nil {
-			supervisorData, err := s.supervisorRepo.GetSupervisor()
-			if err == nil {
-				laporan.User.Supervisor = &domain.User{
-					Nama: supervisorData.Nama,
-					NIP:  supervisorData.NIP,
-				}
-			} else {
-				// Fallback jika gagal ambil dari DB
-				laporan.User.Supervisor = &domain.User{
-					Nama: "Atasan Lurah",
-					NIP:  "-",
-				}
-			}
+			laporan.User.Supervisor = s.getLurahSupervisorUser()
 		}
 	}
 }

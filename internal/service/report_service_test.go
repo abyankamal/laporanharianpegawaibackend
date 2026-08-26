@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"laporanharianapi/internal/domain"
+	"laporanharianapi/internal/repository"
 	"laporanharianapi/internal/repository/mocks"
 )
 
@@ -640,4 +641,79 @@ func TestCreateReport_SendsNotificationToSupervisor(t *testing.T) {
 		}))
 	})
 }
+
+// ============================================================
+// Test GetAllReports Lurah Supervisor Prefetch
+// ============================================================
+
+func TestGetAllReports_SupervisorPrefetch(t *testing.T) {
+	t.Run("Fetches supervisor at most once when multiple reports belong to Lurah", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockSupervisorRepo := new(mocks.SupervisorRepositoryMock)
+
+		svc := NewReportService(mockReportRepo, nil, nil, mockSupervisorRepo, nil, nil)
+
+		lurahUser := domain.User{
+			ID:   10,
+			Nama: "Pak Lurah",
+			Role: "lurah",
+		}
+		reports := []domain.Laporan{
+			{ID: 1, User: &lurahUser},
+			{ID: 2, User: &lurahUser},
+			{ID: 3, User: &lurahUser},
+		}
+
+		mockReportRepo.On("GetAll", mock.Anything).Return(reports, int64(3), nil).Once()
+		// GetSupervisor should only be called ONCE despite having 3 reports from Lurah
+		mockSupervisorRepo.On("GetSupervisor").Return(&domain.LurahSupervisor{
+			Nama: "Camat Hebat",
+			NIP:  "198001012005011001",
+		}, nil).Once()
+
+		res, total, err := svc.GetAllReports(repository.ReportFilter{}, "admin", 1)
+
+		assert.NoError(t, err)
+		assert.Equal(t, int64(3), total)
+		assert.Len(t, res, 3)
+		for _, r := range res {
+			assert.NotNil(t, r.User.Supervisor)
+			assert.Equal(t, "Camat Hebat", r.User.Supervisor.Nama)
+			assert.Equal(t, "198001012005011001", r.User.Supervisor.NIP)
+		}
+
+		mockReportRepo.AssertExpectations(t)
+		mockSupervisorRepo.AssertExpectations(t)
+	})
+
+	t.Run("Does not fetch supervisor when reports do not belong to Lurah", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockSupervisorRepo := new(mocks.SupervisorRepositoryMock)
+
+		svc := NewReportService(mockReportRepo, nil, nil, mockSupervisorRepo, nil, nil)
+
+		staffUser := domain.User{
+			ID:   11,
+			Nama: "Budi Staf",
+			Role: "staf",
+		}
+		reports := []domain.Laporan{
+			{ID: 1, User: &staffUser},
+			{ID: 2, User: &staffUser},
+		}
+
+		mockReportRepo.On("GetAll", mock.Anything).Return(reports, int64(2), nil).Once()
+		// GetSupervisor should NOT be called at all
+
+		res, total, err := svc.GetAllReports(repository.ReportFilter{}, "admin", 1)
+
+		assert.NoError(t, err)
+		assert.Equal(t, int64(2), total)
+		assert.Len(t, res, 2)
+
+		mockReportRepo.AssertExpectations(t)
+		mockSupervisorRepo.AssertExpectations(t)
+	})
+}
+
 
