@@ -104,6 +104,22 @@ func TestMiddleware_AllowRoles(t *testing.T) {
 		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	})
 
+	t.Run("Allowed Role Case-Insensitive (Lurah, SEKERTARIS)", func(t *testing.T) {
+		tokenLurah := generateTestJWT(1, "Lurah", "access", time.Hour, secret)
+		req := httptest.NewRequest(http.MethodGet, "/lurah-only", nil)
+		req.Header.Set("Authorization", "Bearer "+tokenLurah)
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+		tokenSek := generateTestJWT(2, "SEKERTARIS", "access", time.Hour, secret)
+		reqSek := httptest.NewRequest(http.MethodGet, "/lurah-only", nil)
+		reqSek.Header.Set("Authorization", "Bearer "+tokenSek)
+		respSek, errSek := app.Test(reqSek)
+		assert.NoError(t, errSek)
+		assert.Equal(t, fiber.StatusOK, respSek.StatusCode)
+	})
+
 	t.Run("Forbidden Role (staf)", func(t *testing.T) {
 		token := generateTestJWT(5, "staf", "access", time.Hour, secret)
 		req := httptest.NewRequest(http.MethodGet, "/lurah-only", nil)
@@ -131,6 +147,17 @@ func TestMiddleware_AdminOnly(t *testing.T) {
 		resp, err := app.Test(req)
 		assert.NoError(t, err)
 		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("Allowed Admin Case-Insensitive (ADMIN, Lurah, LURAH)", func(t *testing.T) {
+		for _, r := range []string{"ADMIN", "Admin", "Lurah", "LURAH"} {
+			token := generateTestJWT(11, r, "access", time.Hour, secret)
+			req := httptest.NewRequest(http.MethodGet, "/admin-only", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			resp, err := app.Test(req)
+			assert.NoError(t, err)
+			assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+		}
 	})
 
 	t.Run("Forbidden Non-Admin (staf)", func(t *testing.T) {

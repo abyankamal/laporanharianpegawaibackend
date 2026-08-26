@@ -78,10 +78,10 @@ func Protected() fiber.Handler {
 // AllowRoles adalah middleware RBAC untuk membatasi akses berdasarkan role user.
 // Middleware ini HARUS dipanggil SETELAH Protected() agar c.Locals("role") sudah terisi.
 func AllowRoles(allowedRoles ...string) fiber.Handler {
-	// Buat map untuk lookup O(1)
+	// Buat map untuk lookup O(1) dengan lowercase key
 	roleMap := make(map[string]bool, len(allowedRoles))
 	for _, role := range allowedRoles {
-		roleMap[role] = true
+		roleMap[strings.ToLower(role)] = true
 	}
 
 	return func(c fiber.Ctx) error {
@@ -94,8 +94,8 @@ func AllowRoles(allowedRoles ...string) fiber.Handler {
 			})
 		}
 
-		// 2. Cek apakah role ada di daftar yang diizinkan
-		if !roleMap[userRole] {
+		// 2. Cek apakah role ada di daftar yang diizinkan (case-insensitive)
+		if !roleMap[strings.ToLower(userRole)] {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"status":  "error",
 				"message": fmt.Sprintf("Akses ditolak. Role '%s' tidak memiliki izin. Role yang diizinkan: %s", userRole, strings.Join(allowedRoles, ", ")),
@@ -111,12 +111,12 @@ func AllowRoles(allowedRoles ...string) fiber.Handler {
 func AdminOnly() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// 1. Ambil role dari Locals (di-set oleh Protected middleware)
-		// Kita asumsikan middleware ini dipanggil setalah Protected()
+		// Kita asumsikan middleware ini dipanggil setelah Protected()
 		userRole, ok := c.Locals("role").(string)
 
-		// Jika role tidak ada atau bukan admin/lurah, tolak akses
-		// Catatan: sesuaikan string role dengan database Anda (case-sensitive)
-		if !ok || (userRole != "admin" && userRole != "lurah" && userRole != "Admin") {
+		// Jika role tidak ada atau bukan admin/lurah, tolak akses (case-insensitive)
+		roleLower := strings.ToLower(userRole)
+		if !ok || (roleLower != "admin" && roleLower != "lurah") {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 				"status":  "error",
 				"message": "Akses ditolak: Anda bukan Admin",
