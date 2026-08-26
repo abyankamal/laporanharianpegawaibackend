@@ -17,6 +17,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 // ============================================================
@@ -191,10 +192,10 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 
 		// 3. Request
 		req := httptest.NewRequest(http.MethodGet, "/export/pdf?start_date=2024-03-01&end_date=2024-03-31", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second})
 
 		// 4. Assert
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/pdf", resp.Header.Get("Content-Type"))
 		
@@ -243,9 +244,9 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		app.Get("/export/pdf", h.ExportReportPDFHandler)
 
 		req := httptest.NewRequest(http.MethodGet, "/export/pdf", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/pdf", resp.Header.Get("Content-Type"))
 		
@@ -286,9 +287,9 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		app.Get("/export/pdf", h.ExportReportPDFHandler)
 
 		req := httptest.NewRequest(http.MethodGet, "/export/pdf?user_id=1", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/pdf", resp.Header.Get("Content-Type"))
 		
@@ -331,9 +332,9 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		app.Get("/export/pdf", h.ExportReportPDFHandler)
 
 		req := httptest.NewRequest(http.MethodGet, "/export/pdf?user_ids=1,3", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/pdf", resp.Header.Get("Content-Type"))
 
@@ -366,9 +367,9 @@ func TestExportReportPDFHandler_Success(t *testing.T) {
 		app.Get("/export/pdf", h.ExportReportPDFHandler)
 
 		req := httptest.NewRequest(http.MethodGet, "/export/pdf?user_ids=1,2", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second})
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 
 		mockUserService.AssertExpectations(t)
