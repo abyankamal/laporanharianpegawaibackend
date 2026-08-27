@@ -25,6 +25,14 @@ func (h *AdminHandler) GetRekapLaporan(c fiber.Ctx) error {
 	// 1. Ekstrak parameter query string dari URL
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	} else if limit > 100 {
+		limit = 100
+	}
+	if page <= 0 {
+		page = 1
+	}
 
 	filter := repository.AdminReportFilter{
 		StartDate:    c.Query("start_date"),
@@ -123,6 +131,14 @@ func (h *AdminHandler) GetPegawai(c fiber.Ctx) error {
 	role := c.Query("role")
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	} else if limit > 100 {
+		limit = 100
+	}
+	if page <= 0 {
+		page = 1
+	}
 
 	filter := repository.AdminPegawaiFilter{
 		Search: search,
@@ -308,6 +324,14 @@ func (h *AdminHandler) GetPengumuman(c fiber.Ctx) error {
 	search := c.Query("search")
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	} else if limit > 100 {
+		limit = 100
+	}
+	if page <= 0 {
+		page = 1
+	}
 
 	filter := repository.AdminPengumumanFilter{
 		Search: search,

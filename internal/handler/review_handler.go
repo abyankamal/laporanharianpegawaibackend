@@ -128,6 +128,8 @@ func (h *ReviewHandler) GetMyReviews(c fiber.Ctx) error {
 
 	if limit <= 0 {
 		limit = 10
+	} else if limit > 100 {
+		limit = 100
 	}
 	if page <= 0 {
 		page = 1

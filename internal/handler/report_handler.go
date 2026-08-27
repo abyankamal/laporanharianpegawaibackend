@@ -58,9 +58,11 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit"))
 	page, _ := strconv.Atoi(c.Query("page"))
 
-	// 3. Set default value
+	// 3. Set default value & cap limit to prevent unbounded fetches
 	if limit <= 0 {
 		limit = 10
+	} else if limit > 100 {
+		limit = 100
 	}
 	if page <= 0 {
 		page = 1

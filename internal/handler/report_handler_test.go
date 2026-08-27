@@ -602,3 +602,35 @@ func TestGetOneReportHandler(t *testing.T) {
 	})
 }
 
+func TestGetAllReportsHandler_LimitCapping(t *testing.T) {
+	t.Run("Caps limit to 100 when query parameter limit exceeds 100", func(t *testing.T) {
+		mockReportService := new(ReportServiceMock)
+		mockUserService := new(UserServiceMock)
+		app := fiber.New()
+		h := NewReportHandler(mockReportService, mockUserService)
+
+		userID := uint(1)
+		role := "admin"
+
+		app.Use(func(c fiber.Ctx) error {
+			c.Locals("user_id", float64(userID))
+			c.Locals("role", role)
+			return c.Next()
+		})
+		app.Get("/reports", h.GetAll)
+
+		// Expect filter.Limit to be capped at 100
+		mockReportService.On("GetAllReports", mock.MatchedBy(func(f repository.ReportFilter) bool {
+			return f.Limit == 100
+		}), role, userID).Return([]domain.Laporan{}, int64(0), nil).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/reports?limit=500", nil)
+		resp, err := app.Test(req)
+
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		mockReportService.AssertExpectations(t)
+	})
+}
+
+
