@@ -384,7 +384,23 @@ func (s *reportService) saveFile(fileHeader *multipart.FileHeader, subDir string
 			return "", errors.New("ukuran foto maksimal 50MB")
 		}
 	} else {
-		// Dokumen/Lainnya: Check size (max 200MB)
+		// Validasi ekstensi dokumen (mencegah Stored XSS / arbitrary executable upload)
+		allowedDocExts := map[string]bool{
+			".pdf":  true,
+			".doc":  true,
+			".docx": true,
+			".xls":  true,
+			".xlsx": true,
+			".zip":  true,
+			".csv":  true,
+			".jpg":  true,
+			".jpeg": true,
+			".png":  true,
+		}
+		if !allowedDocExts[extLower] {
+			return "", errors.New("format dokumen tidak didukung. Gunakan PDF, DOC/DOCX, XLS/XLSX, ZIP, CSV, atau Gambar")
+		}
+		// Dokumen: Check size (max 200MB)
 		if fileHeader.Size > 200*1024*1024 {
 			return "", errors.New("ukuran dokumen maksimal 200MB")
 		}
@@ -590,7 +606,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 	// Pengecekan status
 	// Lurah diperbolehkan mengedit laporannya sendiri meskipun statusnya sudah disetujui (karena auto-approve).
 	isLurahEditingOwn := roleBase == "lurah" && laporan.UserID != nil && *laporan.UserID == requesterID
-	
+
 	if (laporan.Status == "disetujui" || laporan.Status == "sudah_direview") && !isLurahEditingOwn {
 		return apperror.ErrReportAlreadyApproved
 	}
@@ -617,7 +633,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 			if err != nil {
 				return fmt.Errorf("gagal menyimpan file foto baru: %v", err)
 			}
-			
+
 			// Hapus foto lama jika ada
 			if laporan.FotoURL != nil && *laporan.FotoURL != "" {
 				oldPath := filepath.Join(".", *laporan.FotoURL)
@@ -626,7 +642,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 
 			laporan.FotoURL = &uploadedPath
 		}
-		
+
 		// Reset status agar dinilai ulang
 		laporan.Status = "menunggu_review"
 		// Opsional: hapus komentar atasan sebelumnya

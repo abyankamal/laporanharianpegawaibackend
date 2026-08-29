@@ -2,4 +2,8 @@
 uploads/
 ekinerja-api
 ekinerja-seeder
-/tasks
+tasks/
+serviceAccountKey.json
+*.pem
+*.key
+*.p12

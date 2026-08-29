@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -30,13 +31,19 @@ func ConnectDatabase() {
 		user, password, host, port, dbName,
 	)
 
+	// Konfigurasi log level GORM (logger.Warn untuk produksi agar parameter data tidak terekspos)
+	gormLogLevel := logger.Warn
+	if strings.ToLower(os.Getenv("APP_ENV")) == "development" {
+		gormLogLevel = logger.Info
+	}
+
 	// Buka koneksi ke database dengan retry mechanism (menghindari race condition saat container startup)
 	var db *gorm.DB
 	var err error
 	maxRetries := 15
 	for i := 1; i <= maxRetries; i++ {
 		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-			Logger: logger.Default.LogMode(logger.Info),
+			Logger: logger.Default.LogMode(gormLogLevel),
 		})
 		if err == nil {
 			break

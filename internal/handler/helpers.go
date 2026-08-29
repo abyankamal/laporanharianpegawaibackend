@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -65,7 +66,8 @@ func ErrorResponse(c fiber.Ctx, err error) error {
 
 	switch {
 	case errors.Is(err, apperror.ErrReportNotFound),
-		errors.Is(err, apperror.ErrUserNotFound):
+		errors.Is(err, apperror.ErrUserNotFound),
+		strings.Contains(strings.ToLower(message), "tidak ditemukan"):
 		status = fiber.StatusNotFound
 
 	case errors.Is(err, apperror.ErrForbidden),
@@ -73,7 +75,8 @@ func ErrorResponse(c fiber.Ctx, err error) error {
 		errors.Is(err, apperror.ErrOnlyLurahCanDeleteReport),
 		errors.Is(err, apperror.ErrOnlyOwnReportAllowed),
 		errors.Is(err, apperror.ErrOnlyStaffOrOwnAllowed),
-		errors.Is(err, apperror.ErrOnlyOwnReportModifiable):
+		errors.Is(err, apperror.ErrOnlyOwnReportModifiable),
+		strings.Contains(strings.ToLower(message), "akses ditolak"):
 		status = fiber.StatusForbidden
 
 	case errors.Is(err, apperror.ErrUnauthorized),

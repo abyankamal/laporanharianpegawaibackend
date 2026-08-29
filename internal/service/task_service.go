@@ -321,10 +321,27 @@ func (s *taskService) saveTaskFile(fileHeader *multipart.FileHeader) (string, er
 		return "", err
 	}
 
-	ext := filepath.Ext(fileHeader.Filename)
-	// Max 200MB (sama dengan laporan)
-	if fileHeader.Size > 200*1024*1024 {
-		return "", errors.New("ukuran file bukti maksimal 200MB")
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	allowedTaskExts := map[string]bool{
+		".pdf":  true,
+		".doc":  true,
+		".docx": true,
+		".xls":  true,
+		".xlsx": true,
+		".zip":  true,
+		".csv":  true,
+		".jpg":  true,
+		".jpeg": true,
+		".png":  true,
+		".webp": true,
+	}
+	if !allowedTaskExts[ext] {
+		return "", errors.New("format file bukti tidak didukung. Gunakan PDF, DOC/DOCX, XLS/XLSX, ZIP, CSV, atau Gambar")
+	}
+
+	// Max 50MB
+	if fileHeader.Size > 50*1024*1024 {
+		return "", errors.New("ukuran file bukti maksimal 50MB")
 	}
 
 	newFileName := "task-" + uuid.New().String() + ext

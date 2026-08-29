@@ -303,7 +303,7 @@ func TestDeleteUser_Success(t *testing.T) {
 	mockUserRepo := new(mocks.UserRepositoryMock)
 	userSvc := NewUserService(mockUserRepo, nil)
 
-	existingUser := &domain.User{ID: 1, NIP: "123"}
+	existingUser := &domain.User{ID: 1, NIP: "123", Role: "staf"}
 	mockUserRepo.On("FindByID", uint(1)).Return(existingUser, nil)
 
 	// Mock returning related file paths
@@ -311,11 +311,27 @@ func TestDeleteUser_Success(t *testing.T) {
 	mockUserRepo.On("DeleteWithCleanup", uint(1)).Return(filePaths, nil)
 
 	// Execute
-	err := userSvc.DeleteUser(1)
+	err := userSvc.DeleteUser(1, "admin")
 
 	// Assert
 	assert.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
+}
+
+func TestDeleteUser_Fail_SecretaryCannotDeleteLurah(t *testing.T) {
+	// Setup
+	mockUserRepo := new(mocks.UserRepositoryMock)
+	userSvc := NewUserService(mockUserRepo, nil)
+
+	lurahUser := &domain.User{ID: 1, NIP: "123", Role: "lurah"}
+	mockUserRepo.On("FindByID", uint(1)).Return(lurahUser, nil)
+
+	// Execute (Secretary trying to delete Lurah)
+	err := userSvc.DeleteUser(1, "sekertaris")
+
+	// Assert
+	assert.Error(t, err)
+	mockUserRepo.AssertNotCalled(t, "DeleteWithCleanup")
 }
 
 func TestDeleteUser_Fail_UserNotFound(t *testing.T) {
@@ -326,11 +342,10 @@ func TestDeleteUser_Fail_UserNotFound(t *testing.T) {
 	mockUserRepo.On("FindByID", uint(1)).Return(nil, errors.New("not found"))
 
 	// Execute
-	err := userSvc.DeleteUser(1)
+	err := userSvc.DeleteUser(1, "admin")
 
 	// Assert
 	assert.Error(t, err)
-	assert.Equal(t, "user tidak ditemukan", err.Error())
 	mockUserRepo.AssertNotCalled(t, "DeleteWithCleanup")
 }
 

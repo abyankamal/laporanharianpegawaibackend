@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/helmet"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/joho/godotenv"
 
@@ -127,8 +129,8 @@ func main() {
 	// =============================================
 	app := fiber.New(fiber.Config{
 		AppName:         "Laporan Harian API v1.0",
-		BodyLimit:       300 * 1024 * 1024, // Increase to 300 MB
-		ReadTimeout:     60 * time.Second,  // Give more time for slow mobile uploads
+		BodyLimit:       50 * 1024 * 1024, // 50 MB
+		ReadTimeout:     60 * time.Second, // Give more time for mobile uploads
 		WriteTimeout:    60 * time.Second,
 		IdleTimeout:     120 * time.Second,
 		ReadBufferSize:  16 * 1024, // 16KB buff
@@ -158,6 +160,7 @@ func main() {
 	// =============================================
 
 	app.Use(recover.New())
+	app.Use(helmet.New())
 
 	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
 	var allowedOrigins []string
@@ -180,15 +183,45 @@ func main() {
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
 	}))
 
-	// Static file serving
-	app.Get("/api/uploads/photos/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/photos/" + c.Params("*")) })
-	app.Get("/uploads/photos/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/photos/" + c.Params("*")) })
-	app.Get("/api/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
-	app.Get("/uploads/reports/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/reports/" + c.Params("*")) })
-	app.Get("/api/uploads/attendance/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/attendance/" + c.Params("*")) })
-	app.Get("/uploads/attendance/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/attendance/" + c.Params("*")) })
-	app.Get("/api/uploads/leave/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/leave/" + c.Params("*")) })
-	app.Get("/uploads/leave/*", func(c fiber.Ctx) error { return c.SendFile("./uploads/leave/" + c.Params("*")) })
+	// Static file serving dengan proteksi Path Traversal
+	serveUploadFile := func(baseDir string) fiber.Handler {
+		return func(c fiber.Ctx) error {
+			rawParam := c.Params("*")
+			// Bersihkan parameter path untuk mencegah traversal seperti ../..
+			cleanParam := filepath.Clean("/" + rawParam)
+			targetPath := filepath.Join(baseDir, cleanParam)
+
+			// Pastikan targetPath berada di dalam baseDir
+			absBase, err1 := filepath.Abs(baseDir)
+			absTarget, err2 := filepath.Abs(targetPath)
+			if err1 != nil || err2 != nil || !strings.HasPrefix(absTarget, absBase) {
+				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+					"status":  "error",
+					"message": "Akses file ditolak",
+				})
+			}
+
+			// Cek apakah file fisik ada di disk dan bukan direktori
+			info, err := os.Stat(absTarget)
+			if err != nil || info.IsDir() {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"status":  "error",
+					"message": "File tidak ditemukan",
+				})
+			}
+
+			return c.SendFile(absTarget)
+		}
+	}
+
+	app.Get("/api/uploads/photos/*", serveUploadFile("./uploads/photos"))
+	app.Get("/uploads/photos/*", serveUploadFile("./uploads/photos"))
+	app.Get("/api/uploads/reports/*", serveUploadFile("./uploads/reports"))
+	app.Get("/uploads/reports/*", serveUploadFile("./uploads/reports"))
+	app.Get("/api/uploads/attendance/*", serveUploadFile("./uploads/attendance"))
+	app.Get("/uploads/attendance/*", serveUploadFile("./uploads/attendance"))
+	app.Get("/api/uploads/leave/*", serveUploadFile("./uploads/leave"))
+	app.Get("/uploads/leave/*", serveUploadFile("./uploads/leave"))
 
 	// =============================================
 	// 6. SETUP ROUTES

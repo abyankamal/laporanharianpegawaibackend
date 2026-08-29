@@ -37,7 +37,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 
 	// Public Routes
 	mobile.Post("/login", middleware.LoginLimiter(), h.Auth.Login)
-	mobile.Post("/refresh", h.Auth.RefreshToken)
+	mobile.Post("/refresh", middleware.RefreshTokenLimiter(), h.Auth.RefreshToken)
 
 	// Protected Routes
 	mProtected := mobile.Group("", middleware.Protected())
@@ -111,7 +111,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 
 	// Public Routes
 	web.Post("/login", middleware.LoginLimiter(), h.Auth.Login)
-	web.Post("/refresh", h.Auth.RefreshToken)
+	web.Post("/refresh", middleware.RefreshTokenLimiter(), h.Auth.RefreshToken)
 
 	// Protected Routes
 	wProtected := web.Group("", middleware.Protected())
@@ -124,12 +124,12 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	wReports := wProtected.Group("/reports")
 	wReports.Get("/", h.Report.GetAll)
 	wReports.Post("/", h.Report.Create)
-	wReports.Get("/recap", h.Admin.GetRekapLaporan)
-	wReports.Get("/export", h.Admin.GetLaporanExport)
-	wReports.Get("/export/excel", h.Report.ExportReportRecapExcelHandler)
-	wReports.Get("/export/pdf", h.Report.ExportReportPDFHandler)
-	wReports.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler)
-	wReports.Put("/evaluate", h.Report.EvaluateReportHandler)
+	wReports.Get("/recap", h.Admin.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	wReports.Get("/export", h.Admin.GetLaporanExport, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	wReports.Get("/export/excel", h.Report.ExportReportRecapExcelHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	wReports.Get("/export/pdf", h.Report.ExportReportPDFHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	wReports.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	wReports.Put("/evaluate", h.Report.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Get("/:id", h.Report.GetOne)
 
 	// Admin Specific
@@ -204,7 +204,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	adminOnly.Delete("/jabatan/:id", h.Jabatan.Delete)
 
 	// Absensi (Web Admin)
-	wAbsensi := wProtected.Group("/absensi")
+	wAbsensi := wProtected.Group("/absensi", middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wAbsensi.Get("/recap", h.Absensi.GetAllRecap)
 	wAbsensi.Get("/export/pdf", h.Absensi.ExportPDF)
 

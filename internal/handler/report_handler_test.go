@@ -102,13 +102,13 @@ func (m *UserServiceMock) CreateUser(req service.CreateUserRequest) (*domain.Use
 	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *UserServiceMock) UpdateUser(id uint, req service.UpdateUserRequest) (*domain.User, error) {
-	args := m.Called(id, req)
+func (m *UserServiceMock) UpdateUser(id uint, req service.UpdateUserRequest, requesterRole string) (*domain.User, error) {
+	args := m.Called(id, req, requesterRole)
 	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *UserServiceMock) DeleteUser(id uint) error {
-	args := m.Called(id)
+func (m *UserServiceMock) DeleteUser(id uint, requesterRole string) error {
+	args := m.Called(id, requesterRole)
 	return args.Error(0)
 }
 
@@ -117,8 +117,8 @@ func (m *UserServiceMock) ChangePassword(userID uint, req service.ChangePassword
 	return args.Error(0)
 }
 
-func (m *UserServiceMock) ResetPasswordByAdmin(targetUserID uint, newPassword string) error {
-	args := m.Called(targetUserID, newPassword)
+func (m *UserServiceMock) ResetPasswordByAdmin(targetUserID uint, newPassword string, requesterRole string) error {
+	args := m.Called(targetUserID, newPassword, requesterRole)
 	return args.Error(0)
 }
 

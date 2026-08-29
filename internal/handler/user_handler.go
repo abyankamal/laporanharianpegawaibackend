@@ -248,6 +248,8 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 		})
 	}
 
+	requesterRole, _ := c.Locals("role").(string)
+
 	var req service.UpdateUserRequest
 
 	// Parse body request
@@ -258,12 +260,9 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 		})
 	}
 
-	user, err := h.userService.UpdateUser(uint(id), req)
+	user, err := h.userService.UpdateUser(uint(id), req, requesterRole)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -294,12 +293,11 @@ func (h *UserHandler) Delete(c fiber.Ctx) error {
 		})
 	}
 
-	err = h.userService.DeleteUser(uint(id))
+	requesterRole, _ := c.Locals("role").(string)
+
+	err = h.userService.DeleteUser(uint(id), requesterRole)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -367,28 +365,26 @@ func (h *UserHandler) ResetPassword(c fiber.Ctx) error {
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
 			"message": "ID tidak valid",
 		})
 	}
+
+	requesterRole, _ := c.Locals("role").(string)
 
 	var req struct {
 		NewPassword string `json:"new_password"`
 	}
 	_ = c.Bind().JSON(&req)
 
-	err = h.userService.ResetPasswordByAdmin(uint(id), req.NewPassword)
+	err = h.userService.ResetPasswordByAdmin(uint(id), req.NewPassword, requesterRole)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
 		"status":  "success",
-		"message": "Password user berhasil direset",
+		"message": "Password berhasil direset oleh admin",
 	})
 }
 

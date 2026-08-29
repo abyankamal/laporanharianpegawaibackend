@@ -505,17 +505,18 @@ func (h *ReportHandler) Update(c fiber.Ctx) error {
 	requesterID := uint(requesterIDFloat)
 	requesterRole, _ := c.Locals("role").(string)
 
-	// 3. Parse Form Data
-	var req struct {
-		JudulKegiatan  string `form:"judul_kegiatan"`
-		DeskripsiHasil string `form:"deskripsi_hasil"`
+	// 3. Parse Request Body (Mendukung JSON dan Form-Data)
+	type UpdateRequest struct {
+		JudulKegiatan  string `json:"judul_kegiatan" form:"judul_kegiatan"`
+		DeskripsiHasil string `json:"deskripsi_hasil" form:"deskripsi_hasil"`
 	}
-
-	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid",
-		})
+	var req UpdateRequest
+	if err := c.Bind().JSON(&req); err != nil {
+		req.JudulKegiatan = c.FormValue("judul_kegiatan")
+		req.DeskripsiHasil = c.FormValue("deskripsi_hasil")
+	} else if c.FormValue("judul_kegiatan") != "" || c.FormValue("deskripsi_hasil") != "" {
+		req.JudulKegiatan = c.FormValue("judul_kegiatan")
+		req.DeskripsiHasil = c.FormValue("deskripsi_hasil")
 	}
 
 	// Coba ambil file foto (opsional, hanya valid untuk status ditolak)

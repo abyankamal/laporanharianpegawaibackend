@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	"laporanharianapi/internal/apperror"
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository"
 )
@@ -48,10 +49,10 @@ type UserService interface {
 	GetAllUsers() ([]domain.User, error)
 	GetUserByID(id uint) (*domain.User, error)
 	CreateUser(req CreateUserRequest) (*domain.User, error)
-	UpdateUser(id uint, req UpdateUserRequest) (*domain.User, error)
-	DeleteUser(id uint) error
+	UpdateUser(id uint, req UpdateUserRequest, requesterRole string) (*domain.User, error)
+	DeleteUser(id uint, requesterRole string) error
 	ChangePassword(userID uint, req ChangePasswordRequest) error
-	ResetPasswordByAdmin(targetUserID uint, newPassword string) error
+	ResetPasswordByAdmin(targetUserID uint, newPassword string, requesterRole string) error
 	UpdateProfilePhoto(userID uint, fileHeader *multipart.FileHeader) (string, error)
 	UpdateFCMToken(userID uint, token string) error
 	GetSupervisors(roleFilter string) ([]domain.User, error)
@@ -185,18 +186,33 @@ func (s *userService) CreateUser(req CreateUserRequest) (*domain.User, error) {
 }
 
 // UpdateUser memperbarui data user.
-func (s *userService) UpdateUser(id uint, req UpdateUserRequest) (*domain.User, error) {
+func (s *userService) UpdateUser(id uint, req UpdateUserRequest, requesterRole string) (*domain.User, error) {
 	// Cek apakah user ada
 	existingUser, err := s.userRepo.FindByID(id)
 	if err != nil {
-		return nil, errors.New("user tidak ditemukan")
+		return nil, apperror.ErrUserNotFound
+	}
+
+	// Proteksi hierarki: Sekertaris / non-admin tidak boleh mengedit akun pimpinan (Lurah / Admin)
+	if requesterRole != "" && strings.ToLower(requesterRole) != "admin" {
+		existingRoleLower := strings.ToLower(existingUser.Role)
+		if existingRoleLower == "lurah" || existingRoleLower == "admin" {
+			return nil, apperror.ErrForbidden
+		}
+		// Dan tidak boleh mempromosikan user ke role Lurah/Admin
+		if req.Role != "" {
+			reqRoleLower := strings.ToLower(req.Role)
+			if reqRoleLower == "lurah" || reqRoleLower == "admin" {
+				return nil, apperror.ErrForbidden
+			}
+		}
 	}
 
 	// Validasi NIP unik jika diubah
 	if req.NIP != "" && req.NIP != existingUser.NIP {
 		userWithNIP, _ := s.userRepo.FindByNIP(req.NIP)
 		if userWithNIP != nil {
-			return nil, errors.New("NIP sudah digunakan oleh user lain")
+			return nil, apperror.ErrNIPAlreadyExists
 		}
 		existingUser.NIP = req.NIP
 	}
@@ -243,11 +259,19 @@ func (s *userService) UpdateUser(id uint, req UpdateUserRequest) (*domain.User, 
 }
 
 // DeleteUser menghapus user berdasarkan ID beserta data terkait dan file fisik.
-func (s *userService) DeleteUser(id uint) error {
+func (s *userService) DeleteUser(id uint, requesterRole string) error {
 	// Cek apakah user ada
-	_, err := s.userRepo.FindByID(id)
+	targetUser, err := s.userRepo.FindByID(id)
 	if err != nil {
-		return errors.New("user tidak ditemukan")
+		return apperror.ErrUserNotFound
+	}
+
+	// Proteksi hierarki: Sekertaris / non-admin tidak boleh menghapus akun pimpinan (Lurah, Admin, atau sesama Sekertaris)
+	if requesterRole != "" && strings.ToLower(requesterRole) != "admin" {
+		targetRoleLower := strings.ToLower(targetUser.Role)
+		if targetRoleLower == "lurah" || targetRoleLower == "admin" || targetRoleLower == "sekertaris" {
+			return apperror.ErrForbidden
+		}
 	}
 
 	// Hapus user dan data terkait di database
@@ -285,18 +309,18 @@ func (s *userService) ChangePassword(userID uint, req ChangePasswordRequest) err
 	// 3. Ambil data user dari database
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil {
-		return errors.New("user tidak ditemukan")
+		return apperror.ErrUserNotFound
 	}
 
 	// 4. Verifikasi old_password cocok dengan hash di database
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword))
 	if err != nil {
-		return errors.New("password lama tidak sesuai")
+		return apperror.ErrOldPasswordMismatch
 	}
 
 	// Validasi password baru tidak boleh sama dengan password lama
 	if req.OldPassword == req.NewPassword {
-		return errors.New("password baru tidak boleh sama dengan password lama")
+		return apperror.ErrSamePassword
 	}
 
 	// 5. Hash new_password menggunakan bcrypt
@@ -315,7 +339,7 @@ func (s *userService) ChangePassword(userID uint, req ChangePasswordRequest) err
 }
 
 // ResetPasswordByAdmin mereset password user oleh admin/sekertaris tanpa memerlukan password lama.
-func (s *userService) ResetPasswordByAdmin(targetUserID uint, newPassword string) error {
+func (s *userService) ResetPasswordByAdmin(targetUserID uint, newPassword string, requesterRole string) error {
 	// 1. Validasi input: Jika kosong, gunakan default password
 	if newPassword == "" {
 		newPassword = "password123"
@@ -326,9 +350,17 @@ func (s *userService) ResetPasswordByAdmin(targetUserID uint, newPassword string
 	}
 
 	// 2. Cek keberadaan user
-	_, err := s.userRepo.FindByID(targetUserID)
+	targetUser, err := s.userRepo.FindByID(targetUserID)
 	if err != nil {
-		return errors.New("user tidak ditemukan")
+		return apperror.ErrUserNotFound
+	}
+
+	// Proteksi hierarki: Sekertaris / non-admin tidak boleh mereset password akun Lurah atau Admin
+	if requesterRole != "" && strings.ToLower(requesterRole) != "admin" {
+		targetRoleLower := strings.ToLower(targetUser.Role)
+		if targetRoleLower == "lurah" || targetRoleLower == "admin" {
+			return apperror.ErrForbidden
+		}
 	}
 
 	// 3. Hash password baru menggunakan bcrypt

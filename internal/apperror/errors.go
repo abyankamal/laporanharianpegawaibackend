@@ -9,7 +9,7 @@ var (
 	ErrReportAlreadyApproved     = errors.New("laporan yang sudah disetujui tidak dapat diubah")
 	ErrInvalidEvaluationStatus   = errors.New("status evaluasi tidak valid (harus 'disetujui' atau 'ditolak')")
 	ErrReasonRequired            = errors.New("alasan (komentar) wajib diisi jika laporan ditolak")
-	ErrSecretaryStaffOnly        = errors.New("sekertaris hanya memiliki hak untuk mengevaluasi laporan staf")
+	ErrSecretaryStaffOnly        = errors.New("Sekertaris hanya memiliki hak untuk mengevaluasi laporan Staf")
 	ErrOnlyLurahCanDeleteReport  = errors.New("akses ditolak: hanya role Lurah yang diperbolehkan menghapus laporan")
 	ErrOnlyOwnReportAllowed      = errors.New("akses ditolak: hanya dapat melihat laporan milik sendiri")
 	ErrOnlyStaffOrOwnAllowed     = errors.New("akses ditolak: hanya dapat melihat laporan staf atau milik sendiri")
