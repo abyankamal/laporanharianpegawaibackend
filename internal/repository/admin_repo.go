@@ -178,35 +178,40 @@ func (r *adminRepository) GetDashboardSummaryAdmin() (*DashboardSummaryResponse,
 	var summary DashboardSummaryResponse
 
 	// A. STATISTIK HARI INI
-	// 1. Total Pegawai (role = 'pegawai' atau 'lurah' atau 'staf' atau 'kasi')
-	// Asumsinya kita tidak menghitung 'admin' atau 'sekertaris' (bisa disesuaikan isinya)
-	r.db.Model(&domain.User{}).Where("role NOT IN ?", []string{"admin", "sekertaris"}).Count(&summary.Statistik.TotalPegawai)
+	// 1. Total Pegawai (role != 'admin' dan role != 'sekertaris')
+	if err := r.db.Model(&domain.User{}).Where("role NOT IN ?", []string{"admin", "sekertaris"}).Count(&summary.Statistik.TotalPegawai).Error; err != nil {
+		return nil, err
+	}
 
-	// Karena kita akan sering filter *hari ini*, mari gunakan helper SQL Current Date bawaan
-	// (Aman untuk berbagai timezones jika database setup-nya benar, atau kita bisa passing string date)
 	todayStr := "CURDATE()" // Syntax MariaDB/MySQL untuk mendapatkan hari ini YYYY-MM-DD
 
 	// 2. Laporan Masuk Hari Ini
-	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr).Count(&summary.Statistik.LaporanMasuk)
+	if err := r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr).Count(&summary.Statistik.LaporanMasuk).Error; err != nil {
+		return nil, err
+	}
 
 	// 3. Tepat Waktu Hari Ini
-	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr + " AND is_overtime = ?", false).Count(&summary.Statistik.TepatWaktu)
+	if err := r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = "+todayStr+" AND is_overtime = ?", false).Count(&summary.Statistik.TepatWaktu).Error; err != nil {
+		return nil, err
+	}
 
 	// 4. Lembur Hari Ini
-	r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = " + todayStr + " AND is_overtime = ?", true).Count(&summary.Statistik.Lembur)
+	if err := r.db.Model(&domain.Laporan{}).Where("DATE(waktu_pelaporan) = "+todayStr+" AND is_overtime = ?", true).Count(&summary.Statistik.Lembur).Error; err != nil {
+		return nil, err
+	}
 
 	// B. LAPORAN TERBARU
 	// Ambil 5 teratas untuk hari ini
-	r.db.Model(&domain.Laporan{}).
-		Preload("User"). // Ambil juga relasi data pengirimnya
+	if err := r.db.Model(&domain.Laporan{}).
+		Preload("User").
 		Where("DATE(waktu_pelaporan) = " + todayStr).
 		Order("waktu_pelaporan DESC").
 		Limit(5).
-		Find(&summary.LaporanTerbaru)
+		Find(&summary.LaporanTerbaru).Error; err != nil {
+		return nil, err
+	}
 
 	// C. NOTIFIKASI AKTIF (Pengumuman Sistem)
-	// Kita ambil 1 notifikasi kategori "Sistem" terbaru yang mungkin belum dibaca secara luas
-	// Ini bertindak sebagai pengumuman global
 	var notif domain.Notification
 	err := r.db.Model(&domain.Notification{}).
 		Where("kategori = 'Sistem'").
@@ -218,12 +223,14 @@ func (r *adminRepository) GetDashboardSummaryAdmin() (*DashboardSummaryResponse,
 	}
 
 	// D. AGENDA / TUGAS ORGANISASI
-	// Ambil dari TugasOrganisasi yang belum kedaluwarsa (misal deadline mulai dari hari ini ke depan)
-	r.db.Model(&domain.TugasOrganisasi{}).
+	// Ambil dari TugasOrganisasi yang belum kedaluwarsa
+	if err := r.db.Model(&domain.TugasOrganisasi{}).
 		Where("DATE(deadline) >= " + todayStr).
 		Order("deadline ASC").
 		Limit(5).
-		Find(&summary.Agenda)
+		Find(&summary.Agenda).Error; err != nil {
+		return nil, err
+	}
 
 	return &summary, nil
 }

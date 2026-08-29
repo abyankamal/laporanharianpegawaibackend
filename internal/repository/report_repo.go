@@ -108,7 +108,7 @@ func (r *reportRepository) GetAll(filter ReportFilter) ([]domain.Laporan, int64,
 		if filter.OwnID > 0 {
 			// Jika ada OwnID (Sekertaris), tampilkan laporan staf OR laporan miliknya sendiri
 			query = query.Joins("JOIN users ON users.id = laporan.user_id").
-				Where("users.role = ? OR laporan.user_id = ?", filter.UserRole, filter.OwnID)
+				Where("(users.role = ? OR laporan.user_id = ?)", filter.UserRole, filter.OwnID)
 		} else {
 			query = query.Joins("JOIN users ON users.id = laporan.user_id").
 				Where("users.role = ?", filter.UserRole)

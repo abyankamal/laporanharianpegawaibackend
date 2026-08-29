@@ -360,13 +360,12 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 		return "", errors.New("user tidak ditemukan")
 	}
 
-	// 4. Hapus foto lama jika ada
+	var oldPhotoPath string
 	if user.FotoPath != nil && *user.FotoPath != "" {
-		// Gunakan FromSlash agar aman di Windows
-		os.Remove(filepath.FromSlash(*user.FotoPath))
+		oldPhotoPath = filepath.FromSlash(*user.FotoPath)
 	}
 
-	// 5. Simpan file baru ke ./uploads/photos/
+	// 4. Simpan file baru ke ./uploads/photos/
 	uploadDir := "./uploads/photos"
 	err = os.MkdirAll(uploadDir, os.ModePerm)
 	if err != nil {
@@ -395,12 +394,17 @@ func (s *userService) UpdateProfilePhoto(userID uint, fileHeader *multipart.File
 
 	destPathSlash := filepath.ToSlash(destPath)
 
-	// 6. Update foto_path di database
+	// 5. Update foto_path di database
 	err = s.userRepo.UpdateFoto(userID, destPathSlash)
 	if err != nil {
 		// Hapus file yang baru diupload jika gagal update DB
 		os.Remove(destPath)
 		return "", errors.New("gagal mengupdate foto profil")
+	}
+
+	// 6. Hapus foto lama setelah foto baru sukses disimpan dan DB ter-update
+	if oldPhotoPath != "" {
+		os.Remove(oldPhotoPath)
 	}
 
 	return destPathSlash, nil

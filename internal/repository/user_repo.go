@@ -104,7 +104,18 @@ func (r *userRepository) DeleteWithCleanup(id uint) ([]string, error) {
 		tx.Where("user_id = ?", id).Delete(&domain.Notification{})
 		tx.Where("user_id = ? OR penilai_id = ?", id, id).Delete(&domain.Penilaian{})
 
-		// 4. Koleksi file path dari file_laporan sebelum dihapus
+		// 4. Koleksi file path dari laporan (foto_url & dokumen_url) dan file_laporan sebelum dihapus
+		var userReports []domain.Laporan
+		tx.Where("user_id = ?", id).Find(&userReports)
+		for _, rp := range userReports {
+			if rp.FotoURL != nil && *rp.FotoURL != "" {
+				filePaths = append(filePaths, *rp.FotoURL)
+			}
+			if rp.DokumenURL != nil && *rp.DokumenURL != "" {
+				filePaths = append(filePaths, *rp.DokumenURL)
+			}
+		}
+
 		var reportFiles []domain.FileLaporan
 		tx.Joins("JOIN laporan ON laporan.id = file_laporan.laporan_id").
 			Where("laporan.user_id = ?", id).

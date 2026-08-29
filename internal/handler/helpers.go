@@ -63,16 +63,31 @@ func ErrorResponse(c fiber.Ctx, err error) error {
 	status := fiber.StatusInternalServerError
 	message := err.Error()
 
-	if errors.Is(err, apperror.ErrReportNotFound) {
+	switch {
+	case errors.Is(err, apperror.ErrReportNotFound),
+		errors.Is(err, apperror.ErrUserNotFound):
 		status = fiber.StatusNotFound
-	} else if errors.Is(err, apperror.ErrForbidden) || 
-	          message == "akses ditolak: hanya dapat melihat laporan staf" || 
-			  message == "akses ditolak: hanya dapat melihat laporan milik sendiri" ||
-			  message == "Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini" {
+
+	case errors.Is(err, apperror.ErrForbidden),
+		errors.Is(err, apperror.ErrSecretaryStaffOnly),
+		errors.Is(err, apperror.ErrOnlyLurahCanDeleteReport),
+		errors.Is(err, apperror.ErrOnlyOwnReportAllowed),
+		errors.Is(err, apperror.ErrOnlyStaffOrOwnAllowed),
+		errors.Is(err, apperror.ErrOnlyOwnReportModifiable):
 		status = fiber.StatusForbidden
-	} else if errors.Is(err, apperror.ErrUnauthorized) {
+
+	case errors.Is(err, apperror.ErrUnauthorized),
+		errors.Is(err, apperror.ErrInvalidToken):
 		status = fiber.StatusUnauthorized
-	} else if errors.Is(err, apperror.ErrBadRequest) {
+
+	case errors.Is(err, apperror.ErrBadRequest),
+		errors.Is(err, apperror.ErrInvalidEvaluationStatus),
+		errors.Is(err, apperror.ErrReasonRequired),
+		errors.Is(err, apperror.ErrReportAlreadyReviewed),
+		errors.Is(err, apperror.ErrReportAlreadyApproved),
+		errors.Is(err, apperror.ErrNIPAlreadyExists),
+		errors.Is(err, apperror.ErrOldPasswordMismatch),
+		errors.Is(err, apperror.ErrSamePassword):
 		status = fiber.StatusBadRequest
 	}
 

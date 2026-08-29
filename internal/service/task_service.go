@@ -152,7 +152,14 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 
 		// Trigger FCM Push Notification
 		if user.FCMToken != nil && *user.FCMToken != "" {
-			go fcm.SendPushNotification(*user.FCMToken, notif.Judul, notif.Pesan)
+			go func(token, title, body string) {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("⚠️ Recovered from panic in FCM task notification goroutine: %v", r)
+					}
+				}()
+				_ = fcm.SendPushNotification(token, title, body)
+			}(*user.FCMToken, notif.Judul, notif.Pesan)
 		}
 	}
 

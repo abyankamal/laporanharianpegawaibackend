@@ -58,6 +58,7 @@ type absensiService struct {
 	holidayRepo  repository.HolidayRepository
 	workHourRepo repository.WorkHourRepository
 	userRepo     repository.UserRepository
+	timeNow      func() time.Time
 }
 
 // NewAbsensiService membuat instance baru AbsensiService.
@@ -72,7 +73,32 @@ func NewAbsensiService(
 		holidayRepo:  holidayRepo,
 		workHourRepo: workHourRepo,
 		userRepo:     userRepo,
+		timeNow:      time.Now,
 	}
+}
+
+// NewAbsensiServiceWithClock membuat instance baru AbsensiService dengan custom clock provider untuk unit test.
+func NewAbsensiServiceWithClock(
+	absensiRepo repository.AbsensiRepository,
+	holidayRepo repository.HolidayRepository,
+	workHourRepo repository.WorkHourRepository,
+	userRepo repository.UserRepository,
+	timeNow func() time.Time,
+) AbsensiService {
+	return &absensiService{
+		absensiRepo:  absensiRepo,
+		holidayRepo:  holidayRepo,
+		workHourRepo: workHourRepo,
+		userRepo:     userRepo,
+		timeNow:      timeNow,
+	}
+}
+
+func (s *absensiService) now() time.Time {
+	if s.timeNow != nil {
+		return s.timeNow()
+	}
+	return time.Now()
 }
 
 // IsWorkday mengecek apakah tanggal tertentu adalah hari kerja (bukan weekend & bukan hari libur).
@@ -97,7 +123,7 @@ func (s *absensiService) IsWorkday(date time.Time) (bool, error) {
 
 // CheckIn memproses absensi masuk pegawai.
 func (s *absensiService) CheckIn(input AbsensiCheckInInput) (*domain.Absensi, error) {
-	now := time.Now()
+	now := s.now()
 
 	// 1. Validasi hari kerja
 	isWorkday, err := s.IsWorkday(now)
@@ -189,7 +215,7 @@ func (s *absensiService) CheckIn(input AbsensiCheckInInput) (*domain.Absensi, er
 
 // CheckOut memproses absensi pulang pegawai.
 func (s *absensiService) CheckOut(input AbsensiCheckOutInput) (*domain.Absensi, error) {
-	now := time.Now()
+	now := s.now()
 
 	// 1. Cek apakah sudah absen masuk hari ini
 	existing, err := s.absensiRepo.GetTodayAbsensi(input.UserID)
@@ -253,7 +279,7 @@ func (s *absensiService) CheckOut(input AbsensiCheckOutInput) (*domain.Absensi, 
 
 // GetTodayStatus mengambil status absensi hari ini beserta info apakah hari kerja.
 func (s *absensiService) GetTodayStatus(userID uint) (*domain.Absensi, bool, error) {
-	now := time.Now()
+	now := s.now()
 
 	isWorkday, err := s.IsWorkday(now)
 	if err != nil {

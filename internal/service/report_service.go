@@ -318,14 +318,14 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 		isOwnReport := laporan.UserID != nil && *laporan.UserID == requesterID
 		isStaffReport := laporan.User != nil && laporan.User.Role == "staf"
 		if !isOwnReport && !isStaffReport {
-			return nil, errors.New("akses ditolak: hanya dapat melihat laporan staf atau milik sendiri")
+			return nil, apperror.ErrOnlyStaffOrOwnAllowed
 		}
 	case "kasi", "staf":
 		if laporan.UserID != nil && *laporan.UserID != requesterID {
-			return nil, errors.New("akses ditolak: hanya dapat melihat laporan milik sendiri")
+			return nil, apperror.ErrOnlyOwnReportAllowed
 		}
 	default:
-		return nil, errors.New("role tidak dikenali")
+		return nil, apperror.ErrForbidden
 	}
 
 	s.fillLurahSupervisor(laporan)
@@ -482,11 +482,11 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	// Validasi status
 	req.Status = strings.ToLower(req.Status)
 	if req.Status != "disetujui" && req.Status != "ditolak" {
-		return errors.New("status evaluasi tidak valid (harus 'disetujui' atau 'ditolak')")
+		return apperror.ErrInvalidEvaluationStatus
 	}
 
 	if req.Status == "ditolak" && strings.TrimSpace(req.Komentar) == "" {
-		return errors.New("alasan (komentar) wajib diisi jika laporan ditolak")
+		return apperror.ErrReasonRequired
 	}
 	if req.Status == "disetujui" && strings.TrimSpace(req.Komentar) == "" {
 		req.Komentar = "Laporan disetujui"
@@ -505,7 +505,7 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 
 	// Cek apakah laporan sudah dievaluasi sebelumnya (final)
 	if laporan.Status == "disetujui" || laporan.Status == "sudah_direview" {
-		return errors.New("Laporan ini sudah disetujui dan tidak dapat dievaluasi ulang")
+		return apperror.ErrReportAlreadyReviewed
 	}
 
 	// Terapkan RBAC Hierarki Penilaian
@@ -513,15 +513,15 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	case "sekertaris", "sekretaris":
 		// Sekertaris HANYA boleh menilai staf (Permintaan User: Staf dikomentari Sekertaris & Lurah)
 		if targetUser.Role != "staf" {
-			return errors.New("Sekertaris hanya memiliki hak untuk mengevaluasi laporan Staf")
+			return apperror.ErrSecretaryStaffOnly
 		}
 	case "admin", "lurah":
 		// Admin & Lurah boleh menilai semua role
 	case "kasi", "staf":
 		// Kasi / Staf tidak punya hak approve laporan general
-		return errors.New("akses ditolak")
+		return apperror.ErrForbidden
 	default:
-		return errors.New("role tidak dikenali")
+		return apperror.ErrForbidden
 	}
 
 	// 3. Update field
@@ -583,7 +583,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 	roleBase := strings.ToLower(requesterRole)
 	if roleBase != "admin" {
 		if laporan.UserID == nil || *laporan.UserID != requesterID {
-			return errors.New("akses ditolak: hanya dapat mengubah laporan milik sendiri")
+			return apperror.ErrOnlyOwnReportModifiable
 		}
 	}
 
@@ -592,7 +592,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 	isLurahEditingOwn := roleBase == "lurah" && laporan.UserID != nil && *laporan.UserID == requesterID
 	
 	if (laporan.Status == "disetujui" || laporan.Status == "sudah_direview") && !isLurahEditingOwn {
-		return errors.New("laporan yang sudah disetujui tidak dapat diubah")
+		return apperror.ErrReportAlreadyApproved
 	}
 
 	if laporan.Status == "menunggu_review" {
@@ -652,7 +652,7 @@ func (s *reportService) DeleteReport(id uint, requesterID uint, requesterRole st
 
 	// 2. RBAC: Hanya Admin & Lurah yang boleh menghapus
 	if strings.ToLower(requesterRole) != "admin" && strings.ToLower(requesterRole) != "lurah" {
-		return errors.New("akses ditolak: hanya role Lurah yang diperbolehkan menghapus laporan")
+		return apperror.ErrOnlyLurahCanDeleteReport
 	}
 
 	// 3. Hapus laporan

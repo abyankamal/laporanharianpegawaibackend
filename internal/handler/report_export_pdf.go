@@ -182,7 +182,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	// Menggunakan requesterRole asli dari token untuk RBAC
 	allReports, _, err := h.reportService.GetAllReports(filter, requesterRole, requesterID)
 	if err != nil {
-		allReports = []domain.Laporan{} // Fallback to empty slice
+		return ErrorResponse(c, err)
 	}
 
 	// Group reports by user ID
@@ -623,6 +623,10 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 		pdf.CellFormat(60, 5, "NIP. "+user.NIP, "", 1, "C", false, 0, "")
 	}
 
+	if pdf.Err() {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal menyusun PDF: " + pdf.Error().Error()})
+	}
+
 	if pdf.PageCount() == 0 {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Tidak ada laporan dalam periode tersebut"})
 	}
@@ -635,10 +639,16 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	pr, pw := io.Pipe()
 
 	go func() {
-		defer pw.Close()
+		defer func() {
+			if r := recover(); r != nil {
+				_ = pw.CloseWithError(fmt.Errorf("panic during PDF generation: %v", r))
+			}
+		}()
 		err := pdf.Output(pw)
 		if err != nil {
-			fmt.Printf("Gagal generate PDF stream: %v\n", err)
+			_ = pw.CloseWithError(err)
+		} else {
+			_ = pw.Close()
 		}
 	}()
 

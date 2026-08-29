@@ -102,16 +102,25 @@ func executeReminder(db *gorm.DB, notifRepo repository.NotificationRepository, w
 	log.Printf("⏰ [Scheduler] Menjalankan reminder untuk tanggal %s", now.Format("2006-01-02"))
 
 	// Query: Cari user yang BELUM membuat laporan hari ini
-	// Exclude role 'lurah' (atasan tertinggi tidak perlu lapor)
+	// Exclude role 'lurah' & 'admin' (tidak wajib membuat laporan kinerja staf)
+	// Exclude user yang sedang izin/sakit/cuti/dinas_luar hari ini
 	var users []userBasic
+	todayDateOnly := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
 	err := db.Table("users").
 		Select("users.id, users.nama").
-		Where("users.role != ?", "lurah").
+		Where("LOWER(users.role) NOT IN (?)", []string{"lurah", "admin"}).
 		Where("users.id NOT IN (?)",
 			db.Table("laporan").
 				Select("laporan.user_id").
-				Where("laporan.created_at >= ? AND laporan.created_at <= ?", todayStart, todayEnd).
+				Where("laporan.waktu_pelaporan >= ? AND laporan.waktu_pelaporan <= ?", todayStart, todayEnd).
 				Where("laporan.user_id IS NOT NULL"),
+		).
+		Where("users.id NOT IN (?)",
+			db.Table("absensi").
+				Select("absensi.user_id").
+				Where("DATE(absensi.tanggal) = DATE(?)", todayDateOnly).
+				Where("absensi.status IN (?)", []string{"cuti", "sakit", "izin", "dinas_luar"}),
 		).
 		Find(&users).Error
 

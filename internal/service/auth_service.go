@@ -76,7 +76,11 @@ func (s *authService) RefreshToken(refreshTokenString string) (map[string]interf
 	}
 
 	// 4. Ambil data user dari claims dan verifikasi ke database
-	userID := uint(claims["user_id"].(float64))
+	uidFloat, ok := claims["user_id"].(float64)
+	if !ok {
+		return nil, errors.New("claim user_id tidak valid pada refresh token")
+	}
+	userID := uint(uidFloat)
 	user, err := s.userRepo.FindByID(userID)
 	if err != nil || user == nil {
 		return nil, errors.New("user tidak ditemukan atau akun tidak aktif")

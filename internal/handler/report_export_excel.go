@@ -218,16 +218,17 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 				if err != nil {
 					return
 				}
-				defer f.Close()
 
 				// Nama file di dalam zip
 				filename := filepath.Base(fileUrl)
 				zipEntryPath := filepath.Join(folder, filename)
 				w, err := zipWriter.Create(zipEntryPath)
 				if err != nil {
+					f.Close()
 					return
 				}
 				io.Copy(w, f)
+				f.Close()
 			}
 		}
 

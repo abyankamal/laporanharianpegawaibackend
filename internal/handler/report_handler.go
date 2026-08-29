@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"laporanharianapi/internal/apperror"
 	"laporanharianapi/internal/repository"
 	"laporanharianapi/internal/service"
 )
@@ -293,16 +291,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 	// 3. Panggil service GetReportDetail (sekarang return 2 value, bukan 3)
 	laporan, err := h.reportService.GetReportDetail(uint(id), requesterRole, requesterID)
 	if err != nil {
-		status := fiber.StatusInternalServerError
-		if errors.Is(err, apperror.ErrReportNotFound) {
-			status = fiber.StatusNotFound
-		} else if err.Error() == "akses ditolak: hanya dapat melihat laporan staf" || err.Error() == "akses ditolak: hanya dapat melihat laporan milik sendiri" {
-			status = fiber.StatusForbidden
-		}
-		return c.Status(status).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	// 4. Susun response
@@ -482,16 +471,7 @@ func (h *ReportHandler) EvaluateReportHandler(c fiber.Ctx) error {
 	// 3. Panggil service logic
 	err := h.reportService.EvaluateReport(assessorID, assessorRole, req)
 	if err != nil {
-		status := fiber.StatusInternalServerError
-		if errors.Is(err, apperror.ErrReportNotFound) {
-			status = fiber.StatusNotFound
-		} else if err.Error() == "Anda tidak memiliki hak untuk mengevaluasi laporan pegawai ini" || err.Error() == "akses ditolak" {
-			status = fiber.StatusForbidden
-		}
-		return c.Status(status).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	// 4. Sukses
@@ -514,7 +494,7 @@ func (h *ReportHandler) Update(c fiber.Ctx) error {
 		})
 	}
 
-	// 2. Ambil info requester untuk RBAC
+	// 2. Ambil info requester dari JWT
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -525,21 +505,17 @@ func (h *ReportHandler) Update(c fiber.Ctx) error {
 	requesterID := uint(requesterIDFloat)
 	requesterRole, _ := c.Locals("role").(string)
 
-	// 3. Parse Request Body
-	// Mendukung JSON body untuk backward compatibility (judul/deskripsi saja)
-	type UpdateRequest struct {
-		JudulKegiatan  string `json:"judul_kegiatan"`
-		DeskripsiHasil string `json:"deskripsi_hasil"`
+	// 3. Parse Form Data
+	var req struct {
+		JudulKegiatan  string `form:"judul_kegiatan"`
+		DeskripsiHasil string `form:"deskripsi_hasil"`
 	}
-	var req UpdateRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		// Jika gagal parse JSON, coba ambil dari form value (multipart)
-		req.JudulKegiatan = c.FormValue("judul_kegiatan")
-		req.DeskripsiHasil = c.FormValue("deskripsi_hasil")
-	} else if c.FormValue("judul_kegiatan") != "" || c.FormValue("deskripsi_hasil") != "" {
-		// Jika form-data juga ada, utamakan form-data
-		req.JudulKegiatan = c.FormValue("judul_kegiatan")
-		req.DeskripsiHasil = c.FormValue("deskripsi_hasil")
+
+	if err := c.Bind().Body(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "error",
+			"message": "Format request tidak valid",
+		})
 	}
 
 	// Coba ambil file foto (opsional, hanya valid untuk status ditolak)
@@ -548,16 +524,7 @@ func (h *ReportHandler) Update(c fiber.Ctx) error {
 	// 4. Panggil Service
 	err = h.reportService.UpdateReport(uint(id), req.JudulKegiatan, req.DeskripsiHasil, fileFoto, requesterID, requesterRole)
 	if err != nil {
-		status := fiber.StatusInternalServerError
-		if errors.Is(err, apperror.ErrReportNotFound) {
-			status = fiber.StatusNotFound
-		} else if strings.Contains(err.Error(), "akses ditolak") {
-			status = fiber.StatusForbidden
-		}
-		return c.Status(status).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	// 5. Success
@@ -594,16 +561,7 @@ func (h *ReportHandler) Delete(c fiber.Ctx) error {
 	// 3. Panggil service Delete
 	err = h.reportService.DeleteReport(uint(id), requesterID, requesterRole)
 	if err != nil {
-		status := fiber.StatusInternalServerError
-		if errors.Is(err, apperror.ErrReportNotFound) {
-			status = fiber.StatusNotFound
-		} else if strings.Contains(err.Error(), "akses ditolak") {
-			status = fiber.StatusForbidden
-		}
-		return c.Status(status).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	// 4. Success

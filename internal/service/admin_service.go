@@ -226,7 +226,14 @@ func (s *adminService) CreatePengumumanAdmin(pengumuman *domain.Notification) er
 		// Jika spesifik ke satu user (UserID != 0)
 		u, err := s.userRepo.FindByID(uint(pengumuman.UserID))
 		if err == nil && u.FCMToken != nil && *u.FCMToken != "" {
-			go fcm.SendPushNotification(*u.FCMToken, pengumuman.Judul, pengumuman.Pesan)
+			go func(token, title, body string) {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("⚠️ Recovered from panic in FCM single announcement goroutine: %v", r)
+					}
+				}()
+				_ = fcm.SendPushNotification(token, title, body)
+			}(*u.FCMToken, pengumuman.Judul, pengumuman.Pesan)
 		}
 	}
 
