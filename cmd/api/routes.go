@@ -45,12 +45,17 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	// Profile & Dashboard
 	mProtected.Get("/profile", h.User.GetProfile)
 	mProtected.Put("/profile/change-password", h.User.ChangePassword)
+	mProtected.Put("/profile/password", h.User.ChangePassword) // RESTful alias
 	mProtected.Put("/profile/change-photo", h.User.ChangePhoto)
+	mProtected.Put("/profile/photo", h.User.ChangePhoto)  // RESTful alias
+	mProtected.Post("/profile/photo", h.User.ChangePhoto) // RESTful alias
 	mProtected.Put("/users/fcm-token", h.User.UpdateFCMToken)
+	mProtected.Put("/profile/fcm-token", h.User.UpdateFCMToken) // RESTful alias
 	mProtected.Get("/dashboard/summary", h.Dashboard.GetSummary)
 
 	// Directory
 	mProtected.Get("/rekan-kerja", h.Admin.GetPegawai)
+	mProtected.Get("/pegawai", h.Admin.GetPegawai) // RESTful alias
 
 	// Laporan
 	mReport := mProtected.Group("/reports")
@@ -58,10 +63,10 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mReport.Get("/", h.Report.GetAll)
 	mReport.Get("/recap", h.Report.GetReportRecapHandler)
 	mReport.Get("/recap-pegawai", h.Admin.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin"))
-	mReport.Get("/export", h.Admin.GetLaporanExport)
-	mReport.Get("/export/excel", h.Report.ExportReportRecapExcelHandler)
-	mReport.Get("/export/pdf", h.Report.ExportReportPDFHandler)
-	mReport.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler)
+	mReport.Get("/export", h.Admin.GetLaporanExport, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	mReport.Get("/export/excel", h.Report.ExportReportRecapExcelHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	mReport.Get("/export/pdf", h.Report.ExportReportPDFHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	mReport.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	mReport.Put("/evaluate", h.Report.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))
 	mReport.Put("/:id", h.Report.Update)
 	mReport.Delete("/:id", h.Report.Delete)
@@ -72,6 +77,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mProtected.Get("/notifications", h.Notif.GetMy)
 	mProtected.Get("/notifications/:id", h.Notif.GetByID)
 	mProtected.Put("/notifications/:id/read", h.Notif.MarkRead)
+	mProtected.Patch("/notifications/:id/read", h.Notif.MarkRead) // RESTful alias
 
 	// Manajemen Tugas (Lurah)
 	mTasks := mProtected.Group("/tasks")
@@ -104,6 +110,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mIzin.Get("/", h.Izin.GetMy)
 	mIzin.Get("/pending", h.Izin.GetPending, middleware.AllowRoles("lurah"))
 	mIzin.Put("/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah"))
+	mIzin.Patch("/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah")) // RESTful alias
 }
 
 func setupWebRoutes(api fiber.Router, h Handlers) {

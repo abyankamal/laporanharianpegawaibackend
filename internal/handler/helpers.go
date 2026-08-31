@@ -59,7 +59,7 @@ func ParseDateRange(c fiber.Ctx) (startDate, endDate time.Time, err error) {
 	return startDate, endDate, nil
 }
 
-// ErrorResponse memetakan error internal ke response HTTP yang sesuai.
+// ErrorResponse memetakan error internal ke response HTTP yang sesuai dengan envelope standar.
 func ErrorResponse(c fiber.Ctx, err error) error {
 	status := fiber.StatusInternalServerError
 	message := err.Error()
@@ -94,8 +94,5 @@ func ErrorResponse(c fiber.Ctx, err error) error {
 		status = fiber.StatusBadRequest
 	}
 
-	return c.Status(status).JSON(fiber.Map{
-		"status":  "error",
-		"message": message,
-	})
+	return SendError(c, status, message)
 }

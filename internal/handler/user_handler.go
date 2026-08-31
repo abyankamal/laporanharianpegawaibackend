@@ -8,36 +8,34 @@ import (
 	"laporanharianapi/internal/service"
 )
 
-// UserResponse adalah struct response untuk user (tanpa password).
-type UserResponse struct {
-	ID           uint             `json:"id"`
-	NIP          string           `json:"nip"`
-	Nama         string           `json:"nama"`
-	Role         string           `json:"role"`
-	FotoPath     *string          `json:"foto_path"`
-	JabatanID    *uint            `json:"jabatan_id"`
-	SupervisorID *uint            `json:"supervisor_id"`
-	Jabatan      *JabatanResponse `json:"jabatan,omitempty"`
-	CreatedAt    string           `json:"created_at"`
-}
-
 // JabatanResponse adalah struct response untuk jabatan.
 type JabatanResponse struct {
 	ID          uint   `json:"id"`
 	NamaJabatan string `json:"nama_jabatan"`
 }
 
-// UserModelResponse adalah struct response untuk user (sesuai format frontend).
-type UserModelResponse struct {
-	ID           uint    `json:"id"`
-	NamaLengkap  string  `json:"nama_lengkap"`
-	Jabatan      string  `json:"jabatan"`
-	JabatanID    *uint   `json:"jabatan_id"`
-	NIP          string  `json:"nip"`
-	Role         string  `json:"role"`
-	SupervisorID *uint   `json:"supervisor_id"`
-	FotoUser     *string `json:"foto_user"`
+// UserResponse adalah struct response standar untuk user (tanpa password).
+type UserResponse struct {
+	ID           uint             `json:"id"`
+	NIP          string           `json:"nip"`
+	Nama         string           `json:"nama"`
+	NamaLengkap  string           `json:"nama_lengkap"` // Alias untuk backward compatibility
+	Role         string           `json:"role"`
+	FotoPath     *string          `json:"foto_path"`
+	FotoUser     *string          `json:"foto_user"` // Alias untuk backward compatibility
+	JabatanID    *uint            `json:"jabatan_id"`
+	Jabatan      *JabatanResponse `json:"jabatan,omitempty"`
+	NamaJabatan  string           `json:"nama_jabatan,omitempty"`
+	SupervisorID *uint            `json:"supervisor_id"`
+	NamaAtasan   string           `json:"nama_atasan,omitempty"`
+	CreatedAt    string           `json:"created_at,omitempty"`
 }
+
+// UserModelResponse adalah alias tipe untuk backward compatibility handler/test lama.
+type UserModelResponse = UserResponse
+
+// ProfileResponse adalah alias tipe untuk response profil.
+type ProfileResponse = UserResponse
 
 // UserHandler menangani request user management.
 type UserHandler struct {
@@ -49,48 +47,30 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
-// ProfileResponse adalah struct response untuk endpoint GET /api/profile.
-type ProfileResponse struct {
-	ID           uint    `json:"id"`
-	NIP          string  `json:"nip"`
-	Nama         string  `json:"nama"`
-	Role         string  `json:"role"`
-	FotoPath     *string `json:"foto_path"`
-	JabatanID    *uint   `json:"jabatan_id"`
-	NamaJabatan  string  `json:"nama_jabatan"`
-	SupervisorID *uint   `json:"supervisor_id"`
-	NamaAtasan   string  `json:"nama_atasan"`
-	CreatedAt    string  `json:"created_at"`
-}
-
 // GetProfile menangani request profil user yang sedang login.
 func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := uint(userIDFloat)
 
 	// 2. Query user dari database (dengan preload Jabatan & Supervisor)
 	user, err := h.userService.GetUserByID(userID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusNotFound, "User tidak ditemukan")
 	}
 
 	// 3. Siapkan response
-	profile := ProfileResponse{
+	profile := UserResponse{
 		ID:           user.ID,
 		NIP:          user.NIP,
 		Nama:         user.Nama,
+		NamaLengkap:  user.Nama,
 		Role:         user.Role,
 		FotoPath:     user.FotoPath,
+		FotoUser:     user.FotoPath,
 		JabatanID:    user.JabatanID,
 		SupervisorID: user.SupervisorID,
 		CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -99,6 +79,10 @@ func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 	// Isi nama jabatan jika ada
 	if user.Jabatan != nil {
 		profile.NamaJabatan = user.Jabatan.NamaJabatan
+		profile.Jabatan = &JabatanResponse{
+			ID:          user.Jabatan.ID,
+			NamaJabatan: user.Jabatan.NamaJabatan,
+		}
 	}
 
 	// Isi nama atasan jika ada
@@ -107,52 +91,52 @@ func (h *UserHandler) GetProfile(c fiber.Ctx) error {
 	}
 
 	// 4. Return response
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data profil berhasil diambil",
-		"data":    profile,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Data profil berhasil diambil", profile)
 }
 
 // GetAll mengambil semua user.
 func (h *UserHandler) GetAll(c fiber.Ctx) error {
 	users, err := h.userService.GetAllUsers()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, err.Error())
 	}
 
 	// Map ke response (tanpa password)
-	var response []UserModelResponse
+	var response []UserResponse
 	for _, user := range users {
 		jabatanName := ""
+		var jabatanResp *JabatanResponse
 		if user.Jabatan != nil {
 			jabatanName = user.Jabatan.NamaJabatan
+			jabatanResp = &JabatanResponse{
+				ID:          user.Jabatan.ID,
+				NamaJabatan: user.Jabatan.NamaJabatan,
+			}
 		}
 
-		userResp := UserModelResponse{
+		userResp := UserResponse{
 			ID:           user.ID,
-			NamaLengkap:  user.Nama,
-			Jabatan:      jabatanName,
-			JabatanID:    user.JabatanID,
 			NIP:          user.NIP,
+			Nama:         user.Nama,
+			NamaLengkap:  user.Nama,
 			Role:         user.Role,
-			SupervisorID: user.SupervisorID,
+			FotoPath:     user.FotoPath,
 			FotoUser:     user.FotoPath,
+			JabatanID:    user.JabatanID,
+			Jabatan:      jabatanResp,
+			NamaJabatan:  jabatanName,
+			SupervisorID: user.SupervisorID,
+			CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+
+		if user.Supervisor != nil {
+			userResp.NamaAtasan = user.Supervisor.Nama
 		}
 
 		response = append(response, userResp)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data user berhasil diambil",
-		"data":    response,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Data user berhasil diambil", response)
 }
 
 // GetOne mengambil detail user berdasarkan ID.
@@ -161,43 +145,45 @@ func (h *UserHandler) GetOne(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID tidak valid")
 	}
 
 	user, err := h.userService.GetUserByID(uint(id))
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusNotFound, err.Error())
 	}
 
 	jabatanName := ""
+	var jabatanResp *JabatanResponse
 	if user.Jabatan != nil {
 		jabatanName = user.Jabatan.NamaJabatan
+		jabatanResp = &JabatanResponse{
+			ID:          user.Jabatan.ID,
+			NamaJabatan: user.Jabatan.NamaJabatan,
+		}
 	}
 
 	// Map ke response (tanpa password)
-	response := UserModelResponse{
+	response := UserResponse{
 		ID:           user.ID,
-		NamaLengkap:  user.Nama,
-		Jabatan:      jabatanName,
-		JabatanID:    user.JabatanID,
 		NIP:          user.NIP,
+		Nama:         user.Nama,
+		NamaLengkap:  user.Nama,
 		Role:         user.Role,
-		SupervisorID: user.SupervisorID,
+		FotoPath:     user.FotoPath,
 		FotoUser:     user.FotoPath,
+		JabatanID:    user.JabatanID,
+		Jabatan:      jabatanResp,
+		NamaJabatan:  jabatanName,
+		SupervisorID: user.SupervisorID,
+		CreatedAt:    user.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data user berhasil diambil",
-		"data":    response,
-	})
+	if user.Supervisor != nil {
+		response.NamaAtasan = user.Supervisor.Nama
+	}
+
+	return SendSuccess(c, fiber.StatusOK, "Data user berhasil diambil", response)
 }
 
 // Create membuat user baru.
@@ -206,33 +192,24 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 
 	// Parse body request
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
 	user, err := h.userService.CreateUser(req)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "User berhasil dibuat",
-		"data": UserModelResponse{
-			ID:           user.ID,
-			NamaLengkap:  user.Nama,
-			NIP:          user.NIP,
-			Role:         user.Role,
-			JabatanID:    user.JabatanID,
-			SupervisorID: user.SupervisorID,
-			FotoUser:     user.FotoPath,
-		},
+	return SendSuccess(c, fiber.StatusCreated, "User berhasil dibuat", UserResponse{
+		ID:           user.ID,
+		Nama:         user.Nama,
+		NamaLengkap:  user.Nama,
+		NIP:          user.NIP,
+		Role:         user.Role,
+		JabatanID:    user.JabatanID,
+		SupervisorID: user.SupervisorID,
+		FotoPath:     user.FotoPath,
+		FotoUser:     user.FotoPath,
 	})
 }
 
@@ -242,10 +219,7 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID tidak valid")
 	}
 
 	requesterRole, _ := c.Locals("role").(string)
@@ -254,10 +228,7 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 
 	// Parse body request
 	if err := c.Bind().Body(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
 	user, err := h.userService.UpdateUser(uint(id), req, requesterRole)
@@ -265,19 +236,16 @@ func (h *UserHandler) Update(c fiber.Ctx) error {
 		return ErrorResponse(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "User berhasil diupdate",
-		"data": UserModelResponse{
-			ID:           user.ID,
-			NamaLengkap:  user.Nama,
-			NIP:          user.NIP,
-			Role:         user.Role,
-			JabatanID:    user.JabatanID,
-			SupervisorID: user.SupervisorID,
-			FotoUser:     user.FotoPath,
-		},
+	return SendSuccess(c, fiber.StatusOK, "User berhasil diupdate", UserResponse{
+		ID:           user.ID,
+		Nama:         user.Nama,
+		NamaLengkap:  user.Nama,
+		NIP:          user.NIP,
+		Role:         user.Role,
+		JabatanID:    user.JabatanID,
+		SupervisorID: user.SupervisorID,
+		FotoPath:     user.FotoPath,
+		FotoUser:     user.FotoPath,
 	})
 }
 
@@ -287,10 +255,7 @@ func (h *UserHandler) Delete(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID tidak valid")
 	}
 
 	requesterRole, _ := c.Locals("role").(string)
@@ -300,11 +265,7 @@ func (h *UserHandler) Delete(c fiber.Ctx) error {
 		return ErrorResponse(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "User berhasil dihapus",
-	})
+	return SendSuccess(c, fiber.StatusOK, "User berhasil dihapus", nil)
 }
 
 // ChangePassword mengubah password user yang sedang login.
@@ -312,51 +273,32 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token (via Locals dari middleware)
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := uint(userIDFloat)
 
 	// 2. Parse JSON Body
 	var req service.ChangePasswordRequest
 	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid: "+err.Error())
 	}
 
 	// 3. Validasi input wajib
 	if req.OldPassword == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "password lama wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "password lama wajib diisi")
 	}
 	if req.NewPassword == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "password baru wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "password baru wajib diisi")
 	}
 
 	// 4. Panggil service
 	err := h.userService.ChangePassword(userID, req)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	// 5. Return response sukses
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Password berhasil diubah",
-	})
+	return SendSuccess(c, fiber.StatusOK, "Password berhasil diubah", nil)
 }
 
 // ResetPassword mereset password user oleh admin/sekertaris.
@@ -364,9 +306,7 @@ func (h *UserHandler) ResetPassword(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"message": "ID tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID tidak valid")
 	}
 
 	requesterRole, _ := c.Locals("role").(string)
@@ -381,11 +321,7 @@ func (h *UserHandler) ResetPassword(c fiber.Ctx) error {
 		return ErrorResponse(c, err)
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Password berhasil direset oleh admin",
-	})
+	return SendSuccess(c, fiber.StatusOK, "Password berhasil direset oleh admin", nil)
 }
 
 // ChangePhoto mengubah foto profil user yang sedang login.
@@ -393,39 +329,26 @@ func (h *UserHandler) ChangePhoto(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := uint(userIDFloat)
 
 	// 2. Ambil file dari form
 	fileHeader, err := c.FormFile("foto")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "File foto wajib diupload",
-		})
+		return SendError(c, fiber.StatusBadRequest, "File foto wajib diupload")
 	}
 
 	// 3. Panggil service
 	fotoPath, err := h.userService.UpdateProfilePhoto(userID, fileHeader)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	// 4. Return response sukses
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Foto profil berhasil diubah",
-		"data": fiber.Map{
-			"foto_path": fotoPath,
-		},
+	return SendSuccess(c, fiber.StatusOK, "Foto profil berhasil diubah", fiber.Map{
+		"foto_path": fotoPath,
+		"foto_user": fotoPath,
 	})
 }
 
@@ -435,37 +358,37 @@ func (h *UserHandler) GetSupervisors(c fiber.Ctx) error {
 
 	supervisors, err := h.userService.GetSupervisors(roleFilter)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusNotFound, err.Error())
 	}
 
-	var response []UserModelResponse
+	var response []UserResponse
 	for _, s := range supervisors {
 		jabatanName := ""
+		var jabatanResp *JabatanResponse
 		if s.Jabatan != nil {
 			jabatanName = s.Jabatan.NamaJabatan
+			jabatanResp = &JabatanResponse{
+				ID:          s.Jabatan.ID,
+				NamaJabatan: s.Jabatan.NamaJabatan,
+			}
 		}
 
-		response = append(response, UserModelResponse{
+		response = append(response, UserResponse{
 			ID:           s.ID,
-			NamaLengkap:  s.Nama,
-			Jabatan:      jabatanName,
-			JabatanID:    s.JabatanID,
 			NIP:          s.NIP,
+			Nama:         s.Nama,
+			NamaLengkap:  s.Nama,
 			Role:         s.Role,
-			SupervisorID: s.SupervisorID,
+			FotoPath:     s.FotoPath,
 			FotoUser:     s.FotoPath,
+			JabatanID:    s.JabatanID,
+			Jabatan:      jabatanResp,
+			NamaJabatan:  jabatanName,
+			SupervisorID: s.SupervisorID,
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data atasan berhasil diambil",
-		"data":    response,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Data atasan berhasil diambil", response)
 }
 
 // UpdateFCMToken memperbarui fcm_token untuk user yang sedang login.
@@ -473,10 +396,7 @@ func (h *UserHandler) UpdateFCMToken(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := uint(userIDFloat)
 
@@ -486,25 +406,15 @@ func (h *UserHandler) UpdateFCMToken(c fiber.Ctx) error {
 	}
 
 	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
 	// 3. Panggil service
 	err := h.userService.UpdateFCMToken(userID, req.FCMToken)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, err.Error())
 	}
 
 	// 4. Return response
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "FCM Token berhasil diperbarui",
-	})
+	return SendSuccess(c, fiber.StatusOK, "FCM Token berhasil diperbarui", nil)
 }

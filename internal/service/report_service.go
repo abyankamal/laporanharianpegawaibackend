@@ -110,6 +110,24 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 		}
 	}
 
+	// 0.1 Idempotency Guard: Cegah duplikasi laporan saat retry sinkronisasi offline
+	if input.IsOfflineSync {
+		existingReports, _, errFind := s.reportRepo.GetAll(repository.ReportFilter{
+			UserID:    int(input.UserID),
+			StartDate: input.WaktuPelaporan.Format("2006-01-02"),
+			EndDate:   input.WaktuPelaporan.Format("2006-01-02"),
+			Limit:     50,
+		})
+		if errFind == nil {
+			for _, r := range existingReports {
+				if r.DeskripsiHasil == input.DeskripsiHasil && r.WaktuPelaporan.Equal(input.WaktuPelaporan) {
+					// Mengembalikan laporan yang sudah tersimpan sebelumnya secara idempoten
+					return &r, nil
+				}
+			}
+		}
+	}
+
 	// 1. Cek apakah hari pelaporan adalah hari libur atau akhir pekan
 	isHoliday, err := s.holidayRepo.CheckIsHoliday(input.WaktuPelaporan)
 	if err != nil {

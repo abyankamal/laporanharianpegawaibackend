@@ -309,6 +309,7 @@ func TestCreateReport_Success_Backdating_OfflineSync(t *testing.T) {
 
 		mockHolidayRepo.On("CheckIsHoliday", mock.Anything).Return(false, nil)
 		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamPulang: "16:00"}, nil)
+		mockReportRepo.On("GetAll", mock.Anything).Return([]domain.Laporan{}, int64(0), nil)
 		mockReportRepo.On("Create", mock.Anything).Return(nil)
 
 		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
@@ -331,6 +332,42 @@ func TestCreateReport_Success_Backdating_OfflineSync(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, laporan)
+		mockReportRepo.AssertExpectations(t)
+	})
+
+	t.Run("Sukses: Idempotent return existing report jika offline sync dikirim ganda", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+
+		pastTime := time.Now().Add(-24 * time.Hour)
+		existingReport := domain.Laporan{
+			ID:             99,
+			JudulKegiatan:  "Tugas offline duplicate",
+			DeskripsiHasil: "Selesai kemarin offline",
+			WaktuPelaporan: pastTime,
+		}
+
+		mockReportRepo.On("GetAll", mock.Anything).Return([]domain.Laporan{existingReport}, int64(1), nil)
+
+		reportSvc := NewReportService(mockReportRepo, mockHolidayRepo, mockWorkHourRepo, nil, nil, nil)
+
+		input := ReportInput{
+			UserID:         1,
+			UserRole:       "staf",
+			TipeLaporan:    true,
+			JudulKegiatan:  "Tugas offline duplicate",
+			DeskripsiHasil: "Selesai kemarin offline",
+			WaktuPelaporan: pastTime,
+			FileFoto:       createMockFileHeader("dummy.jpg", "image bytes"),
+			IsOfflineSync:  true,
+		}
+
+		laporan, err := reportSvc.CreateReport(input)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, laporan)
+		assert.Equal(t, uint(99), laporan.ID)
 		mockReportRepo.AssertExpectations(t)
 	})
 }

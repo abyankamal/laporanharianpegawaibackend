@@ -29,9 +29,7 @@ func NewAbsensiHandler(absensiService service.AbsensiService, userService servic
 func (h *AbsensiHandler) CheckIn(c fiber.Ctx) error {
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	faceVerified := c.FormValue("face_verified") == "true"
@@ -42,9 +40,7 @@ func (h *AbsensiHandler) CheckIn(c fiber.Ctx) error {
 	fileSelfie, _ := c.FormFile("selfie")
 
 	if fileSelfie == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": "Selfie wajib dikirim untuk verifikasi absensi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Selfie wajib dikirim untuk verifikasi absensi")
 	}
 
 	input := service.AbsensiCheckInInput{
@@ -57,16 +53,10 @@ func (h *AbsensiHandler) CheckIn(c fiber.Ctx) error {
 
 	absensi, err := h.absensiService.CheckIn(input)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status":  "success",
-		"message": "Absensi masuk berhasil",
-		"data":    absensi,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Absensi masuk berhasil", absensi)
 }
 
 // CheckOut menangani request absensi pulang.
@@ -74,9 +64,7 @@ func (h *AbsensiHandler) CheckIn(c fiber.Ctx) error {
 func (h *AbsensiHandler) CheckOut(c fiber.Ctx) error {
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	faceVerified := c.FormValue("face_verified") == "true"
@@ -85,9 +73,7 @@ func (h *AbsensiHandler) CheckOut(c fiber.Ctx) error {
 
 	fileSelfie, _ := c.FormFile("selfie")
 	if fileSelfie == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": "Selfie wajib dikirim untuk verifikasi absensi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Selfie wajib dikirim untuk verifikasi absensi")
 	}
 
 	input := service.AbsensiCheckOutInput{
@@ -100,16 +86,10 @@ func (h *AbsensiHandler) CheckOut(c fiber.Ctx) error {
 
 	absensi, err := h.absensiService.CheckOut(input)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status":  "success",
-		"message": "Absensi pulang berhasil",
-		"data":    absensi,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Absensi pulang berhasil", absensi)
 }
 
 // GetTodayStatus menangani request status absensi hari ini.
@@ -117,22 +97,23 @@ func (h *AbsensiHandler) CheckOut(c fiber.Ctx) error {
 func (h *AbsensiHandler) GetTodayStatus(c fiber.Ctx) error {
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	absensi, isWorkday, err := h.absensiService.GetTodayStatus(uint(userIDFloat))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil status absensi",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil status absensi")
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success":    true,
 		"status":     "success",
+		"message":    "Status absensi berhasil diambil",
 		"is_workday": isWorkday,
-		"data":       absensi,
+		"data": fiber.Map{
+			"absensi":    absensi,
+			"is_workday": isWorkday,
+		},
 	})
 }
 
@@ -141,18 +122,14 @@ func (h *AbsensiHandler) GetTodayStatus(c fiber.Ctx) error {
 func (h *AbsensiHandler) GetMonthlyRecap(c fiber.Ctx) error {
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	bulan, _ := strconv.Atoi(c.Query("bulan"))
 	tahun, _ := strconv.Atoi(c.Query("tahun"))
 
 	if bulan < 1 || bulan > 12 || tahun < 2020 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": "Parameter bulan (1-12) dan tahun wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Parameter bulan (1-12) dan tahun wajib diisi")
 	}
 
 	// Jika ada query user_id dan requester adalah lurah/sekretaris, ambil data user lain
@@ -169,15 +146,19 @@ func (h *AbsensiHandler) GetMonthlyRecap(c fiber.Ctx) error {
 
 	details, recap, err := h.absensiService.GetMonthlyRecap(targetUserID, bulan, tahun)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil rekap absensi",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil rekap absensi")
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
 		"status":  "success",
+		"message": "Rekap absensi berhasil diambil",
 		"recap":   recap,
 		"details": details,
+		"data": fiber.Map{
+			"recap":   recap,
+			"details": details,
+		},
 	})
 }
 
@@ -188,17 +169,13 @@ func (h *AbsensiHandler) GetAllRecap(c fiber.Ctx) error {
 	tahun, _ := strconv.Atoi(c.Query("tahun"))
 
 	if bulan < 1 || bulan > 12 || tahun < 2020 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": "Parameter bulan (1-12) dan tahun wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Parameter bulan (1-12) dan tahun wajib diisi")
 	}
 
 	// Ambil semua user (exclude admin)
 	allUsers, err := h.userService.GetAllUsers()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil data pegawai",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data pegawai")
 	}
 
 	// Filter hanya pegawai non-admin
@@ -211,13 +188,8 @@ func (h *AbsensiHandler) GetAllRecap(c fiber.Ctx) error {
 
 	recaps, err := h.absensiService.GetAllMonthlyRecap(bulan, tahun, users)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil rekap absensi",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil rekap absensi")
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status": "success",
-		"data":   recaps,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Rekap seluruh absensi berhasil diambil", recaps)
 }

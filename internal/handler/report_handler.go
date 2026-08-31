@@ -98,28 +98,14 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 	// 6. Panggil service (dengan RBAC)
 	reports, total, err := h.reportService.GetAllReports(filter, requesterRole, requesterID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil data laporan: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data laporan: "+err.Error())
 	}
 
 	// 6. Hitung total halaman
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	// 7. Return response sukses dengan metadata pagination
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data laporan berhasil diambil",
-		"data":    reports,
-		"meta": fiber.Map{
-			"total":       total,
-			"page":        page,
-			"limit":       limit,
-			"total_pages": totalPages,
-		},
-	})
+	return SendPaginated(c, fiber.StatusOK, "Data laporan berhasil diambil", reports, page, limit, total, totalPages)
 }
 
 // Create menangani pembuatan laporan baru.
@@ -298,16 +284,23 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 	responseMap := fiber.Map{
 		"id":                laporan.ID,
 		"status":            laporan.Status,
+		"tipe_laporan":      laporan.TipeLaporan,
+		"is_overtime":       laporan.IsOvertime,
+		"jam_kerja":         laporan.JamKerja,
 		"jenis_tugas":       "Tugas Individu",
-		"judul_laporan":     laporan.JudulKegiatan,
-		"waktu_pelaksanaan": laporan.WaktuPelaporan,
-		"lokasi":            laporan.AlamatLokasi,
+		"judul_kegiatan":    laporan.JudulKegiatan,
+		"judul_laporan":     laporan.JudulKegiatan, // Alias backward compatibility
+		"waktu_pelaporan":   laporan.WaktuPelaporan,
+		"waktu_pelaksanaan": laporan.WaktuPelaporan, // Alias backward compatibility
+		"alamat_lokasi":     laporan.AlamatLokasi,
+		"lokasi":            laporan.AlamatLokasi, // Alias backward compatibility
 		"lokasi_lat":        laporan.LokasiLat,
 		"lokasi_long":       laporan.LokasiLong,
 		"deskripsi_hasil":   laporan.DeskripsiHasil,
 		"komentar_atasan":   laporan.KomentarAtasan,
 		"foto_url":          laporan.FotoURL,
 		"dokumen_url":       laporan.DokumenURL,
+		"created_at":        laporan.CreatedAt,
 		"owner_role":        "", // Akan diisi di bawah
 	}
 
@@ -315,8 +308,9 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		responseMap["owner_role"] = laporan.User.Role
 		
 		userMap := fiber.Map{
-			"nama": laporan.User.Nama,
-			"nip":  laporan.User.NIP,
+			"nama":         laporan.User.Nama,
+			"nama_lengkap": laporan.User.Nama,
+			"nip":          laporan.User.NIP,
 		}
 		if laporan.User.Jabatan != nil {
 			userMap["jabatan"] = fiber.Map{
@@ -353,12 +347,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 		responseMap["is_image"] = false
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Detail laporan berhasil diambil",
-		"data":    responseMap,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Detail laporan berhasil diambil", responseMap)
 }
 
 // GetReportRecapHandler mengambil rekapitulasi agregasi laporan.
