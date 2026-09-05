@@ -102,6 +102,7 @@ func (r *userRepository) DeleteWithCleanup(id uint) ([]string, error) {
 
 		// 3. Clear record terkait di tabel lain
 		tx.Where("user_id = ?", id).Delete(&domain.Notification{})
+		tx.Where("user_id = ?", id).Delete(&domain.NotificationRead{})
 		tx.Where("user_id = ? OR penilai_id = ?", id, id).Delete(&domain.Penilaian{})
 
 		// 4. Koleksi file path dari laporan (foto_url & dokumen_url) dan file_laporan sebelum dihapus

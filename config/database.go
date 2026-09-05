@@ -77,6 +77,7 @@ func ConnectDatabase() {
 		&domain.Penilaian{},
 		&domain.RefSkorPenilaian{},
 		&domain.Notification{},
+		&domain.NotificationRead{},
 		&domain.Holiday{},
 		&domain.WorkHour{},
 		&domain.LurahSupervisor{},

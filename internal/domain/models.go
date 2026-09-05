@@ -166,6 +166,18 @@ func (Notification) TableName() string {
 	return "notifications"
 }
 
+// NotificationRead mencatat status baca notifikasi per-user, terutama untuk pengumuman global (user_id = 0).
+type NotificationRead struct {
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID         int       `gorm:"column:user_id;uniqueIndex:idx_notif_user_unique;not null" json:"user_id"`
+	NotificationID uint      `gorm:"column:notification_id;uniqueIndex:idx_notif_user_unique;not null" json:"notification_id"`
+	ReadAt         time.Time `gorm:"column:read_at;not null" json:"read_at"`
+}
+
+func (NotificationRead) TableName() string {
+	return "notification_reads"
+}
+
 // Holiday adalah tabel untuk menyimpan data hari libur.
 type Holiday struct {
 	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`

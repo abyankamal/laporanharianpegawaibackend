@@ -420,5 +420,6 @@ func (r *adminRepository) UpdatePengumumanAdmin(id uint, pengumuman *domain.Noti
 }
 
 func (r *adminRepository) DeletePengumumanAdmin(id uint) error {
+	r.db.Where("notification_id = ?", id).Delete(&domain.NotificationRead{})
 	return r.db.Where("id = ? AND kategori = 'Sistem'", id).Delete(&domain.Notification{}).Error
 }
