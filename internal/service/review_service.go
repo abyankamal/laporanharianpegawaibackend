@@ -53,7 +53,8 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 	}
 
 	// 2. Validasi: Hanya lurah dan sekertaris yang boleh menilai
-	if penilaiRole != "lurah" && penilaiRole != "sekertaris" {
+	normalizedPenilaiRole := domain.NormalizeRole(penilaiRole)
+	if normalizedPenilaiRole != domain.RoleLurah && normalizedPenilaiRole != domain.RoleSekertaris {
 		return nil, errors.New("hanya Lurah dan Sekertaris yang boleh melakukan penilaian")
 	}
 
@@ -63,15 +64,16 @@ func (s *reviewService) SubmitReview(penilaiID uint, penilaiRole string, req Cre
 		return nil, errors.New("user yang akan dinilai tidak ditemukan")
 	}
 
-	switch penilaiRole {
-	case "lurah":
+	normalizedTargetRole := domain.NormalizeRole(targetUser.Role)
+	switch normalizedPenilaiRole {
+	case domain.RoleLurah:
 		// Lurah hanya boleh menilai sekertaris dan kasi
-		if targetUser.Role != "sekertaris" && targetUser.Role != "kasi" {
+		if normalizedTargetRole != domain.RoleSekertaris && normalizedTargetRole != domain.RoleKasi {
 			return nil, errors.New("Lurah hanya boleh menilai Sekertaris dan Kasi")
 		}
-	case "sekertaris":
+	case domain.RoleSekertaris:
 		// Sekertaris hanya boleh menilai staf
-		if targetUser.Role != "staf" {
+		if normalizedTargetRole != domain.RoleStaf {
 			return nil, errors.New("Sekertaris hanya boleh menilai Staf")
 		}
 	}

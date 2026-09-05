@@ -67,7 +67,7 @@ func NewTaskService(taskRepo repository.TaskRepository, userRepo repository.User
 // CreateTask membuat tugas organisasi baru (hanya boleh oleh Lurah).
 func (s *taskService) CreateTask(requesterID uint, requesterRole string, req CreateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error) {
 	// 1. Validasi: Hanya Lurah yang boleh membuat tugas organisasi
-	if requesterRole != "lurah" {
+	if !domain.IsLurah(requesterRole) {
 		return nil, errors.New("hanya Lurah yang boleh membuat tugas organisasi")
 	}
 
@@ -184,7 +184,7 @@ func (s *taskService) GetTaskByID(requesterID uint, requesterRole string, taskID
 	}
 
 	// Validasi Otorisasi: Lurah bisa lihat semua tugas
-	if requesterRole == "lurah" {
+	if domain.IsLurah(requesterRole) {
 		return task, nil
 	}
 
@@ -207,7 +207,7 @@ func (s *taskService) GetTaskByID(requesterID uint, requesterRole string, taskID
 // UpdateTask mengubah tugas organisasi. Hanya Lurah yang dapat mengubahnya (Mendukung Partial Update).
 func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID uint, req UpdateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error) {
 	// 1. Validasi otorisasi: Hanya Lurah yang boleh mengedit
-	if requesterRole != "lurah" {
+	if !domain.IsLurah(requesterRole) {
 		return nil, errors.New("hanya Lurah yang memiliki akses untuk mengubah tugas organisasi")
 	}
 
@@ -289,7 +289,7 @@ func (s *taskService) UpdateTask(requesterID uint, requesterRole string, taskID 
 // DeleteTask menghapus tugas organisasi. Hanya Lurah yang dapat menghapusnya.
 func (s *taskService) DeleteTask(requesterID uint, requesterRole string, taskID uint) error {
 	// 1. Validasi otorisasi: Hanya Lurah yang boleh menghapus
-	if requesterRole != "lurah" {
+	if !domain.IsLurah(requesterRole) {
 		return errors.New("hanya Lurah yang memiliki akses untuk menghapus tugas organisasi")
 	}
 

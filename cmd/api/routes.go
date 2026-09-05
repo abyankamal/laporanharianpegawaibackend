@@ -131,12 +131,15 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	wReports := wProtected.Group("/reports")
 	wReports.Get("/", h.Report.GetAll)
 	wReports.Post("/", h.Report.Create)
+	wReports.Get("/summary", h.Report.GetReportRecapHandler)
 	wReports.Get("/recap", h.Admin.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Get("/export", h.Admin.GetLaporanExport, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Get("/export/excel", h.Report.ExportReportRecapExcelHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Get("/export/pdf", h.Report.ExportReportPDFHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Put("/evaluate", h.Report.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	wReports.Put("/:id", h.Report.Update)
+	wReports.Delete("/:id", h.Report.Delete)
 	wReports.Get("/:id", h.Report.GetOne)
 
 	// Admin Specific
@@ -176,12 +179,15 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	wAdminReports := adminOnly.Group("/reports")
 	wAdminReports.Get("/", h.Report.GetAll)
 	wAdminReports.Post("/", h.Report.Create)
+	wAdminReports.Get("/summary", h.Report.GetReportRecapHandler)
 	wAdminReports.Get("/recap", h.Admin.GetRekapLaporan)
 	wAdminReports.Get("/export", h.Admin.GetLaporanExport)
 	wAdminReports.Get("/export/excel", h.Report.ExportReportRecapExcelHandler)
 	wAdminReports.Get("/export/pdf", h.Report.ExportReportPDFHandler)
 	wAdminReports.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler)
 	wAdminReports.Put("/evaluate", h.Report.EvaluateReportHandler)
+	wAdminReports.Put("/:id", h.Report.Update)
+	wAdminReports.Delete("/:id", h.Report.Delete)
 	wAdminReports.Get("/:id", h.Report.GetOne)
 
 	// Pusat Pengumuman
@@ -221,6 +227,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 
 	// Pencatatan & Kelola Izin/Sakit/Cuti (Web Admin - Admin, Lurah, Sekertaris)
 	wIzin := wProtected.Group("/izin", middleware.AllowRoles("admin", "lurah", "sekertaris"))
+	wIzin.Get("/", h.Izin.GetAll)
 	wIzin.Post("/", h.Izin.CreateByAdmin)
 	wIzin.Get("/pending", h.Izin.GetPending)
 	wIzin.Put("/:id/approve", h.Izin.Approve)

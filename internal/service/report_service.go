@@ -285,14 +285,15 @@ func (s *reportService) CreateReport(input ReportInput) (*domain.Laporan, error)
 // - Sekertaris: HANYA boleh melihat laporan milik Staf.
 // - Kasi & Staf: HANYA boleh melihat laporan DIRI SENDIRI.
 func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterRole string, requesterID uint) ([]domain.Laporan, int64, error) {
-	switch requesterRole {
-	case "admin", "lurah":
+	normalizedRole := domain.NormalizeRole(requesterRole)
+	switch normalizedRole {
+	case domain.RoleAdmin, domain.RoleLurah:
 		// Admin & Lurah boleh melihat semua laporan — tidak ada filter tambahan
-	case "sekertaris":
+	case domain.RoleSekertaris:
 		// Sekertaris boleh melihat laporan miliknya sendiri ATAU milik staf
-		filter.UserRole = "staf"
+		filter.UserRole = domain.RoleStaf
 		filter.OwnID = int(requesterID)
-	case "kasi", "staf":
+	case domain.RoleKasi, domain.RoleStaf:
 		// Kasi & Staf hanya boleh melihat laporan diri sendiri
 		filter.UserID = int(requesterID)
 	default:
@@ -306,7 +307,7 @@ func (s *reportService) GetAllReports(filter repository.ReportFilter, requesterR
 
 	var lurahSupervisor *domain.User
 	for i := range reports {
-		if reports[i].User != nil && (strings.ToLower(reports[i].User.Role) == "lurah" || (reports[i].User.Jabatan != nil && strings.ToLower(reports[i].User.Jabatan.NamaJabatan) == "lurah")) {
+		if reports[i].User != nil && (domain.IsLurah(reports[i].User.Role) || (reports[i].User.Jabatan != nil && strings.ToLower(reports[i].User.Jabatan.NamaJabatan) == "lurah")) {
 			if reports[i].User.Supervisor == nil {
 				if lurahSupervisor == nil {
 					lurahSupervisor = s.getLurahSupervisorUser()
@@ -328,17 +329,18 @@ func (s *reportService) GetReportDetail(id uint, requesterRole string, requester
 	}
 
 	// 2. Terapkan RBAC
-	switch requesterRole {
-	case "admin", "lurah":
+	normalizedRole := domain.NormalizeRole(requesterRole)
+	switch normalizedRole {
+	case domain.RoleAdmin, domain.RoleLurah:
 		// Bebas akses
-	case "sekertaris":
+	case domain.RoleSekertaris:
 		// Sekertaris boleh melihat laporan miliknya sendiri ATAU milik staf
 		isOwnReport := laporan.UserID != nil && *laporan.UserID == requesterID
-		isStaffReport := laporan.User != nil && laporan.User.Role == "staf"
+		isStaffReport := laporan.User != nil && domain.NormalizeRole(laporan.User.Role) == domain.RoleStaf
 		if !isOwnReport && !isStaffReport {
 			return nil, apperror.ErrOnlyStaffOrOwnAllowed
 		}
-	case "kasi", "staf":
+	case domain.RoleKasi, domain.RoleStaf:
 		if laporan.UserID != nil && *laporan.UserID != requesterID {
 			return nil, apperror.ErrOnlyOwnReportAllowed
 		}
@@ -543,15 +545,15 @@ func (s *reportService) EvaluateReport(assessorID uint, assessorRole string, req
 	}
 
 	// Terapkan RBAC Hierarki Penilaian
-	switch strings.ToLower(assessorRole) {
-	case "sekertaris", "sekretaris":
+	switch domain.NormalizeRole(assessorRole) {
+	case domain.RoleSekertaris:
 		// Sekertaris HANYA boleh menilai staf (Permintaan User: Staf dikomentari Sekertaris & Lurah)
-		if targetUser.Role != "staf" {
+		if domain.NormalizeRole(targetUser.Role) != domain.RoleStaf {
 			return apperror.ErrSecretaryStaffOnly
 		}
-	case "admin", "lurah":
+	case domain.RoleAdmin, domain.RoleLurah:
 		// Admin & Lurah boleh menilai semua role
-	case "kasi", "staf":
+	case domain.RoleKasi, domain.RoleStaf:
 		// Kasi / Staf tidak punya hak approve laporan general
 		return apperror.ErrForbidden
 	default:
@@ -614,8 +616,8 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 	}
 
 	// 2. RBAC: User lain hanya milik sendiri. Admin/Sekertaris tidak bisa mengedit laporan orang lain secara detail dari UI (biasanya hanya approve).
-	roleBase := strings.ToLower(requesterRole)
-	if roleBase != "admin" {
+	roleBase := domain.NormalizeRole(requesterRole)
+	if roleBase != domain.RoleAdmin {
 		if laporan.UserID == nil || *laporan.UserID != requesterID {
 			return apperror.ErrOnlyOwnReportModifiable
 		}
@@ -623,7 +625,7 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 
 	// Pengecekan status
 	// Lurah diperbolehkan mengedit laporannya sendiri meskipun statusnya sudah disetujui (karena auto-approve).
-	isLurahEditingOwn := roleBase == "lurah" && laporan.UserID != nil && *laporan.UserID == requesterID
+	isLurahEditingOwn := roleBase == domain.RoleLurah && laporan.UserID != nil && *laporan.UserID == requesterID
 
 	if (laporan.Status == "disetujui" || laporan.Status == "sudah_direview") && !isLurahEditingOwn {
 		return apperror.ErrReportAlreadyApproved
@@ -685,7 +687,7 @@ func (s *reportService) DeleteReport(id uint, requesterID uint, requesterRole st
 	}
 
 	// 2. RBAC: Hanya Admin & Lurah yang boleh menghapus
-	if strings.ToLower(requesterRole) != "admin" && strings.ToLower(requesterRole) != "lurah" {
+	if !domain.IsAdmin(requesterRole) && !domain.IsLurah(requesterRole) {
 		return apperror.ErrOnlyLurahCanDeleteReport
 	}
 

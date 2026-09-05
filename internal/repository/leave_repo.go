@@ -16,6 +16,7 @@ type IzinRepository interface {
 	GetByUserID(userID uint) ([]domain.PengajuanIzin, error)
 	GetPendingApprovals() ([]domain.PengajuanIzin, error)
 	GetApprovedByUserAndDateRange(userID uint, start, end time.Time) ([]domain.PengajuanIzin, error)
+	GetAll() ([]domain.PengajuanIzin, error)
 }
 
 type izinRepository struct {
@@ -74,6 +75,15 @@ func (r *izinRepository) GetApprovedByUserAndDateRange(userID uint, start, end t
 	var list []domain.PengajuanIzin
 	err := r.db.Where("user_id = ? AND status_approval = ? AND tanggal_mulai <= ? AND tanggal_selesai >= ?",
 		userID, "disetujui", end.Format("2006-01-02"), start.Format("2006-01-02")).
+		Find(&list).Error
+	return list, err
+}
+
+// GetAll mengambil semua data pengajuan izin (untuk Web Admin / Lurah).
+func (r *izinRepository) GetAll() ([]domain.PengajuanIzin, error) {
+	var list []domain.PengajuanIzin
+	err := r.db.Preload("User").Preload("User.Jabatan").Preload("Approver").
+		Order("created_at DESC").
 		Find(&list).Error
 	return list, err
 }

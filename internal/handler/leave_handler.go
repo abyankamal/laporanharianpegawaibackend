@@ -139,6 +139,17 @@ func (h *IzinHandler) GetPending(c fiber.Ctx) error {
 	})
 }
 
+// GetAll menangani request seluruh daftar pengajuan izin (Web Admin).
+// GET /api/web/izin
+func (h *IzinHandler) GetAll(c fiber.Ctx) error {
+	list, err := h.izinService.GetAllPengajuan()
+	if err != nil {
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data pengajuan izin", err.Error())
+	}
+
+	return SendSuccess(c, fiber.StatusOK, "Data pengajuan izin berhasil diambil", list)
+}
+
 // Approve menangani request approval/rejection pengajuan izin (Lurah).
 // PUT /api/mobile/izin/:id/approve
 func (h *IzinHandler) Approve(c fiber.Ctx) error {
