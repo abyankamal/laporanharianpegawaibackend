@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"mime/multipart"
+	"os"
 	"testing"
 	"time"
 
@@ -576,6 +577,29 @@ func TestDeleteReport(t *testing.T) {
 		err := svc.DeleteReport(1, 10, "lurah")
 
 		assert.NoError(t, err)
+		mockReportRepo.AssertExpectations(t)
+	})
+
+	t.Run("Sukses: Lurah hapus laporan dan membersihkan file fisik di disk", func(t *testing.T) {
+		mockReportRepo := new(mocks.ReportRepositoryMock)
+		svc := NewReportService(mockReportRepo, nil, nil, nil, nil, nil)
+
+		// Buat file sementara
+		tmpFoto := "uploads/reports/test_foto_del.jpg"
+		os.MkdirAll("uploads/reports", 0755)
+		os.WriteFile(tmpFoto, []byte("foto-data"), 0644)
+		defer os.Remove(tmpFoto)
+
+		laporan := &domain.Laporan{ID: 2, FotoURL: &tmpFoto}
+		mockReportRepo.On("GetByID", uint(2)).Return(laporan, nil)
+		mockReportRepo.On("Delete", uint(2)).Return(nil)
+
+		err := svc.DeleteReport(2, 10, "lurah")
+
+		assert.NoError(t, err)
+		// Pastikan file sudah terhapus
+		_, statErr := os.Stat(tmpFoto)
+		assert.True(t, os.IsNotExist(statErr))
 		mockReportRepo.AssertExpectations(t)
 	})
 

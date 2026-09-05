@@ -204,3 +204,41 @@ func TestAbsensiService_GetAllMonthlyRecap(t *testing.T) {
 	})
 }
 
+func TestAbsensiService_CheckIn_DuplicateRaceGracefulError(t *testing.T) {
+	mondayTime := func() time.Time {
+		return time.Date(2026, 7, 27, 8, 0, 0, 0, time.Local)
+	}
+
+	t.Run("Gracefully handles unique constraint collision when concurrent check-ins occur", func(t *testing.T) {
+		mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+		mockWorkHourRepo := new(mocks.WorkHourRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+
+		absensiService := service.NewAbsensiServiceWithClock(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo, mondayTime)
+
+		foto := "uploads/photos/foto.jpg"
+		mockHolidayRepo.On("CheckIsHoliday", mock.Anything).Return(false, nil)
+		// Pada saat cek awal, belum ada absensi
+		mockAbsensiRepo.On("GetTodayAbsensi", uint(1)).Return(nil, errors.New("not found")).Once()
+		mockUserRepo.On("FindByID", uint(1)).Return(&domain.User{ID: 1, FotoPath: &foto}, nil).Once()
+		mockWorkHourRepo.On("Get").Return(&domain.WorkHour{JamMasuk: "08:00", JamPulang: "16:00"}, nil).Maybe()
+
+		// Saat create di DB terjadi benturan race condition Duplicate entry
+		mockAbsensiRepo.On("Create", mock.AnythingOfType("*domain.Absensi")).
+			Return(errors.New("Error 1062 (23000): Duplicate entry '1-2026-07-27' for key 'idx_absensi_user_tanggal'")).Once()
+
+		input := service.AbsensiCheckInInput{
+			UserID:       1,
+			FaceVerified: true,
+			LokasiLat:    "-6.200000",
+			LokasiLong:   "106.816666",
+		}
+
+		_, err := absensiService.CheckIn(input)
+		assert.Error(t, err)
+		assert.Equal(t, "Anda sudah melakukan absensi masuk hari ini", err.Error())
+		mockAbsensiRepo.AssertExpectations(t)
+	})
+}
+

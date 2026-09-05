@@ -678,10 +678,10 @@ func (s *reportService) UpdateReport(id uint, judul string, deskripsi string, fi
 	return nil
 }
 
-// DeleteReport menghapus laporan (Hanya Lurah).
+// DeleteReport menghapus laporan (Hanya Lurah dan Admin).
 func (s *reportService) DeleteReport(id uint, requesterID uint, requesterRole string) error {
 	// 1. Ambil data laporan
-	_, err := s.reportRepo.GetByID(id)
+	laporan, err := s.reportRepo.GetByID(id)
 	if err != nil {
 		return apperror.ErrReportNotFound
 	}
@@ -691,10 +691,20 @@ func (s *reportService) DeleteReport(id uint, requesterID uint, requesterRole st
 		return apperror.ErrOnlyLurahCanDeleteReport
 	}
 
-	// 3. Hapus laporan
+	// 3. Hapus laporan dari database
 	err = s.reportRepo.Delete(id)
 	if err != nil {
 		return fmt.Errorf("gagal menghapus laporan: %v", err)
+	}
+
+	// 4. Bersihkan file fisik yang terkait di disk
+	if laporan.FotoURL != nil && *laporan.FotoURL != "" {
+		fotoPath := filepath.Join(".", filepath.FromSlash(*laporan.FotoURL))
+		os.Remove(fotoPath) // Abaikan error jika file fisik sudah tidak ada di disk
+	}
+	if laporan.DokumenURL != nil && *laporan.DokumenURL != "" {
+		dokPath := filepath.Join(".", filepath.FromSlash(*laporan.DokumenURL))
+		os.Remove(dokPath)
 	}
 
 	return nil

@@ -188,6 +188,10 @@ func (s *absensiService) CheckIn(input AbsensiCheckInInput) (*domain.Absensi, er
 
 		err = s.absensiRepo.Update(existing)
 		if err != nil {
+			errLower := strings.ToLower(err.Error())
+			if strings.Contains(errLower, "duplicate") || strings.Contains(errLower, "idx_absensi_user_tanggal") || strings.Contains(errLower, "1062") || strings.Contains(errLower, "unique constraint") {
+				return nil, errors.New("Anda sudah melakukan absensi masuk hari ini")
+			}
 			return nil, fmt.Errorf("gagal memperbarui absensi: %v", err)
 		}
 		return existing, nil
@@ -208,6 +212,10 @@ func (s *absensiService) CheckIn(input AbsensiCheckInInput) (*domain.Absensi, er
 
 	err = s.absensiRepo.Create(absensi)
 	if err != nil {
+		errLower := strings.ToLower(err.Error())
+		if strings.Contains(errLower, "duplicate") || strings.Contains(errLower, "idx_absensi_user_tanggal") || strings.Contains(errLower, "1062") || strings.Contains(errLower, "unique constraint") {
+			return nil, errors.New("Anda sudah melakukan absensi masuk hari ini")
+		}
 		return nil, fmt.Errorf("gagal menyimpan absensi: %v", err)
 	}
 
