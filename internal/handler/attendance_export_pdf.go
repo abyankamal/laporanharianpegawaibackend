@@ -70,8 +70,21 @@ func (h *AbsensiHandler) ExportPDF(c fiber.Ctx) error {
 		}
 	}
 
+	// Tentukan hari libur (weekend + hari libur nasional)
+	daysInMonth := time.Date(tahun, time.Month(bulan)+1, 0, 0, 0, 0, 0, time.Local).Day()
+	holidayDays := make(map[int]bool)
+	for d := 1; d <= daysInMonth; d++ {
+		date := time.Date(tahun, time.Month(bulan), d, 0, 0, 0, 0, time.Local)
+		isWorkday, err := h.absensiService.IsWorkday(date)
+		if err == nil && !isWorkday {
+			holidayDays[d] = true
+		} else if date.Weekday() == time.Saturday || date.Weekday() == time.Sunday {
+			holidayDays[d] = true
+		}
+	}
+
 	// Generate PDF
-	pdfBytes, err := generateAbsensiPDF(recaps, users, bulan, tahun, lurah, sekretaris)
+	pdfBytes, err := generateAbsensiPDF(recaps, users, bulan, tahun, lurah, sekretaris, holidayDays)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"status": "error", "message": "Gagal membuat PDF: " + err.Error(),
@@ -91,6 +104,7 @@ func generateAbsensiPDF(
 	users []domain.User,
 	bulan, tahun int,
 	lurah, sekretaris *domain.User,
+	holidayDays map[int]bool,
 ) ([]byte, error) {
 	// F4 Landscape: 330.2mm x 215.9mm
 	pdf := fpdf.New("L", "mm", "A4", "")
@@ -121,13 +135,15 @@ func generateAbsensiPDF(
 		pdf.RegisterImageOptionsReader(name, opt, bytes.NewReader(buf.Bytes()))
 	}
 
-	// Buat map hari libur dalam bulan ini
-	holidayDays := make(map[int]bool)
-	for d := 1; d <= daysInMonth; d++ {
-		date := time.Date(tahun, time.Month(bulan), d, 0, 0, 0, 0, time.Local)
-		weekday := date.Weekday()
-		if weekday == time.Saturday || weekday == time.Sunday {
-			holidayDays[d] = true
+	// Buat map hari libur dalam bulan ini jika belum dipassing
+	if holidayDays == nil {
+		holidayDays = make(map[int]bool)
+		for d := 1; d <= daysInMonth; d++ {
+			date := time.Date(tahun, time.Month(bulan), d, 0, 0, 0, 0, time.Local)
+			weekday := date.Weekday()
+			if weekday == time.Saturday || weekday == time.Sunday {
+				holidayDays[d] = true
+			}
 		}
 	}
 
@@ -246,6 +262,8 @@ func generateAbsensiPDF(
 		pdf.CellFormat(namaW-2, 4, "Nip : "+user.NIP, "", 0, "L", false, 0, "")
 
 		// Kolom tanggal
+		now := time.Now()
+		todayMidnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 		userAbsensi := absensiMap[user.ID]
 		for d := 1; d <= daysInMonth; d++ {
 			cellX := marginL + noW + namaW + dayW*float64(d-1)
@@ -260,14 +278,45 @@ func generateAbsensiPDF(
 			pdf.SetXY(cellX, startY)
 			pdf.CellFormat(dayW, rowH, "", "1", 0, "C", true, 0, "")
 
-			// Tandai kehadiran dengan centang jika hari kerja dan status hadir/terlambat/pulang_cepat/dinas_luar
-			if !isHoliday && userAbsensi != nil {
-				status, exists := userAbsensi[d]
-				if exists && (status == "hadir" || status == "terlambat" || status == "pulang_cepat" || status == "dinas_luar") {
-					pdf.SetFont("Arial", "B", 8)
+			// Tulis kode status kehadiran pada hari kerja
+			if !isHoliday {
+				code := ""
+				status := ""
+				if userAbsensi != nil {
+					status = userAbsensi[d]
+				}
+
+				switch status {
+				case "hadir", "terlambat", "pulang_cepat", "dinas_luar":
+					code = "v"
+				case "sakit":
+					code = "S"
+				case "izin":
+					code = "I"
+				case "cuti":
+					code = "C"
+				case "alpha":
+					code = "A"
+				default:
+					// Jika tanggal kerja sudah berlalu dan tidak ada status, tandai Alpha (A)
+					date := time.Date(tahun, time.Month(bulan), d, 0, 0, 0, 0, time.Local)
+					if date.Before(todayMidnight) {
+						code = "A"
+					}
+				}
+
+				if code != "" {
+					pdf.SetFont("Arial", "B", 7.5)
 					pdf.SetXY(cellX, startY+2)
-					// Gunakan karakter centang ASCII
-					pdf.CellFormat(dayW, 6, "v", "", 0, "C", false, 0, "")
+					if code == "A" {
+						pdf.SetTextColor(200, 0, 0) // Merah untuk Alpha
+					} else if code == "v" {
+						pdf.SetTextColor(0, 128, 0) // Hijau untuk Hadir/Dinas
+					} else {
+						pdf.SetTextColor(0, 100, 200) // Biru untuk Izin, Sakit, Cuti
+					}
+					pdf.CellFormat(dayW, 6, code, "", 0, "C", false, 0, "")
+					pdf.SetTextColor(0, 0, 0)
 					pdf.SetFont("Arial", "", 7)
 				}
 			}
@@ -304,8 +353,17 @@ func generateAbsensiPDF(
 		}
 	}
 
+	// ============ LEGENDA / KETERANGAN STATUS ============
+	pdf.Ln(4)
+	pdf.SetFont("Arial", "I", 7.5)
+	pdf.SetTextColor(70, 70, 70)
+	totalGridW := noW + namaW + dayW*float64(daysInMonth)
+	pdf.SetX(marginL)
+	pdf.CellFormat(totalGridW, 5, "Keterangan:  v = Hadir / Dinas Luar   |   S = Sakit   |   I = Izin   |   C = Cuti   |   A = Alpha (Tanpa Keterangan)   |   [Kolom Merah Muda] = Hari Libur Nasional / Akhir Pekan", "", 1, "L", false, 0, "")
+	pdf.SetTextColor(0, 0, 0)
+
 	// ============ TANDA TANGAN ============
-	pdf.Ln(15)
+	pdf.Ln(10)
 
 	sigY := pdf.GetY()
 	if sigY+45 > f4Size.Ht-10 {

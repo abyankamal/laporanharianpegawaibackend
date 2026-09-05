@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"laporanharianapi/internal/domain"
-	"laporanharianapi/internal/repository"
 	"laporanharianapi/internal/repository/mocks"
 	"laporanharianapi/internal/service"
 )
@@ -117,23 +116,25 @@ func TestAbsensiService_GetMonthlyRecap(t *testing.T) {
 
 	absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo)
 
-	t.Run("Returns recap and details", func(t *testing.T) {
+	t.Run("Returns calendar-aware recap and details with calculated alpha", func(t *testing.T) {
+		hadirDate := time.Date(2026, 1, 5, 0, 0, 0, 0, time.Local) // Senin, 5 Jan 2026
 		expectedDetails := []domain.Absensi{
-			{ID: 1, UserID: 1, Status: "hadir"},
-		}
-		expectedRecap := &repository.AbsensiRecapResponse{
-			TotalHariKerja: 1,
-			TotalHadir:     1,
+			{ID: 1, UserID: 1, Tanggal: hadirDate, Status: "hadir"},
 		}
 
 		mockAbsensiRepo.On("GetByUserAndMonth", uint(1), 1, 2026).Return(expectedDetails, nil).Once()
-		mockAbsensiRepo.On("GetAbsensiRecap", uint(1), 1, 2026).Return(expectedRecap, nil).Once()
+		mockHolidayRepo.On("GetAll").Return([]domain.Holiday{}, nil).Once()
 
 		details, recap, err := absensiService.GetMonthlyRecap(1, 1, 2026)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedDetails, details)
-		assert.Equal(t, expectedRecap, recap)
+		assert.Equal(t, 1, recap.TotalHadir)
+		// Januari 2026 memiliki 22 hari kerja efektif (Senin-Jumat, 0 hari libur)
+		assert.Equal(t, 22, recap.TotalHariKerja)
+		// 22 hari kerja - 1 hari hadir = 21 hari alpha
+		assert.Equal(t, 21, recap.TotalAlpha)
 		mockAbsensiRepo.AssertExpectations(t)
+		mockHolidayRepo.AssertExpectations(t)
 	})
 }
 
@@ -145,50 +146,61 @@ func TestAbsensiService_GetAllMonthlyRecap(t *testing.T) {
 
 	absensiService := service.NewAbsensiService(mockAbsensiRepo, mockHolidayRepo, mockWorkHourRepo, mockUserRepo)
 
-	t.Run("Calculates batch recap accurately in-memory without extra DB queries", func(t *testing.T) {
+	t.Run("Calculates batch recap accurately based on calendar workdays", func(t *testing.T) {
 		users := []domain.User{
 			{ID: 1, Nama: "Pegawai 1"},
 			{ID: 2, Nama: "Pegawai 2"},
 		}
 
+		d1 := time.Date(2026, 7, 1, 0, 0, 0, 0, time.Local)
+		d2 := time.Date(2026, 7, 2, 0, 0, 0, 0, time.Local)
+		d3 := time.Date(2026, 7, 3, 0, 0, 0, 0, time.Local)
+		d6 := time.Date(2026, 7, 6, 0, 0, 0, 0, time.Local)
+		d7 := time.Date(2026, 7, 7, 0, 0, 0, 0, time.Local)
+		d8 := time.Date(2026, 7, 8, 0, 0, 0, 0, time.Local)
+		d9 := time.Date(2026, 7, 9, 0, 0, 0, 0, time.Local)
+		d10 := time.Date(2026, 7, 10, 0, 0, 0, 0, time.Local)
+
 		allAbsensi := []domain.Absensi{
-			{ID: 1, UserID: 1, Status: "hadir"},
-			{ID: 2, UserID: 1, Status: "terlambat"},
-			{ID: 3, UserID: 1, Status: "pulang_cepat"},
-			{ID: 4, UserID: 2, Status: "izin"},
-			{ID: 5, UserID: 2, Status: "sakit"},
-			{ID: 6, UserID: 2, Status: "alpha"},
-			{ID: 7, UserID: 2, Status: "cuti"},
-			{ID: 8, UserID: 2, Status: "dinas_luar"},
+			{ID: 1, UserID: 1, Tanggal: d1, Status: "hadir"},
+			{ID: 2, UserID: 1, Tanggal: d2, Status: "terlambat"},
+			{ID: 3, UserID: 1, Tanggal: d3, Status: "pulang_cepat"},
+			{ID: 4, UserID: 2, Tanggal: d6, Status: "izin"},
+			{ID: 5, UserID: 2, Tanggal: d7, Status: "sakit"},
+			{ID: 6, UserID: 2, Tanggal: d8, Status: "alpha"},
+			{ID: 7, UserID: 2, Tanggal: d9, Status: "cuti"},
+			{ID: 8, UserID: 2, Tanggal: d10, Status: "dinas_luar"},
 		}
 
-		// Only GetAllByMonth should be called, NOT GetAbsensiRecap (eliminating N+1)
 		mockAbsensiRepo.On("GetAllByMonth", 7, 2026).Return(allAbsensi, nil).Once()
+		mockHolidayRepo.On("GetAll").Return([]domain.Holiday{}, nil).Once()
 
 		result, err := absensiService.GetAllMonthlyRecap(7, 2026, users)
 		assert.NoError(t, err)
 		assert.Len(t, result, 2)
 
-		// User 1 verification
+		// Juli 2026 memiliki 23 hari kerja resmi (Senin-Jumat, 0 hari libur)
+		// User 1 verification (3 hadir di kantor, 20 hari tanpa keterangan)
 		assert.Equal(t, uint(1), result[0].User.ID)
 		assert.Len(t, result[0].Details, 3)
-		assert.Equal(t, 3, result[0].Recap.TotalHariKerja)
+		assert.Equal(t, 23, result[0].Recap.TotalHariKerja)
 		assert.Equal(t, 1, result[0].Recap.TotalHadir)
 		assert.Equal(t, 1, result[0].Recap.TotalTerlambat)
 		assert.Equal(t, 1, result[0].Recap.TotalPulangCepat)
-		assert.Equal(t, 0, result[0].Recap.TotalAlpha)
+		assert.Equal(t, 20, result[0].Recap.TotalAlpha)
 
-		// User 2 verification
+		// User 2 verification (5 hari tercatat: 1 izin, 1 sakit, 1 cuti, 1 dinas luar, 1 explicit alpha + 18 missing = 19 alpha)
 		assert.Equal(t, uint(2), result[1].User.ID)
 		assert.Len(t, result[1].Details, 5)
-		assert.Equal(t, 5, result[1].Recap.TotalHariKerja)
+		assert.Equal(t, 23, result[1].Recap.TotalHariKerja)
 		assert.Equal(t, 1, result[1].Recap.TotalIzin)
 		assert.Equal(t, 1, result[1].Recap.TotalSakit)
-		assert.Equal(t, 1, result[1].Recap.TotalAlpha)
+		assert.Equal(t, 19, result[1].Recap.TotalAlpha)
 		assert.Equal(t, 1, result[1].Recap.TotalCuti)
 		assert.Equal(t, 1, result[1].Recap.TotalDinasLuar)
 
 		mockAbsensiRepo.AssertExpectations(t)
+		mockHolidayRepo.AssertExpectations(t)
 	})
 }
 

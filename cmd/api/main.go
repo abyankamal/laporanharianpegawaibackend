@@ -121,7 +121,7 @@ func main() {
 
 	// --- Izin Module ---
 	izinRepo := repository.NewIzinRepository(config.DB)
-	izinService := service.NewIzinService(izinRepo, absensiRepo)
+	izinService := service.NewIzinService(izinRepo, absensiRepo, holidayRepo)
 	izinHandler := handler.NewIzinHandler(izinService)
 
 	// =============================================

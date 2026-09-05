@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 
 	"laporanharianapi/internal/domain"
 	"laporanharianapi/internal/repository/mocks"
@@ -14,8 +15,9 @@ import (
 func TestIzinService_CreatePengajuan(t *testing.T) {
 	mockIzinRepo := new(mocks.IzinRepositoryMock)
 	mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
+	mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 
-	izinService := service.NewIzinService(mockIzinRepo, mockAbsensiRepo)
+	izinService := service.NewIzinService(mockIzinRepo, mockAbsensiRepo, mockHolidayRepo)
 
 	t.Run("Fails if jenis izin invalid", func(t *testing.T) {
 		input := service.PengajuanIzinInput{
@@ -77,8 +79,9 @@ func TestIzinService_CreatePengajuan(t *testing.T) {
 func TestIzinService_GetMyPengajuan(t *testing.T) {
 	mockIzinRepo := new(mocks.IzinRepositoryMock)
 	mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
+	mockHolidayRepo := new(mocks.HolidayRepositoryMock)
 
-	izinService := service.NewIzinService(mockIzinRepo, mockAbsensiRepo)
+	izinService := service.NewIzinService(mockIzinRepo, mockAbsensiRepo, mockHolidayRepo)
 
 	t.Run("Returns user pengajuan list", func(t *testing.T) {
 		expected := []domain.PengajuanIzin{
@@ -91,5 +94,46 @@ func TestIzinService_GetMyPengajuan(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expected, res)
 		mockIzinRepo.AssertExpectations(t)
+	})
+}
+
+func TestIzinService_ApprovePengajuan_SkipsHoliday(t *testing.T) {
+	t.Run("Approved leave creates absensi records on workdays but skips public holiday", func(t *testing.T) {
+		mockIzinRepo := new(mocks.IzinRepositoryMock)
+		mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+
+		izinService := service.NewIzinService(mockIzinRepo, mockAbsensiRepo, mockHolidayRepo)
+
+		// Sen, 17 Agu 2026 (Hari Kemerdekaan RI - Libur Nasional)
+		// Sel, 18 Agu 2026 (Hari Kerja Biasa)
+		senin, _ := time.Parse("2006-01-02", "2026-08-17")
+		selasa, _ := time.Parse("2006-01-02", "2026-08-18")
+
+		izin := domain.PengajuanIzin{
+			ID:             10,
+			UserID:         5,
+			JenisIzin:      "cuti",
+			TanggalMulai:   senin,
+			TanggalSelesai: selasa,
+			StatusApproval: "menunggu",
+		}
+
+		mockIzinRepo.On("GetByID", uint(10)).Return(&izin, nil).Once()
+		mockIzinRepo.On("Update", &izin).Return(nil).Once()
+
+		// 17 Agu adalah libur nasional -> CheckIsHoliday returns true
+		mockHolidayRepo.On("CheckIsHoliday", senin).Return(true, nil)
+		// 18 Agu bukan libur -> CheckIsHoliday returns false
+		mockHolidayRepo.On("CheckIsHoliday", selasa).Return(false, nil)
+
+		// Hanya 18 Agu yang dicatat sebagai absensi cuti
+		selasaDateOnly := time.Date(selasa.Year(), selasa.Month(), selasa.Day(), 0, 0, 0, 0, time.Local)
+		mockAbsensiRepo.On("GetByUserAndDate", uint(5), selasaDateOnly).Return(nil, nil).Once()
+		mockAbsensiRepo.On("Create", mock.AnythingOfType("*domain.Absensi")).Return(nil).Once()
+
+		err := izinService.ApprovePengajuan(10, 1, true, "Disetujui")
+		assert.NoError(t, err)
+		mockAbsensiRepo.AssertNumberOfCalls(t, "Create", 1)
 	})
 }

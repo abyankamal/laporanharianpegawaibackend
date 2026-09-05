@@ -51,6 +51,7 @@ type AbsensiService interface {
 	GetMonthlyRecap(userID uint, bulan, tahun int) ([]domain.Absensi, *repository.AbsensiRecapResponse, error)
 	GetAllMonthlyRecap(bulan, tahun int, users []domain.User) ([]UserAbsensiRecap, error)
 	IsWorkday(date time.Time) (bool, error)
+	GetEffectiveWorkdays(bulan, tahun int) ([]time.Time, error)
 }
 
 type absensiService struct {
@@ -294,25 +295,66 @@ func (s *absensiService) GetTodayStatus(userID uint) (*domain.Absensi, bool, err
 	return absensi, true, nil
 }
 
-// GetMonthlyRecap mengambil data absensi dan statistik rekap per user per bulan.
+// GetEffectiveWorkdays menghitung tanggal hari kerja resmi (bukan weekend & bukan hari libur nasional) dalam bulan tertentu.
+func (s *absensiService) GetEffectiveWorkdays(bulan, tahun int) ([]time.Time, error) {
+	startDate := time.Date(tahun, time.Month(bulan), 1, 0, 0, 0, 0, time.Local)
+	endDate := startDate.AddDate(0, 1, -1)
+
+	var holidays []domain.Holiday
+	if s.holidayRepo != nil {
+		hList, err := s.holidayRepo.GetAll()
+		if err == nil {
+			holidays = hList
+		}
+	}
+
+	var workdays []time.Time
+	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
+		weekday := d.Weekday()
+		if weekday == time.Saturday || weekday == time.Sunday {
+			continue
+		}
+
+		isHoliday := false
+		dFormat := d.Format("2006-01-02")
+		for _, h := range holidays {
+			hStart := h.TanggalMulai.Format("2006-01-02")
+			hEnd := h.TanggalSelesai.Format("2006-01-02")
+			if dFormat >= hStart && dFormat <= hEnd {
+				isHoliday = true
+				break
+			}
+		}
+		if !isHoliday {
+			workdays = append(workdays, d)
+		}
+	}
+	return workdays, nil
+}
+
+// GetMonthlyRecap mengambil data absensi dan statistik rekap per user per bulan berbasis hari kerja kalender aktif.
 func (s *absensiService) GetMonthlyRecap(userID uint, bulan, tahun int) ([]domain.Absensi, *repository.AbsensiRecapResponse, error) {
 	details, err := s.absensiRepo.GetByUserAndMonth(userID, bulan, tahun)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	recap, err := s.absensiRepo.GetAbsensiRecap(userID, bulan, tahun)
-	if err != nil {
-		return nil, nil, err
-	}
+	workdays, _ := s.GetEffectiveWorkdays(bulan, tahun)
+	recap := calculateAbsensiRecap(details, workdays, s.now())
 
 	return details, recap, nil
 }
 
-// calculateAbsensiRecap menghitung rekapitulasi statistik absensi dari list data absensi secara in-memory.
-func calculateAbsensiRecap(details []domain.Absensi) *repository.AbsensiRecapResponse {
+// calculateAbsensiRecap menghitung rekapitulasi statistik absensi dari list data absensi,
+// memperhitungkan total hari kerja efektif dalam bulan tersebut dan menghitung hari kerja lampau tanpa keterangan sebagai alpha.
+func calculateAbsensiRecap(details []domain.Absensi, workdays []time.Time, now time.Time) *repository.AbsensiRecapResponse {
 	recap := &repository.AbsensiRecapResponse{}
+	recordedDates := make(map[string]bool)
+
 	for _, a := range details {
+		if !a.Tanggal.IsZero() {
+			recordedDates[a.Tanggal.Format("2006-01-02")] = true
+		}
 		switch a.Status {
 		case "hadir":
 			recap.TotalHadir++
@@ -333,8 +375,21 @@ func calculateAbsensiRecap(details []domain.Absensi) *repository.AbsensiRecapRes
 		}
 	}
 
-	recap.TotalHariKerja = recap.TotalHadir + recap.TotalTerlambat + recap.TotalPulangCepat +
-		recap.TotalAlpha + recap.TotalIzin + recap.TotalSakit + recap.TotalCuti + recap.TotalDinasLuar
+	if len(workdays) > 0 {
+		todayMidnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+		for _, wd := range workdays {
+			wdStr := wd.Format("2006-01-02")
+			// Hanya hari kerja yang sudah berlalu (sebelum hari ini) yang dihitung sebagai alpha jika tidak ada catatan
+			if wd.Before(todayMidnight) && !recordedDates[wdStr] {
+				recap.TotalAlpha++
+			}
+		}
+		recap.TotalHariKerja = len(workdays)
+	} else {
+		recap.TotalHariKerja = recap.TotalHadir + recap.TotalTerlambat + recap.TotalPulangCepat +
+			recap.TotalAlpha + recap.TotalIzin + recap.TotalSakit + recap.TotalCuti + recap.TotalDinasLuar
+	}
+
 	return recap
 }
 
@@ -345,6 +400,9 @@ func (s *absensiService) GetAllMonthlyRecap(bulan, tahun int, users []domain.Use
 		return nil, err
 	}
 
+	workdays, _ := s.GetEffectiveWorkdays(bulan, tahun)
+	now := s.now()
+
 	// Group absensi per user
 	absensiMap := make(map[uint][]domain.Absensi)
 	for _, a := range allAbsensi {
@@ -354,7 +412,7 @@ func (s *absensiService) GetAllMonthlyRecap(bulan, tahun int, users []domain.Use
 	var result []UserAbsensiRecap
 	for _, user := range users {
 		details := absensiMap[user.ID]
-		recap := calculateAbsensiRecap(details)
+		recap := calculateAbsensiRecap(details, workdays, now)
 
 		result = append(result, UserAbsensiRecap{
 			User:    user,

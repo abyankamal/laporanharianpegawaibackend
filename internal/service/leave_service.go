@@ -39,13 +39,15 @@ type IzinService interface {
 type izinService struct {
 	izinRepo    repository.IzinRepository
 	absensiRepo repository.AbsensiRepository
+	holidayRepo repository.HolidayRepository
 }
 
 // NewIzinService membuat instance baru IzinService.
-func NewIzinService(izinRepo repository.IzinRepository, absensiRepo repository.AbsensiRepository) IzinService {
+func NewIzinService(izinRepo repository.IzinRepository, absensiRepo repository.AbsensiRepository, holidayRepo repository.HolidayRepository) IzinService {
 	return &izinService{
 		izinRepo:    izinRepo,
 		absensiRepo: absensiRepo,
+		holidayRepo: holidayRepo,
 	}
 }
 
@@ -237,6 +239,7 @@ func (s *izinService) ApprovePengajuan(izinID uint, approverID uint, approved bo
 
 // updateAbsensiForApprovedIzin mengupdate atau membuat record absensi
 // dengan status sesuai jenis izin pada tanggal-tanggal yang di-cover.
+// Melewati akhir pekan (Sabtu & Minggu) dan hari libur nasional agar hak libur tidak terpotong.
 func (s *izinService) updateAbsensiForApprovedIzin(izin *domain.PengajuanIzin) {
 	current := izin.TanggalMulai
 	for !current.After(izin.TanggalSelesai) {
@@ -244,6 +247,14 @@ func (s *izinService) updateAbsensiForApprovedIzin(izin *domain.PengajuanIzin) {
 		if current.Weekday() == time.Saturday || current.Weekday() == time.Sunday {
 			current = current.AddDate(0, 0, 1)
 			continue
+		}
+
+		// Skip hari libur nasional jika holidayRepo tersedia
+		if s.holidayRepo != nil {
+			if isHoliday, _ := s.holidayRepo.CheckIsHoliday(current); isHoliday {
+				current = current.AddDate(0, 0, 1)
+				continue
+			}
 		}
 
 		dateOnly := time.Date(current.Year(), current.Month(), current.Day(), 0, 0, 0, 0, time.Local)
