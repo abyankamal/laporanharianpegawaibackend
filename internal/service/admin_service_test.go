@@ -55,6 +55,40 @@ func TestAdminService_Pegawai(t *testing.T) {
 		mockUserRepo.AssertExpectations(t)
 	})
 
+	t.Run("CreatePegawaiAdmin - Empty Password", func(t *testing.T) {
+		mockAdminRepo := new(mocks.AdminRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockSupervisorRepo := new(mocks.SupervisorRepositoryMock)
+
+		mockUserRepo.On("FindByNIP", "198501012010011001").Return(nil, errors.New("not found"))
+
+		adminService := service.NewAdminService(mockAdminRepo, mockUserRepo, mockSupervisorRepo)
+		newUser := *dummyUser
+		newUser.Password = ""
+		err := adminService.CreatePegawaiAdmin(&newUser)
+
+		assert.Error(t, err)
+		assert.Equal(t, "password wajib diisi", err.Error())
+		mockUserRepo.AssertExpectations(t)
+	})
+
+	t.Run("CreatePegawaiAdmin - Short Password (<8 chars)", func(t *testing.T) {
+		mockAdminRepo := new(mocks.AdminRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockSupervisorRepo := new(mocks.SupervisorRepositoryMock)
+
+		mockUserRepo.On("FindByNIP", "198501012010011001").Return(nil, errors.New("not found"))
+
+		adminService := service.NewAdminService(mockAdminRepo, mockUserRepo, mockSupervisorRepo)
+		newUser := *dummyUser
+		newUser.Password = "1234567"
+		err := adminService.CreatePegawaiAdmin(&newUser)
+
+		assert.Error(t, err)
+		assert.Equal(t, "password minimal 8 karakter", err.Error())
+		mockUserRepo.AssertExpectations(t)
+	})
+
 	t.Run("UpdatePegawaiAdmin - User Not Found", func(t *testing.T) {
 		mockAdminRepo := new(mocks.AdminRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)

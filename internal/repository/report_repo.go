@@ -28,6 +28,7 @@ type ReportRecapResponse struct {
 	TotalSudahDireview int `json:"total_sudah_direview" gorm:"column:total_sudah_direview"`
 	TotalDisetujui     int `json:"total_disetujui" gorm:"-"` // Alias untuk compatibility frontend lama
 	TotalMenunggu      int `json:"total_menunggu" gorm:"column:total_menunggu"`
+	TotalDitolak       int `json:"total_ditolak" gorm:"column:total_ditolak"`
 	TotalJamKerja      int `json:"total_jam_kerja" gorm:"column:total_jam_kerja"`
 }
 
@@ -188,9 +189,10 @@ func (r *reportRepository) GetReportRecap(userID uint, startDate time.Time, endD
 	var rekap ReportRecapResponse
 
 	err := r.db.Model(&domain.Laporan{}).
-		Select("COUNT(id) as total_laporan, "+
-			"SUM(CASE WHEN status IN ('sudah_direview', 'disetujui', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, "+
-			"SUM(CASE WHEN status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END) as total_menunggu, "+
+		Select("COALESCE(COUNT(id), 0) as total_laporan, "+
+			"COALESCE(SUM(CASE WHEN status IN ('sudah_direview', 'disetujui', 'Disetujui') THEN 1 ELSE 0 END), 0) as total_sudah_direview, "+
+			"COALESCE(SUM(CASE WHEN status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END), 0) as total_menunggu, "+
+			"COALESCE(SUM(CASE WHEN status IN ('ditolak', 'Ditolak') THEN 1 ELSE 0 END), 0) as total_ditolak, "+
 			"COALESCE(SUM(jam_kerja), 0) as total_jam_kerja").
 		Where("(? = 0 OR user_id = ?) AND waktu_pelaporan BETWEEN ? AND ?", userID, userID, startDate, endDate).
 		Scan(&rekap).Error
@@ -241,9 +243,10 @@ func (r *reportRepository) GetReportRecapAggregated(filter ReportFilter) (*Repor
 		query = query.Where("users.jabatan_id = ?", filter.JabatanID)
 	}
 
-	err := query.Select("COUNT(laporan.id) as total_laporan, " +
-		"SUM(CASE WHEN laporan.status IN ('sudah_direview', 'disetujui', 'Disetujui') THEN 1 ELSE 0 END) as total_sudah_direview, " +
-		"SUM(CASE WHEN laporan.status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END) as total_menunggu, " +
+	err := query.Select("COALESCE(COUNT(laporan.id), 0) as total_laporan, " +
+		"COALESCE(SUM(CASE WHEN laporan.status IN ('sudah_direview', 'disetujui', 'Disetujui') THEN 1 ELSE 0 END), 0) as total_sudah_direview, " +
+		"COALESCE(SUM(CASE WHEN laporan.status IN ('menunggu_review', 'Menunggu') THEN 1 ELSE 0 END), 0) as total_menunggu, " +
+		"COALESCE(SUM(CASE WHEN laporan.status IN ('ditolak', 'Ditolak') THEN 1 ELSE 0 END), 0) as total_ditolak, " +
 		"COALESCE(SUM(laporan.jam_kerja), 0) as total_jam_kerja").
 		Scan(&rekap).Error
 

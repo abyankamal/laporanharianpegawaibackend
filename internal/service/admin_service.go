@@ -89,16 +89,22 @@ func (s *adminService) CreatePegawaiAdmin(req *domain.User) error {
 		return errors.New("NIP sudah terdaftar")
 	}
 
-	// 2. Hash Password (jika ada)
-	if req.Password != "" {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		if err != nil {
-			return errors.New("gagal mengenkripsi kata sandi")
-		}
-		req.Password = string(hashedPassword)
+	// 2. Validasi Password wajib dan minimal 8 karakter
+	if req.Password == "" {
+		return errors.New("password wajib diisi")
+	}
+	if len(req.Password) < 8 {
+		return errors.New("password minimal 8 karakter")
 	}
 
-	// 3. Simpan ke database
+	// 3. Hash Password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.New("gagal mengenkripsi kata sandi")
+	}
+	req.Password = string(hashedPassword)
+
+	// 4. Simpan ke database
 	return s.userRepo.Create(req)
 }
 
