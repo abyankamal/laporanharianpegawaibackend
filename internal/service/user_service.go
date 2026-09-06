@@ -20,10 +20,10 @@ import (
 
 // CreateUserRequest adalah DTO untuk request pembuatan user baru.
 type CreateUserRequest struct {
-	NIP          string `json:"nip"`
-	Nama         string `json:"nama"`
-	Password     string `json:"password"`
-	Role         string `json:"role"`
+	NIP          string `json:"nip" validate:"required"`
+	Nama         string `json:"nama" validate:"required"`
+	Password     string `json:"password" validate:"required,min=8"`
+	Role         string `json:"role" validate:"required"`
 	JabatanID    *uint  `json:"jabatan_id"`
 	SupervisorID *uint  `json:"supervisor_id"`
 }

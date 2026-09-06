@@ -190,9 +190,9 @@ func (h *UserHandler) GetOne(c fiber.Ctx) error {
 func (h *UserHandler) Create(c fiber.Ctx) error {
 	var req service.CreateUserRequest
 
-	// Parse body request
-	if err := c.Bind().Body(&req); err != nil {
-		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
+	// Parse body request & validasi boundary
+	if !BindAndValidate(c, &req) {
+		return nil
 	}
 
 	user, err := h.userService.CreateUser(req)
@@ -277,27 +277,19 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 	}
 	userID := uint(userIDFloat)
 
-	// 2. Parse JSON Body
+	// 2. Parse JSON Body & validasi boundary
 	var req service.ChangePasswordRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
+	if !BindAndValidate(c, &req) {
+		return nil
 	}
 
-	// 3. Validasi input wajib
-	if req.OldPassword == "" {
-		return SendError(c, fiber.StatusBadRequest, "password lama wajib diisi")
-	}
-	if req.NewPassword == "" {
-		return SendError(c, fiber.StatusBadRequest, "password baru wajib diisi")
-	}
-
-	// 4. Panggil service
+	// 3. Panggil service
 	err := h.userService.ChangePassword(userID, req)
 	if err != nil {
 		return ErrorResponse(c, err)
 	}
 
-	// 5. Return response sukses
+	// 4. Return response sukses
 	return SendSuccess(c, fiber.StatusOK, "Password berhasil diubah", nil)
 }
 
@@ -312,9 +304,11 @@ func (h *UserHandler) ResetPassword(c fiber.Ctx) error {
 	requesterRole, _ := c.Locals("role").(string)
 
 	var req struct {
-		NewPassword string `json:"new_password"`
+		NewPassword string `json:"new_password" validate:"required,min=8"`
 	}
-	_ = c.Bind().JSON(&req)
+	if !BindAndValidate(c, &req) {
+		return nil
+	}
 
 	err = h.userService.ResetPasswordByAdmin(uint(id), req.NewPassword, requesterRole)
 	if err != nil {

@@ -21,7 +21,7 @@ type JabatanModelResponse struct {
 }
 
 type CreateJabatanRequest struct {
-	Nama string `json:"nama"`
+	Nama string `json:"nama" validate:"required"`
 }
 
 func (h *JabatanHandler) GetAll(c fiber.Ctx) error {
@@ -60,12 +60,8 @@ func (h *JabatanHandler) GetOne(c fiber.Ctx) error {
 
 func (h *JabatanHandler) Create(c fiber.Ctx) error {
 	var req CreateJabatanRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
-	}
-
-	if req.Nama == "" {
-		return SendError(c, fiber.StatusBadRequest, "Nama jabatan wajib diisi")
+	if !BindAndValidate(c, &req) {
+		return nil
 	}
 
 	jabatan, err := h.jabatanService.CreateJabatan(req.Nama)
@@ -86,8 +82,8 @@ func (h *JabatanHandler) Update(c fiber.Ctx) error {
 	}
 
 	var req CreateJabatanRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
+	if !BindAndValidate(c, &req) {
+		return nil
 	}
 
 	jabatan, err := h.jabatanService.UpdateJabatan(uint(id), req.Nama)

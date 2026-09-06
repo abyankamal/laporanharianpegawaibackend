@@ -20,84 +20,54 @@ func NewWorkHourHandler(service service.WorkHourService) *WorkHourHandler {
 func (h *WorkHourHandler) GetWorkHour(c fiber.Ctx) error {
 	workHour, err := h.service.GetWorkHour()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil pengaturan",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil pengaturan")
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data pengaturan berhasil diambil",
-		"data":    workHour,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Data pengaturan berhasil diambil", workHour)
 }
 
 // UpdateWorkHourRequest adalah struct untuk request update pengaturan jam kerja.
 type UpdateWorkHourRequest struct {
-	JamMasuk       string `json:"jam_masuk"`
-	JamPulang      string `json:"jam_pulang"`
-	JamMasukJumat  string `json:"jam_masuk_jumat"`
-	JamPulangJumat string `json:"jam_pulang_jumat"`
+	JamMasuk       string `json:"jam_masuk" validate:"required,min=5,max=5"`
+	JamPulang      string `json:"jam_pulang" validate:"required,min=5,max=5"`
+	JamMasukJumat  string `json:"jam_masuk_jumat" validate:"required,min=5,max=5"`
+	JamPulangJumat string `json:"jam_pulang_jumat" validate:"required,min=5,max=5"`
 }
 
 // UpdateWorkHour memperbarui konfigurasi jam masuk dan pulang.
 func (h *WorkHourHandler) UpdateWorkHour(c fiber.Ctx) error {
 	var req UpdateWorkHourRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid",
-		})
+	if !BindAndValidate(c, &req) {
+		return nil
 	}
 
 	workHour, err := h.service.UpdateWorkHour(req.JamMasuk, req.JamPulang, req.JamMasukJumat, req.JamPulangJumat)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Pengaturan jam kerja berhasil diperbarui",
-		"data":    workHour,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Pengaturan jam kerja berhasil diperbarui", workHour)
 }
 
 // UpdateGeofencingRequest adalah struct untuk request update koordinat geofencing.
 type UpdateGeofencingRequest struct {
-	KantorLat         *string `json:"kantor_lat"`
-	KantorLong        *string `json:"kantor_long"`
-	RadiusMeter       int     `json:"radius_meter"`
+	KantorLat         *string `json:"kantor_lat" validate:"required"`
+	KantorLong        *string `json:"kantor_long" validate:"required"`
+	RadiusMeter       int     `json:"radius_meter" validate:"min=1"`
 	GeofencingEnabled bool    `json:"geofencing_enabled"`
 }
 
 // UpdateGeofencing memperbarui konfigurasi koordinat dan radius geofencing kantor.
 func (h *WorkHourHandler) UpdateGeofencing(c fiber.Ctx) error {
 	var req UpdateGeofencingRequest
-	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid",
-		})
+	if !BindAndValidate(c, &req) {
+		return nil
 	}
 
 	workHour, err := h.service.UpdateGeofencing(req.KantorLat, req.KantorLong, req.RadiusMeter, req.GeofencingEnabled)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Pengaturan geofencing berhasil diperbarui",
-		"data":    workHour,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Pengaturan geofencing berhasil diperbarui", workHour)
 }

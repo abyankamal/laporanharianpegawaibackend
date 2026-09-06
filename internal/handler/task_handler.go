@@ -35,13 +35,13 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
-	// 2. Parse Body (Mendukung JSON dan Multipart/Form)
+	// 2. Parse Body & Boundary Validation (Mendukung JSON dan Multipart/Form)
 	var req service.CreateOrganizationalTaskRequest
 	contentType := string(c.Get("Content-Type"))
 
 	if strings.Contains(contentType, "application/json") {
-		if err := c.Bind().JSON(&req); err != nil {
-			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
+		if !BindAndValidate(c, &req) {
+			return nil
 		}
 	} else {
 		// Multipart/Form data
@@ -64,17 +64,14 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 		// Handle File
 		file, _ := c.FormFile("file_bukti")
 		req.FileHeader = file
+
+		// Validasi boundary untuk multipart form
+		if errs := ValidateStruct(&req); len(errs) > 0 {
+			return SendValidationError(c, errs)
+		}
 	}
 
-	// 3. Validasi input wajib
-	if req.JudulTugas == "" {
-		return SendError(c, fiber.StatusBadRequest, "judul_tugas wajib diisi")
-	}
-	if len(req.TargetUserIDs) == 0 {
-		return SendError(c, fiber.StatusBadRequest, "target_user_ids wajib diisi")
-	}
-
-	// 4. Panggil service
+	// 3. Panggil service
 	tugas, err := h.taskService.CreateTask(requesterID, requesterRole, req)
 	if err != nil {
 		return SendError(c, fiber.StatusBadRequest, err.Error())
@@ -244,13 +241,13 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
-	// 3. Parse Body (Mendukung JSON dan Multipart/Form)
+	// 3. Parse Body & Boundary Validation (Mendukung JSON dan Multipart/Form)
 	var req service.UpdateOrganizationalTaskRequest
 	contentType := string(c.Get("Content-Type"))
 
 	if strings.Contains(contentType, "application/json") {
-		if err := c.Bind().JSON(&req); err != nil {
-			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
+		if !BindAndValidate(c, &req) {
+			return nil
 		}
 	} else {
 		// Multipart/Form data
@@ -273,6 +270,11 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 		// Handle File
 		file, _ := c.FormFile("file_bukti")
 		req.FileHeader = file
+
+		// Validasi boundary untuk multipart form
+		if errs := ValidateStruct(&req); len(errs) > 0 {
+			return SendValidationError(c, errs)
+		}
 	}
 
 	// 4. Panggil service
