@@ -63,13 +63,13 @@ func loadLogosToCache() {
 func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Role tidak ditemukan"})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 	roleBase := strings.ToLower(requesterRole)
 
@@ -96,7 +96,7 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	case "staf", "kasi":
 		user, err := h.userService.GetUserByID(requesterID)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+			return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data user")
 		}
 		targetUsers = []domain.User{*user}
 
@@ -105,18 +105,18 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 			for _, id := range targetUserIDs {
 				user, err := h.userService.GetUserByID(id)
 				if err != nil {
-					return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": fmt.Sprintf("User dengan ID %d tidak ditemukan", id)})
+					return SendError(c, fiber.StatusNotFound, fmt.Sprintf("User dengan ID %d tidak ditemukan", id))
 				}
 				roleLower := strings.ToLower(user.Role)
 				if roleLower != "staf" && roleLower != "kasi" && roleLower != "sekertaris" && roleLower != "sekretaris" {
-					return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"status": "error", "message": fmt.Sprintf("Akses ditolak: Tidak dapat mengekspor laporan user dengan ID %d", id)})
+					return SendError(c, fiber.StatusForbidden, fmt.Sprintf("Akses ditolak: Tidak dapat mengekspor laporan user dengan ID %d", id))
 				}
 				targetUsers = append(targetUsers, *user)
 			}
 		} else {
 			users, err := h.userService.GetUsersByRoles([]string{"staf", "Staf", "kasi", "Kasi", "sekertaris", "Sekertaris"})
 			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+				return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data user")
 			}
 			targetUsers = users
 		}
@@ -126,14 +126,14 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 			for _, id := range targetUserIDs {
 				user, err := h.userService.GetUserByID(id)
 				if err != nil {
-					return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": fmt.Sprintf("User dengan ID %d tidak ditemukan", id)})
+					return SendError(c, fiber.StatusNotFound, fmt.Sprintf("User dengan ID %d tidak ditemukan", id))
 				}
 				targetUsers = append(targetUsers, *user)
 			}
 		} else {
 			users, err := h.userService.GetAllUsers()
 			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+				return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data user")
 			}
 			targetUsers = users
 		}
@@ -148,11 +148,11 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	if startDateStr != "" && endDateStr != "" {
 		startDate, err = time.ParseInLocation("2006-01-02", startDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format start_date tidak valid"})
+			return SendError(c, fiber.StatusBadRequest, "Format start_date tidak valid")
 		}
 		endDate, err = time.ParseInLocation("2006-01-02", endDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
+			return SendError(c, fiber.StatusBadRequest, "Format end_date tidak valid")
 		}
 		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	} else {
@@ -624,11 +624,11 @@ func (h *ReportHandler) ExportReportPDFHandler(c fiber.Ctx) error {
 	}
 
 	if pdf.Err() {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal menyusun PDF: " + pdf.Error().Error()})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal menyusun PDF: "+pdf.Error().Error())
 	}
 
 	if pdf.PageCount() == 0 {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "Tidak ada laporan dalam periode tersebut"})
+		return SendError(c, fiber.StatusNotFound, "Tidak ada laporan dalam periode tersebut")
 	}
 
 	filename := fmt.Sprintf("laporan_harian_%s_sd_%s.pdf", startDate.Format("20060102"), endDate.Format("20060102"))

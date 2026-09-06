@@ -22,26 +22,20 @@ func (h *AbsensiHandler) ExportPDF(c fiber.Ctx) error {
 
 	// Hanya lurah, sekretaris, admin yang boleh export
 	if roleLower != "lurah" && roleLower != "sekertaris" && roleLower != "sekretaris" && roleLower != "admin" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "error", "message": "Akses ditolak",
-		})
+		return SendError(c, fiber.StatusForbidden, "Akses ditolak")
 	}
 
 	bulan, _ := strconv.Atoi(c.Query("bulan"))
 	tahun, _ := strconv.Atoi(c.Query("tahun"))
 
 	if bulan < 1 || bulan > 12 || tahun < 2020 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": "Parameter bulan (1-12) dan tahun wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Parameter bulan (1-12) dan tahun wajib diisi")
 	}
 
 	// Ambil semua user (exclude admin)
 	allUsers, err := h.userService.GetAllUsers()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil data pegawai",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data pegawai")
 	}
 
 	var users []domain.User
@@ -54,9 +48,7 @@ func (h *AbsensiHandler) ExportPDF(c fiber.Ctx) error {
 	// Ambil rekap absensi
 	recaps, err := h.absensiService.GetAllMonthlyRecap(bulan, tahun, users)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil data absensi",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data absensi")
 	}
 
 	// Cari Lurah dan Sekretaris untuk tanda tangan
@@ -86,9 +78,7 @@ func (h *AbsensiHandler) ExportPDF(c fiber.Ctx) error {
 	// Generate PDF
 	pdfBytes, err := generateAbsensiPDF(recaps, users, bulan, tahun, lurah, sekretaris, holidayDays)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal membuat PDF: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal membuat PDF: "+err.Error())
 	}
 
 	filename := fmt.Sprintf("daftar_hadir_%s_%d.pdf", getIndonesianMonthName(time.Month(bulan)), tahun)

@@ -22,11 +22,11 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	// 1. Ambil requester
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Role tidak ditemukan"})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 
@@ -37,21 +37,21 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 		// Only self
 		user, err := h.userService.GetUserByID(requesterID)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+			return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data user")
 		}
 		targetUsers = []domain.User{*user}
 	case "sekertaris", "sekretaris":
 		// Sendiri dan staf
 		users, err := h.userService.GetUsersByRoles([]string{"staf", "Staf", "sekertaris", "Sekertaris"})
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+			return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data user")
 		}
 		targetUsers = users
 	default:
 		// Lurah (All users)
 		users, err := h.userService.GetAllUsers()
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data user"})
+			return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data user")
 		}
 		targetUsers = users
 	}
@@ -66,11 +66,11 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	if startDateStr != "" && endDateStr != "" {
 		startDate, err = time.ParseInLocation("2006-01-02", startDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format start_date tidak valid"})
+			return SendError(c, fiber.StatusBadRequest, "Format start_date tidak valid")
 		}
 		endDate, err = time.ParseInLocation("2006-01-02", endDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
+			return SendError(c, fiber.StatusBadRequest, "Format end_date tidak valid")
 		}
 		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	} else {
@@ -124,7 +124,7 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 	// 4. Send to client as download
 	buffer, err := f.WriteToBuffer()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal generate excel"})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal generate excel")
 	}
 
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=rekap_laporan_%s_to_%s.xlsx", startDate.Format("20060102"), endDate.Format("20060102")))
@@ -135,12 +135,12 @@ func (h *ReportHandler) ExportReportRecapExcelHandler(c fiber.Ctx) error {
 func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "Role tidak ditemukan"})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	startDateStr := c.Query("start_date")
@@ -160,11 +160,11 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 		if userID != 0 && userID != int(requesterID) {
 			targetUser, err := h.userService.GetUserByID(uint(userID))
 			if err != nil {
-				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"status": "error", "message": "User yang dipilih tidak ditemukan"})
+				return SendError(c, fiber.StatusNotFound, "User yang dipilih tidak ditemukan")
 			}
 			targetRole := strings.ToLower(targetUser.Role)
 			if targetRole != "staf" {
-				return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"status": "error", "message": "Akses ditolak: Hanya dapat mengunduh laporan staf atau diri sendiri"})
+				return SendError(c, fiber.StatusForbidden, "Akses ditolak: Hanya dapat mengunduh laporan staf atau diri sendiri")
 			}
 		}
 	} // Lurah tidak butuh validasi target user
@@ -187,7 +187,7 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 
 	reports, _, err := h.reportService.GetAllReports(filter, requesterRole, requesterID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil data laporan: " + err.Error()})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data laporan: "+err.Error())
 	}
 
 	// Buat buffer untuk zip
@@ -242,7 +242,7 @@ func (h *ReportHandler) ExportReportAttachmentsHandler(c fiber.Ctx) error {
 
 	err = zipWriter.Close()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal membuat zip"})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal membuat zip")
 	}
 
 	c.Set("Content-Disposition", fmt.Sprintf("attachment; filename=lampiran_laporan_%s_to_%s.zip", startDateStr, endDateStr))

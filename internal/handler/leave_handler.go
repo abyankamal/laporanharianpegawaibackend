@@ -24,9 +24,7 @@ func NewIzinHandler(izinService service.IzinService) *IzinHandler {
 func (h *IzinHandler) CreateByAdmin(c fiber.Ctx) error {
 	adminIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	targetUserID, _ := strconv.Atoi(c.FormValue("user_id"))
@@ -48,16 +46,10 @@ func (h *IzinHandler) CreateByAdmin(c fiber.Ctx) error {
 
 	izin, err := h.izinService.CreateByAdmin(input, uint(adminIDFloat))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"status":  "success",
-		"message": "Pencatatan izin pegawai berhasil disimpan dan disetujui",
-		"data":    izin,
-	})
+	return SendSuccess(c, fiber.StatusCreated, "Pencatatan izin pegawai berhasil disimpan dan disetujui", izin)
 }
 
 // Create menangani request pembuatan pengajuan izin baru.
@@ -65,9 +57,7 @@ func (h *IzinHandler) CreateByAdmin(c fiber.Ctx) error {
 func (h *IzinHandler) Create(c fiber.Ctx) error {
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	jenisIzin := c.FormValue("jenis_izin")
@@ -88,16 +78,10 @@ func (h *IzinHandler) Create(c fiber.Ctx) error {
 
 	izin, err := h.izinService.CreatePengajuan(input)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"status":  "success",
-		"message": "Pengajuan izin berhasil dibuat",
-		"data":    izin,
-	})
+	return SendSuccess(c, fiber.StatusCreated, "Pengajuan izin berhasil dibuat", izin)
 }
 
 // GetMy menangani request daftar pengajuan izin milik user.
@@ -105,22 +89,15 @@ func (h *IzinHandler) Create(c fiber.Ctx) error {
 func (h *IzinHandler) GetMy(c fiber.Ctx) error {
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	list, err := h.izinService.GetMyPengajuan(uint(userIDFloat))
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil data pengajuan izin",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data pengajuan izin")
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status": "success",
-		"data":   list,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Data pengajuan izin berhasil diambil", list)
 }
 
 // GetPending menangani request daftar pengajuan izin yang menunggu approval (Lurah).
@@ -128,15 +105,10 @@ func (h *IzinHandler) GetMy(c fiber.Ctx) error {
 func (h *IzinHandler) GetPending(c fiber.Ctx) error {
 	list, err := h.izinService.GetPendingApprovals()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status": "error", "message": "Gagal mengambil data pengajuan",
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data pengajuan")
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status": "success",
-		"data":   list,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Data pengajuan pending berhasil diambil", list)
 }
 
 // GetAll menangani request seluruh daftar pengajuan izin (Web Admin).
@@ -155,24 +127,18 @@ func (h *IzinHandler) GetAll(c fiber.Ctx) error {
 func (h *IzinHandler) Approve(c fiber.Ctx) error {
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status": "error", "message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 
 	// Validasi role — hanya Lurah yang boleh approve
 	role, _ := c.Locals("role").(string)
 	if strings.ToLower(role) != "lurah" && strings.ToLower(role) != "admin" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status": "error", "message": "Hanya Lurah yang berhak menyetujui/menolak pengajuan izin",
-		})
+		return SendError(c, fiber.StatusForbidden, "Hanya Lurah yang berhak menyetujui/menolak pengajuan izin")
 	}
 
 	izinID, err := strconv.Atoi(c.Params("id"))
 	if err != nil || izinID < 1 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": "ID pengajuan tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID pengajuan tidak valid")
 	}
 
 	// Parse body
@@ -183,16 +149,12 @@ func (h *IzinHandler) Approve(c fiber.Ctx) error {
 
 	var req ApproveRequest
 	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": "Format request tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
 	err = h.izinService.ApprovePengajuan(uint(izinID), uint(userIDFloat), req.Approved, req.Komentar)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status": "error", "message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	statusMsg := "disetujui"
@@ -200,8 +162,5 @@ func (h *IzinHandler) Approve(c fiber.Ctx) error {
 		statusMsg = "ditolak"
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status":  "success",
-		"message": "Pengajuan izin berhasil " + statusMsg,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Pengajuan izin berhasil "+statusMsg, nil)
 }

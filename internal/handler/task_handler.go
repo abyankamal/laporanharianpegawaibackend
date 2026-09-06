@@ -26,19 +26,13 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	// 1. Ambil requester dari JWT Token
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// 2. Parse Body (Mendukung JSON dan Multipart/Form)
@@ -47,10 +41,7 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 
 	if strings.Contains(contentType, "application/json") {
 		if err := c.Bind().JSON(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Format request tidak valid: " + err.Error(),
-			})
+			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid: "+err.Error())
 		}
 	} else {
 		// Multipart/Form data
@@ -77,25 +68,16 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 
 	// 3. Validasi input wajib
 	if req.JudulTugas == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "judul_tugas wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "judul_tugas wajib diisi")
 	}
 	if len(req.TargetUserIDs) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "target_user_ids wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "target_user_ids wajib diisi")
 	}
 
 	// 4. Panggil service
 	tugas, err := h.taskService.CreateTask(requesterID, requesterRole, req)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	// 5. Susun response
@@ -118,12 +100,7 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	}
 	responseData["assignees"] = assigneeList
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Tugas organisasi berhasil dibuat",
-		"data":    responseData,
-	})
+	return SendSuccess(c, fiber.StatusCreated, "Tugas organisasi berhasil dibuat", responseData)
 }
 
 // GetMyTasks menangani pegawai untuk melihat tugas organisasi yang di-assign padanya.
@@ -131,62 +108,40 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := int(userIDFloat)
 
 	// 2. Panggil service
 	tasks, err := h.taskService.GetMyTasks(userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil daftar tugas: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas: "+err.Error())
 	}
 
 	// 3. Map ke format response
 	responseData := h.mapTasksToResponse(tasks)
 
 	// 4. Return response
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Daftar tugas organisasi berhasil diambil",
-		"data":    responseData,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Daftar tugas organisasi berhasil diambil", responseData)
 }
 
 // GetAll menangani Lurah untuk melihat seluruh tugas organisasi.
 func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 	tasks, err := h.taskService.GetAllTasks()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil daftar tugas: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas: "+err.Error())
 	}
 
 	responseData := h.mapTasksToResponse(tasks)
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Daftar seluruh tugas organisasi berhasil diambil",
-		"data":    responseData,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Daftar seluruh tugas organisasi berhasil diambil", responseData)
 }
 
 // GetByID menangani pengambilan detail tugas organisasi berdasarkan ID.
 func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	taskID, err := strconv.Atoi(c.Params("id"))
 	if err != nil || taskID <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID tugas tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID tugas tidak valid")
 	}
 
 	// 2. Ambil requester ID dari Locals
@@ -201,18 +156,12 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	case uint:
 		requesterID = v
 	default:
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User ID tidak valid",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User ID tidak valid")
 	}
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// Logging untuk debug akses
@@ -221,10 +170,7 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	task, err := h.taskService.GetTaskByID(requesterID, requesterRole, uint(taskID))
 	if err != nil {
 		log.Printf("[DEBUG] GetTaskByID - Error: %v\n", err)
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusForbidden, err.Error())
 	}
 
 	// Log jumlah assignees yang ter-preload
@@ -275,12 +221,7 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	}
 	responseData["assignees"] = assigneeList
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Detail tugas berhasil diambil",
-		"data":    responseData,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Detail tugas berhasil diambil", responseData)
 }
 
 // Update menangani perubahaan tugas organisasi (Lurah only).
@@ -288,28 +229,19 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 	// 1. Ambil task ID dari URL parameter
 	taskID, err := strconv.Atoi(c.Params("id"))
 	if err != nil || taskID <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID tugas tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID tugas tidak valid")
 	}
 
 	// 2. Ambil requester dari JWT Token
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// 3. Parse Body (Mendukung JSON dan Multipart/Form)
@@ -318,10 +250,7 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 
 	if strings.Contains(contentType, "application/json") {
 		if err := c.Bind().JSON(&req); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Format request tidak valid: " + err.Error(),
-			})
+			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid: "+err.Error())
 		}
 	} else {
 		// Multipart/Form data
@@ -349,10 +278,7 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 	// 4. Panggil service
 	updatedTask, err := h.taskService.UpdateTask(requesterID, requesterRole, uint(taskID), req)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	// 5. Susun response
@@ -374,12 +300,7 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 	}
 	responseData["assignees"] = assigneeList
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Tugas organisasi berhasil diperbarui",
-		"data":    responseData,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Tugas organisasi berhasil diperbarui", responseData)
 }
 
 // Delete menangani penghapusan tugas organisasi (Lurah only).
@@ -387,44 +308,28 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 	// 1. Ambil task ID dari URL parameter
 	taskID, err := strconv.Atoi(c.Params("id"))
 	if err != nil || taskID <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID tugas tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID tugas tidak valid")
 	}
 
 	// 2. Ambil requester dari JWT Token
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// 3. Panggil service
 	err = h.taskService.DeleteTask(requesterID, requesterRole, uint(taskID))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Tugas organisasi berhasil dihapus",
-	})
+	return SendSuccess(c, fiber.StatusOK, "Tugas organisasi berhasil dihapus", nil)
 }
 
 // mapTasksToResponse mengonversi slice TugasOrganisasi ke format response JSON.

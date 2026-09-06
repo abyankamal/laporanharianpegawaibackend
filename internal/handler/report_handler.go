@@ -32,19 +32,13 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 	// 1. Ambil requester dari JWT Token
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// 2. Parse query parameters
@@ -70,18 +64,12 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 	// 4. Validasi format tanggal jika diberikan
 	if startDate != "" {
 		if _, err := time.ParseInLocation("2006-01-02", startDate, time.Local); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Format start_date tidak valid (gunakan: YYYY-MM-DD)",
-			})
+			return SendError(c, fiber.StatusBadRequest, "Format start_date tidak valid (gunakan: YYYY-MM-DD)")
 		}
 	}
 	if endDate != "" {
 		if _, err := time.ParseInLocation("2006-01-02", endDate, time.Local); err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": "Format end_date tidak valid (gunakan: YYYY-MM-DD)",
-			})
+			return SendError(c, fiber.StatusBadRequest, "Format end_date tidak valid (gunakan: YYYY-MM-DD)")
 		}
 	}
 
@@ -114,10 +102,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token (via Locals dari middleware)
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := uint(userIDFloat)
 
@@ -162,18 +147,12 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	}
 
 	if parseErr != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": fmt.Sprintf("Format waktu_pelaporan tidak valid: %s. Gunakan format YYYY-MM-DD HH:mm:ss", waktuPelaporanStr),
-		})
+		return SendError(c, fiber.StatusBadRequest, fmt.Sprintf("Format waktu_pelaporan tidak valid: %s. Gunakan format YYYY-MM-DD HH:mm:ss", waktuPelaporanStr))
 	}
 
 	// 3. Validasi input sederhana
 	if deskripsiHasil == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Deskripsi hasil wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Deskripsi hasil wajib diisi")
 	}
 
 	// 4. Ambil file foto (opsional)
@@ -181,10 +160,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	if fotoErr != nil {
 		// Jika errornya bukan karena file tidak ada, return error
 		if fotoErr.Error() != "there is no uploaded file associated with the given key" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": fmt.Sprintf("Gagal membaca file foto: %v", fotoErr),
-			})
+			return SendError(c, fiber.StatusBadRequest, fmt.Sprintf("Gagal membaca file foto: %v", fotoErr))
 		}
 		// Jika tidak ada file, biarkan nil
 		fileFoto = nil
@@ -194,10 +170,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	fileDokumen, dokErr := c.FormFile("dokumen")
 	if dokErr != nil {
 		if dokErr.Error() != "there is no uploaded file associated with the given key" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"status":  "error",
-				"message": fmt.Sprintf("Gagal membaca file dokumen: %v", dokErr),
-			})
+			return SendError(c, fiber.StatusBadRequest, fmt.Sprintf("Gagal membaca file dokumen: %v", dokErr))
 		}
 		fileDokumen = nil
 	}
@@ -223,24 +196,16 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	// 7. Panggil service
 	laporan, err := h.reportService.CreateReport(input)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	// 8. Return response sukses
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Laporan berhasil dibuat",
-		"data": fiber.Map{
-			"id":          laporan.ID,
-			"is_overtime": laporan.IsOvertime,
-			"foto_url":    laporan.FotoURL,
-			"dokumen_url": laporan.DokumenURL,
-			"created_at":  laporan.CreatedAt,
-		},
+	return SendSuccess(c, fiber.StatusCreated, "Laporan berhasil dibuat", fiber.Map{
+		"id":          laporan.ID,
+		"is_overtime": laporan.IsOvertime,
+		"foto_url":    laporan.FotoURL,
+		"dokumen_url": laporan.DokumenURL,
+		"created_at":  laporan.CreatedAt,
 	})
 }
 
@@ -250,28 +215,19 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID laporan tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID laporan tidak valid")
 	}
 
 	// 2. Ambil requester dari JWT Token untuk RBAC
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 
 	requesterRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// 3. Panggil service GetReportDetail (sekarang return 2 value, bukan 3)
@@ -355,7 +311,7 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 	// 1. Ambil requester data dari JWT Token
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"status": "error", "message": "User tidak terautentikasi"})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 	requesterRole, _ := c.Locals("role").(string)
@@ -386,11 +342,11 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 	if startDateStr != "" && endDateStr != "" {
 		startDate, err = time.ParseInLocation("2006-01-02", startDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format start_date tidak valid"})
+			return SendError(c, fiber.StatusBadRequest, "Format start_date tidak valid")
 		}
 		endDate, err = time.ParseInLocation("2006-01-02", endDateStr, time.Local)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "error", "message": "Format end_date tidak valid"})
+			return SendError(c, fiber.StatusBadRequest, "Format end_date tidak valid")
 		}
 		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 59, 999999999, time.Local)
 	} else {
@@ -416,16 +372,11 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 	}
 
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Gagal mengambil rekap laporan: " + err.Error()})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil rekap laporan: "+err.Error())
 	}
 
 	// 5. Return response
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Rekap laporan berhasil diambil",
-		"data":    rekap,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Rekap laporan berhasil diambil", rekap)
 }
 
 // EvaluateReportHandler memproses aksi atasan menyetujui/menolak laporan.
@@ -433,28 +384,19 @@ func (h *ReportHandler) EvaluateReportHandler(c fiber.Ctx) error {
 	// 1. Ambil penilai_id dari JWT Token
 	assessorIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	assessorID := uint(assessorIDFloat)
 
 	assessorRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// 2. Parse request body
 	var req service.EvaluateReportRequest
 	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
 	// 3. Panggil service logic
@@ -464,11 +406,7 @@ func (h *ReportHandler) EvaluateReportHandler(c fiber.Ctx) error {
 	}
 
 	// 4. Sukses
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Evaluasi laporan berhasil disimpan",
-	})
+	return SendSuccess(c, fiber.StatusOK, "Evaluasi laporan berhasil disimpan", nil)
 }
 
 // Update menangani pembaruan data laporan (Judul & Detail).
@@ -477,19 +415,13 @@ func (h *ReportHandler) Update(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID laporan tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID laporan tidak valid")
 	}
 
 	// 2. Ambil info requester dari JWT
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 	requesterRole, _ := c.Locals("role").(string)
@@ -518,11 +450,7 @@ func (h *ReportHandler) Update(c fiber.Ctx) error {
 	}
 
 	// 5. Success
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Laporan berhasil diperbarui",
-	})
+	return SendSuccess(c, fiber.StatusOK, "Laporan berhasil diperbarui", nil)
 }
 
 // Delete menangani penghapusan laporan (Hanya Lurah).
@@ -531,19 +459,13 @@ func (h *ReportHandler) Delete(c fiber.Ctx) error {
 	idParam := c.Params("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID laporan tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID laporan tidak valid")
 	}
 
 	// 2. Ambil info requester (Hanya role Lurah yang diizinkan)
 	requesterIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	requesterID := uint(requesterIDFloat)
 	requesterRole, _ := c.Locals("role").(string)
@@ -555,9 +477,5 @@ func (h *ReportHandler) Delete(c fiber.Ctx) error {
 	}
 
 	// 4. Success
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Laporan berhasil dihapus",
-	})
+	return SendSuccess(c, fiber.StatusOK, "Laporan berhasil dihapus", nil)
 }

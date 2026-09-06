@@ -23,29 +23,18 @@ func (h *NotificationHandler) GetMy(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token (via Locals dari middleware)
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := int(userIDFloat)
 
 	// 2. Panggil service
 	notifications, err := h.notifService.GetMyNotifications(userID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil notifikasi: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil notifikasi: "+err.Error())
 	}
 
 	// 3. Return response sukses
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Notifikasi berhasil diambil",
-		"data":    notifications,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Notifikasi berhasil diambil", notifications)
 }
 
 // GetByID menangani request untuk mengambil satu notifikasi spesifik berdasarkan ID.
@@ -54,38 +43,24 @@ func (h *NotificationHandler) GetByID(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := int(userIDFloat)
 
 	// 2. Ambil ID notifikasi dari parameter URL
 	notifID, err := strconv.Atoi(c.Params("id"))
 	if err != nil || notifID <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID notifikasi tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID notifikasi tidak valid")
 	}
 
 	// 3. Panggil service
 	notification, err := h.notifService.GetNotificationByID(notifID, userID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Notifikasi tidak ditemukan atau bukan milik Anda",
-		})
+		return SendError(c, fiber.StatusNotFound, "Notifikasi tidak ditemukan atau bukan milik Anda")
 	}
 
 	// 4. Return response sukses
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Notifikasi berhasil diambil",
-		"data":    notification,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Notifikasi berhasil diambil", notification)
 }
 
 // MarkRead menangani request untuk menandai notifikasi sebagai sudah dibaca.
@@ -94,35 +69,22 @@ func (h *NotificationHandler) MarkRead(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := int(userIDFloat)
 
 	// 2. Ambil ID notifikasi dari parameter URL
 	notifID, err := strconv.Atoi(c.Params("id"))
 	if err != nil || notifID <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "ID notifikasi tidak valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "ID notifikasi tidak valid")
 	}
 
 	// 3. Panggil service
 	err = h.notifService.ReadNotification(notifID, userID)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Notifikasi tidak ditemukan atau bukan milik Anda",
-		})
+		return SendError(c, fiber.StatusNotFound, "Notifikasi tidak ditemukan atau bukan milik Anda")
 	}
 
 	// 4. Return response sukses
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Notifikasi berhasil ditandai sebagai sudah dibaca",
-	})
+	return SendSuccess(c, fiber.StatusOK, "Notifikasi berhasil ditandai sebagai sudah dibaca", nil)
 }
