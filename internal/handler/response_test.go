@@ -63,6 +63,10 @@ func TestSendPaginated(t *testing.T) {
 	assert.NotNil(t, res.Meta)
 	assert.Equal(t, 1, res.Pagination.CurrentPage)
 	assert.Equal(t, int64(20), res.Pagination.TotalData)
+	assert.Equal(t, 2, res.Pagination.TotalPage)
+	assert.Equal(t, res.Pagination.Page, res.Meta.Page)
+	assert.Equal(t, res.Pagination.TotalPages, res.Meta.TotalPages)
+	assert.Equal(t, res.Pagination.TotalPage, res.Meta.TotalPage)
 }
 
 func TestSendError(t *testing.T) {

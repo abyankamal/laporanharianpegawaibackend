@@ -23,16 +23,7 @@ func NewAdminHandler(adminService service.AdminService) *AdminHandler {
 // GetRekapLaporan menghandle request GET /api/admin/rekap-laporan
 func (h *AdminHandler) GetRekapLaporan(c fiber.Ctx) error {
 	// 1. Ekstrak parameter query string dari URL
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	if limit <= 0 {
-		limit = 10
-	} else if limit > 100 {
-		limit = 100
-	}
-	if page <= 0 {
-		page = 1
-	}
+	page, limit, _ := ParsePagination(c, 10)
 
 	filter := repository.AdminReportFilter{
 		StartDate:    c.Query("start_date"),
@@ -92,16 +83,7 @@ func (h *AdminHandler) GetPegawai(c fiber.Ctx) error {
 	// 1. Tangkap Query Parameters
 	search := c.Query("search")
 	role := c.Query("role")
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	if limit <= 0 {
-		limit = 10
-	} else if limit > 100 {
-		limit = 100
-	}
-	if page <= 0 {
-		page = 1
-	}
+	page, limit, _ := ParsePagination(c, 10)
 
 	filter := repository.AdminPegawaiFilter{
 		Search: search,
@@ -122,6 +104,16 @@ func (h *AdminHandler) GetPegawai(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil statistik pegawai", err.Error())
 	}
 
+	p := &Pagination{
+		Page:        page,
+		Limit:       limit,
+		TotalItems:  pegawaiData.TotalData,
+		TotalPages:  pegawaiData.TotalPage,
+		CurrentPage: page,
+		TotalData:   pegawaiData.TotalData,
+		TotalPage:   pegawaiData.TotalPage,
+	}
+
 	// 4. Gabungkan Response (Sesuai request)
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -140,22 +132,8 @@ func (h *AdminHandler) GetPegawai(c fiber.Ctx) error {
 				"limit":        limit,
 			},
 		},
-		"pagination": &Pagination{
-			Page:        page,
-			Limit:       limit,
-			TotalItems:  pegawaiData.TotalData,
-			TotalPages:  pegawaiData.TotalPage,
-			CurrentPage: page,
-			TotalData:   pegawaiData.TotalData,
-		},
-		"meta": &Pagination{
-			Page:        page,
-			Limit:       limit,
-			TotalItems:  pegawaiData.TotalData,
-			TotalPages:  pegawaiData.TotalPage,
-			CurrentPage: page,
-			TotalData:   pegawaiData.TotalData,
-		},
+		"pagination": p,
+		"meta":       p,
 	})
 }
 
@@ -249,16 +227,7 @@ type PengumumanResponseItem struct {
 
 func (h *AdminHandler) GetPengumuman(c fiber.Ctx) error {
 	search := c.Query("search")
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	if limit <= 0 {
-		limit = 10
-	} else if limit > 100 {
-		limit = 100
-	}
-	if page <= 0 {
-		page = 1
-	}
+	page, limit, _ := ParsePagination(c, 10)
 
 	filter := repository.AdminPengumumanFilter{
 		Search: search,
@@ -296,6 +265,16 @@ func (h *AdminHandler) GetPengumuman(c fiber.Ctx) error {
 		})
 	}
 
+	p := &Pagination{
+		Page:        page,
+		Limit:       limit,
+		TotalItems:  notifData.TotalData,
+		TotalPages:  notifData.TotalPage,
+		CurrentPage: page,
+		TotalData:   notifData.TotalData,
+		TotalPage:   notifData.TotalPage,
+	}
+
 	// Format Output (Tabel dengan proper pagination & statistik dinamis)
 	return c.JSON(fiber.Map{
 		"success": true,
@@ -318,22 +297,8 @@ func (h *AdminHandler) GetPengumuman(c fiber.Ctx) error {
 				"limit":        limit,
 			},
 		},
-		"pagination": &Pagination{
-			Page:        page,
-			Limit:       limit,
-			TotalItems:  notifData.TotalData,
-			TotalPages:  notifData.TotalPage,
-			CurrentPage: page,
-			TotalData:   notifData.TotalData,
-		},
-		"meta": &Pagination{
-			Page:        page,
-			Limit:       limit,
-			TotalItems:  notifData.TotalData,
-			TotalPages:  notifData.TotalPage,
-			CurrentPage: page,
-			TotalData:   notifData.TotalData,
-		},
+		"pagination": p,
+		"meta":       p,
 	})
 }
 

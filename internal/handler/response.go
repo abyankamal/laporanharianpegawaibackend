@@ -16,6 +16,7 @@ type Pagination struct {
 	// Backward compatibility field aliases
 	CurrentPage int   `json:"current_page,omitempty"`
 	TotalData   int64 `json:"total_data,omitempty"`
+	TotalPage   int   `json:"total_page,omitempty"`
 }
 
 // Response mendefinisikan standar envelope response JSON.
@@ -48,6 +49,7 @@ func SendPaginated(c fiber.Ctx, status int, message string, data interface{}, pa
 		TotalPages:  totalPages,
 		CurrentPage: page,
 		TotalData:   totalItems,
+		TotalPage:   totalPages,
 	}
 
 	return c.Status(status).JSON(Response{
