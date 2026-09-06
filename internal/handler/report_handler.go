@@ -14,7 +14,6 @@ import (
 	"laporanharianapi/internal/service"
 )
 
-
 // ReportHandler menangani request laporan.
 type ReportHandler struct {
 	reportService service.ReportService
@@ -262,7 +261,7 @@ func (h *ReportHandler) GetOne(c fiber.Ctx) error {
 
 	if laporan.User != nil {
 		responseMap["owner_role"] = laporan.User.Role
-		
+
 		userMap := fiber.Map{
 			"nama":         laporan.User.Nama,
 			"nama_lengkap": laporan.User.Nama,
@@ -358,7 +357,7 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 
 	// 4. Panggil service
 	var rekap *repository.ReportRecapResponse
-	
+
 	if roleFilter != "" {
 		filter := repository.ReportFilter{
 			StartDate: startDateStr,
