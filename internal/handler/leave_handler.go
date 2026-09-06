@@ -145,7 +145,8 @@ func (h *IzinHandler) Approve(c fiber.Ctx) error {
 
 	// Parse body
 	type ApproveRequest struct {
-		Approved bool   `json:"approved"`
+		Approved *bool  `json:"approved"`
+		Status   string `json:"status"`
 		Komentar string `json:"komentar"`
 	}
 
@@ -154,13 +155,21 @@ func (h *IzinHandler) Approve(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
-	err = h.izinService.ApprovePengajuan(uint(izinID), uint(userIDFloat), req.Approved, req.Komentar)
+	isApproved := false
+	if req.Approved != nil {
+		isApproved = *req.Approved
+	} else if req.Status != "" {
+		st := strings.ToLower(strings.TrimSpace(req.Status))
+		isApproved = (st == "disetujui" || st == "approved")
+	}
+
+	err = h.izinService.ApprovePengajuan(uint(izinID), uint(userIDFloat), isApproved, req.Komentar)
 	if err != nil {
 		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	statusMsg := "disetujui"
-	if !req.Approved {
+	if !isApproved {
 		statusMsg = "ditolak"
 	}
 

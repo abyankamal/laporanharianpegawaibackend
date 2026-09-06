@@ -30,6 +30,7 @@ func setupRoutes(app *fiber.App, h Handlers) {
 	
 	setupMobileRoutes(api, h)
 	setupWebRoutes(api, h)
+	setupRESTfulAliases(api, h)
 }
 
 func setupMobileRoutes(api fiber.Router, h Handlers) {
@@ -45,12 +46,18 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	// Profile & Dashboard
 	mProtected.Get("/profile", h.User.GetProfile)
 	mProtected.Put("/profile/change-password", h.User.ChangePassword)
-	mProtected.Put("/profile/password", h.User.ChangePassword) // RESTful alias
+	mProtected.Patch("/profile/change-password", h.User.ChangePassword)
+	mProtected.Put("/profile/password", h.User.ChangePassword)   // RESTful alias
+	mProtected.Patch("/profile/password", h.User.ChangePassword) // RESTful alias
 	mProtected.Put("/profile/change-photo", h.User.ChangePhoto)
-	mProtected.Put("/profile/photo", h.User.ChangePhoto)  // RESTful alias
-	mProtected.Post("/profile/photo", h.User.ChangePhoto) // RESTful alias
+	mProtected.Patch("/profile/change-photo", h.User.ChangePhoto)
+	mProtected.Put("/profile/photo", h.User.ChangePhoto)   // RESTful alias
+	mProtected.Patch("/profile/photo", h.User.ChangePhoto) // RESTful alias
+	mProtected.Post("/profile/photo", h.User.ChangePhoto)  // RESTful alias
 	mProtected.Put("/users/fcm-token", h.User.UpdateFCMToken)
-	mProtected.Put("/profile/fcm-token", h.User.UpdateFCMToken) // RESTful alias
+	mProtected.Patch("/users/fcm-token", h.User.UpdateFCMToken)
+	mProtected.Put("/profile/fcm-token", h.User.UpdateFCMToken)   // RESTful alias
+	mProtected.Patch("/profile/fcm-token", h.User.UpdateFCMToken) // RESTful alias
 	mProtected.Get("/dashboard/summary", h.Dashboard.GetSummary)
 
 	// Directory
@@ -68,7 +75,9 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mReport.Get("/export/pdf", h.Report.ExportReportPDFHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	mReport.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	mReport.Put("/evaluate", h.Report.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))
+	mReport.Patch("/evaluate", h.Report.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris"))
 	mReport.Put("/:id", h.Report.Update)
+	mReport.Patch("/:id", h.Report.Update)
 	mReport.Delete("/:id", h.Report.Delete)
 	mReport.Get("/:id", h.Report.GetOne)
 
@@ -78,6 +87,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mProtected.Get("/notifications/:id", h.Notif.GetByID)
 	mProtected.Put("/notifications/:id/read", h.Notif.MarkRead)
 	mProtected.Patch("/notifications/:id/read", h.Notif.MarkRead) // RESTful alias
+	mProtected.Patch("/notifications/:id", h.Notif.MarkRead)      // RESTful alias without verb
 
 	// Manajemen Tugas (Lurah)
 	mTasks := mProtected.Group("/tasks")
@@ -85,6 +95,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mTasks.Post("/", h.Task.Create, middleware.AllowRoles("lurah"))
 	mTasks.Get("/", h.Task.GetAll, middleware.AllowRoles("lurah"))
 	mTasks.Put("/:id", h.Task.Update, middleware.AllowRoles("lurah"))
+	mTasks.Patch("/:id", h.Task.Update, middleware.AllowRoles("lurah"))
 	mTasks.Delete("/:id", h.Task.Delete, middleware.AllowRoles("lurah"))
 
 	// Penilaian
@@ -111,6 +122,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 	mIzin.Get("/pending", h.Izin.GetPending, middleware.AllowRoles("lurah"))
 	mIzin.Put("/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah"))
 	mIzin.Patch("/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah")) // RESTful alias
+	mIzin.Patch("/:id", h.Izin.Approve, middleware.AllowRoles("lurah"))         // RESTful alias without verb
 }
 
 func setupWebRoutes(api fiber.Router, h Handlers) {
@@ -138,7 +150,9 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	wReports.Get("/export/pdf", h.Report.ExportReportPDFHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Put("/evaluate", h.Report.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
+	wReports.Patch("/evaluate", h.Report.EvaluateReportHandler, middleware.AllowRoles("lurah", "sekertaris", "admin"))
 	wReports.Put("/:id", h.Report.Update)
+	wReports.Patch("/:id", h.Report.Update)
 	wReports.Delete("/:id", h.Report.Delete)
 	wReports.Get("/:id", h.Report.GetOne)
 
@@ -148,14 +162,17 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	// App Settings
 	adminOnly.Get("/jam-kerja", h.WorkHour.GetWorkHour)
 	adminOnly.Put("/jam-kerja", h.WorkHour.UpdateWorkHour)
+	adminOnly.Patch("/jam-kerja", h.WorkHour.UpdateWorkHour)
 	adminOnly.Get("/hari-libur", h.Holiday.GetHolidays)
 	adminOnly.Post("/hari-libur", h.Holiday.CreateHoliday)
 	adminOnly.Put("/hari-libur/:id", h.Holiday.UpdateHoliday)
+	adminOnly.Patch("/hari-libur/:id", h.Holiday.UpdateHoliday)
 	adminOnly.Delete("/hari-libur/:id", h.Holiday.DeleteHoliday)
 	
 	// Supervisor Lurah Settings
 	adminOnly.Get("/supervisor-lurah", h.Admin.GetSupervisorLurah)
 	adminOnly.Put("/supervisor-lurah", h.Admin.UpdateSupervisorLurah)
+	adminOnly.Patch("/supervisor-lurah", h.Admin.UpdateSupervisorLurah)
 
 	// User Management
 	userManage := wProtected.Group("/users", middleware.AllowRoles("lurah", "sekertaris"))
@@ -164,7 +181,11 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	userManage.Get("/:id", h.User.GetOne)
 	userManage.Post("/", h.User.Create)
 	userManage.Put("/:id", h.User.Update)
+	userManage.Patch("/:id", h.User.Update)
 	userManage.Put("/:id/reset-password", h.User.ResetPassword)
+	userManage.Patch("/:id/reset-password", h.User.ResetPassword)
+	userManage.Put("/:id/password", h.User.ResetPassword)   // RESTful alias
+	userManage.Patch("/:id/password", h.User.ResetPassword) // RESTful alias
 	userManage.Delete("/:id", h.User.Delete)
 
 	// Manajemen Pegawai
@@ -172,7 +193,11 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	pegawaiManage.Get("/", h.Admin.GetPegawai)
 	pegawaiManage.Post("/", h.Admin.CreatePegawai)
 	pegawaiManage.Put("/:id", h.Admin.UpdatePegawai)
+	pegawaiManage.Patch("/:id", h.Admin.UpdatePegawai)
 	pegawaiManage.Put("/:id/reset-password", h.Admin.ResetPasswordPegawai)
+	pegawaiManage.Patch("/:id/reset-password", h.Admin.ResetPasswordPegawai)
+	pegawaiManage.Put("/:id/password", h.Admin.ResetPasswordPegawai)   // RESTful alias
+	pegawaiManage.Patch("/:id/password", h.Admin.ResetPasswordPegawai) // RESTful alias
 	pegawaiManage.Delete("/:id", h.Admin.DeletePegawai)
 
 	// Alias admin/reports
@@ -186,7 +211,9 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	wAdminReports.Get("/export/pdf", h.Report.ExportReportPDFHandler)
 	wAdminReports.Get("/export/attachments", h.Report.ExportReportAttachmentsHandler)
 	wAdminReports.Put("/evaluate", h.Report.EvaluateReportHandler)
+	wAdminReports.Patch("/evaluate", h.Report.EvaluateReportHandler)
 	wAdminReports.Put("/:id", h.Report.Update)
+	wAdminReports.Patch("/:id", h.Report.Update)
 	wAdminReports.Delete("/:id", h.Report.Delete)
 	wAdminReports.Get("/:id", h.Report.GetOne)
 
@@ -195,6 +222,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	pengumuman.Get("/", h.Admin.GetPengumuman)
 	pengumuman.Post("/", h.Admin.CreatePengumuman)
 	pengumuman.Put("/:id", h.Admin.UpdatePengumuman)
+	pengumuman.Patch("/:id", h.Admin.UpdatePengumuman)
 	pengumuman.Delete("/:id", h.Admin.DeletePengumuman)
 
 	// Manajemen Tugas (Lurah)
@@ -202,6 +230,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	wTasks.Post("/", h.Task.Create)
 	wTasks.Get("/", h.Task.GetAll)
 	wTasks.Put("/:id", h.Task.Update)
+	wTasks.Patch("/:id", h.Task.Update)
 	wTasks.Delete("/:id", h.Task.Delete)
 
 	// Manajemen Penilaian
@@ -214,6 +243,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	adminOnly.Get("/jabatan/:id", h.Jabatan.GetOne)
 	adminOnly.Post("/jabatan", h.Jabatan.Create)
 	adminOnly.Put("/jabatan/:id", h.Jabatan.Update)
+	adminOnly.Patch("/jabatan/:id", h.Jabatan.Update)
 	adminOnly.Delete("/jabatan/:id", h.Jabatan.Delete)
 
 	// Absensi (Web Admin)
@@ -224,6 +254,7 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	// Geofencing Settings (Admin Only)
 	adminOnly.Get("/geofencing", h.WorkHour.GetWorkHour)
 	adminOnly.Put("/geofencing", h.WorkHour.UpdateGeofencing)
+	adminOnly.Patch("/geofencing", h.WorkHour.UpdateGeofencing)
 
 	// Pencatatan & Kelola Izin/Sakit/Cuti (Web Admin - Admin, Lurah, Sekertaris)
 	wIzin := wProtected.Group("/izin", middleware.AllowRoles("admin", "lurah", "sekertaris"))
@@ -231,4 +262,27 @@ func setupWebRoutes(api fiber.Router, h Handlers) {
 	wIzin.Post("/", h.Izin.CreateByAdmin)
 	wIzin.Get("/pending", h.Izin.GetPending)
 	wIzin.Put("/:id/approve", h.Izin.Approve)
+	wIzin.Patch("/:id/approve", h.Izin.Approve)
+	wIzin.Patch("/:id", h.Izin.Approve) // RESTful alias without verb
+}
+
+// setupRESTfulAliases mendaftarkan alias rute RESTful standar di root /api
+func setupRESTfulAliases(api fiber.Router, h Handlers) {
+	protected := api.Group("", middleware.Protected())
+
+	// Profile Password
+	protected.Put("/profile/password", h.User.ChangePassword)
+	protected.Patch("/profile/password", h.User.ChangePassword)
+
+	// Notifications
+	protected.Get("/notifications", h.Notif.GetMy)
+	protected.Get("/notifications/:id", h.Notif.GetByID)
+	protected.Put("/notifications/:id/read", h.Notif.MarkRead)
+	protected.Patch("/notifications/:id/read", h.Notif.MarkRead)
+	protected.Patch("/notifications/:id", h.Notif.MarkRead) // RESTful alias without verb
+
+	// Pengajuan Izin
+	protected.Put("/izin/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah", "admin"))
+	protected.Patch("/izin/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah", "admin"))
+	protected.Patch("/izin/:id", h.Izin.Approve, middleware.AllowRoles("lurah", "admin")) // RESTful alias without verb
 }
