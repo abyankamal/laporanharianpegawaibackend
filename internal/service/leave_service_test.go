@@ -137,3 +137,28 @@ func TestIzinService_ApprovePengajuan_SkipsHoliday(t *testing.T) {
 		mockAbsensiRepo.AssertNumberOfCalls(t, "Create", 1)
 	})
 }
+
+func TestIzinService_GetAllPengajuan(t *testing.T) {
+	t.Run("success returns paginated leave list and totalItems", func(t *testing.T) {
+		mockIzinRepo := new(mocks.IzinRepositoryMock)
+		mockAbsensiRepo := new(mocks.AbsensiRepositoryMock)
+		mockHolidayRepo := new(mocks.HolidayRepositoryMock)
+
+		izinService := service.NewIzinService(mockIzinRepo, mockAbsensiRepo, mockHolidayRepo)
+
+		expectedList := []domain.PengajuanIzin{
+			{ID: 1, UserID: 10, JenisIzin: "cuti", StatusApproval: "disetujui"},
+			{ID: 2, UserID: 11, JenisIzin: "sakit", StatusApproval: "menunggu"},
+		}
+		var expectedTotal int64 = 25
+
+		mockIzinRepo.On("GetAll", 1, 10).Return(expectedList, expectedTotal, nil).Once()
+
+		list, total, err := izinService.GetAllPengajuan(1, 10)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedList, list)
+		assert.Equal(t, expectedTotal, total)
+		mockIzinRepo.AssertExpectations(t)
+	})
+}
+

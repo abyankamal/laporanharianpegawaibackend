@@ -60,8 +60,12 @@ func (m *dummyTaskService) CreateTask(requesterID uint, requesterRole string, re
 	}
 	return args.Get(0).(*domain.TugasOrganisasi), args.Error(1)
 }
-func (m *dummyTaskService) GetMyTasks(userID int) ([]domain.TugasOrganisasi, error) { return nil, nil }
-func (m *dummyTaskService) GetAllTasks() ([]domain.TugasOrganisasi, error)           { return nil, nil }
+func (m *dummyTaskService) GetMyTasks(userID int, page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	return nil, 0, nil
+}
+func (m *dummyTaskService) GetAllTasks(page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	return nil, 0, nil
+}
 func (m *dummyTaskService) GetTaskByID(requesterID uint, requesterRole string, taskID uint) (*domain.TugasOrganisasi, error) {
 	return nil, nil
 }

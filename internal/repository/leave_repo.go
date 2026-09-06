@@ -16,7 +16,7 @@ type IzinRepository interface {
 	GetByUserID(userID uint) ([]domain.PengajuanIzin, error)
 	GetPendingApprovals() ([]domain.PengajuanIzin, error)
 	GetApprovedByUserAndDateRange(userID uint, start, end time.Time) ([]domain.PengajuanIzin, error)
-	GetAll() ([]domain.PengajuanIzin, error)
+	GetAll(page, limit int) ([]domain.PengajuanIzin, int64, error)
 }
 
 type izinRepository struct {
@@ -80,10 +80,23 @@ func (r *izinRepository) GetApprovedByUserAndDateRange(userID uint, start, end t
 }
 
 // GetAll mengambil semua data pengajuan izin (untuk Web Admin / Lurah).
-func (r *izinRepository) GetAll() ([]domain.PengajuanIzin, error) {
+func (r *izinRepository) GetAll(page, limit int) ([]domain.PengajuanIzin, int64, error) {
+	var totalItems int64
 	var list []domain.PengajuanIzin
-	err := r.db.Preload("User").Preload("User.Jabatan").Preload("Approver").
-		Order("created_at DESC").
-		Find(&list).Error
-	return list, err
+
+	countQuery := r.db.Model(&domain.PengajuanIzin{})
+	if err := countQuery.Count(&totalItems).Error; err != nil {
+		return nil, 0, err
+	}
+
+	query := r.db.Preload("User").Preload("User.Jabatan").Preload("Approver").
+		Order("created_at DESC")
+
+	if limit > 0 {
+		offset := (page - 1) * limit
+		query = query.Limit(limit).Offset(offset)
+	}
+
+	err := query.Find(&list).Error
+	return list, totalItems, err
 }

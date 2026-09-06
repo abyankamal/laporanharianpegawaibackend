@@ -107,7 +107,7 @@ func TestCreateTask_Organisasi_Fail_EmptyTargetUserIDs(t *testing.T) {
 // ============================================================
 
 func TestGetAllTasks_Success(t *testing.T) {
-	t.Run("Sukses: Mengambil semua tugas organisasi", func(t *testing.T) {
+	t.Run("Sukses: Mengambil semua tugas organisasi dengan paginasi", func(t *testing.T) {
 		mockTaskRepo := new(mocks.TaskRepositoryMock)
 		mockUserRepo := new(mocks.UserRepositoryMock)
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
@@ -117,15 +117,40 @@ func TestGetAllTasks_Success(t *testing.T) {
 			{JudulTugas: "Tugas 2"},
 		}
 
-		mockTaskRepo.On("FindAll").Return(expectedTasks, nil)
+		mockTaskRepo.On("FindAll", 1, 10).Return(expectedTasks, int64(2), nil)
 
 		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
 
-		tasks, err := taskSvc.GetAllTasks()
+		tasks, total, err := taskSvc.GetAllTasks(1, 10)
 
 		assert.NoError(t, err)
+		assert.Equal(t, int64(2), total)
 		assert.Len(t, tasks, 2)
 		assert.Equal(t, "Tugas 1", tasks[0].JudulTugas)
+		mockTaskRepo.AssertExpectations(t)
+	})
+}
+
+func TestGetMyTasks_Success(t *testing.T) {
+	t.Run("Sukses: Mengambil tugas saya dengan paginasi", func(t *testing.T) {
+		mockTaskRepo := new(mocks.TaskRepositoryMock)
+		mockUserRepo := new(mocks.UserRepositoryMock)
+		mockNotifRepo := new(mocks.NotificationRepositoryMock)
+
+		expectedTasks := []domain.TugasOrganisasi{
+			{JudulTugas: "Tugas Saya 1"},
+		}
+
+		mockTaskRepo.On("FindByAssigneeID", 5, 1, 10).Return(expectedTasks, int64(1), nil)
+
+		taskSvc := NewTaskService(mockTaskRepo, mockUserRepo, mockNotifRepo)
+
+		tasks, total, err := taskSvc.GetMyTasks(5, 1, 10)
+
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1), total)
+		assert.Len(t, tasks, 1)
+		assert.Equal(t, "Tugas Saya 1", tasks[0].JudulTugas)
 		mockTaskRepo.AssertExpectations(t)
 	})
 }

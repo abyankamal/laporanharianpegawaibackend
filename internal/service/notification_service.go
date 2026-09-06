@@ -7,7 +7,7 @@ import (
 
 // NotificationService adalah interface untuk operasi bisnis Notifikasi.
 type NotificationService interface {
-	GetMyNotifications(userID int) ([]domain.Notification, error)
+	GetMyNotifications(userID int, page, limit int) ([]domain.Notification, int64, error)
 	GetNotificationByID(id int, userID int) (*domain.Notification, error)
 	ReadNotification(notifID int, userID int) error
 }
@@ -22,9 +22,9 @@ func NewNotificationService(notifRepo repository.NotificationRepository) Notific
 	return &notificationService{notifRepo: notifRepo}
 }
 
-// GetMyNotifications mengambil semua notifikasi milik user.
-func (s *notificationService) GetMyNotifications(userID int) ([]domain.Notification, error) {
-	return s.notifRepo.FindByUserID(userID)
+// GetMyNotifications mengambil semua notifikasi milik user dengan paginasi.
+func (s *notificationService) GetMyNotifications(userID int, page, limit int) ([]domain.Notification, int64, error) {
+	return s.notifRepo.FindByUserID(userID, page, limit)
 }
 
 // GetNotificationByID mengambil satu notifikasi.

@@ -41,8 +41,8 @@ type UpdateOrganizationalTaskRequest struct {
 // TaskService adalah interface untuk operasi bisnis Tugas Organisasi.
 type TaskService interface {
 	CreateTask(requesterID uint, requesterRole string, req CreateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error)
-	GetMyTasks(userID int) ([]domain.TugasOrganisasi, error)
-	GetAllTasks() ([]domain.TugasOrganisasi, error)
+	GetMyTasks(userID int, page, limit int) ([]domain.TugasOrganisasi, int64, error)
+	GetAllTasks(page, limit int) ([]domain.TugasOrganisasi, int64, error)
 	GetTaskByID(requesterID uint, requesterRole string, taskID uint) (*domain.TugasOrganisasi, error)
 	UpdateTask(requesterID uint, requesterRole string, taskID uint, req UpdateOrganizationalTaskRequest) (*domain.TugasOrganisasi, error)
 	DeleteTask(requesterID uint, requesterRole string, taskID uint) error
@@ -166,14 +166,14 @@ func (s *taskService) CreateTask(requesterID uint, requesterRole string, req Cre
 	return tugas, nil
 }
 
-// GetMyTasks mengambil daftar tugas organisasi yang di-assign ke user tertentu.
-func (s *taskService) GetMyTasks(userID int) ([]domain.TugasOrganisasi, error) {
-	return s.taskRepo.FindByAssigneeID(userID)
+// GetMyTasks mengambil daftar tugas organisasi yang di-assign ke user tertentu dengan paginasi.
+func (s *taskService) GetMyTasks(userID int, page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	return s.taskRepo.FindByAssigneeID(userID, page, limit)
 }
 
-// GetAllTasks mengambil semua tugas organisasi (untuk Lurah).
-func (s *taskService) GetAllTasks() ([]domain.TugasOrganisasi, error) {
-	return s.taskRepo.FindAll()
+// GetAllTasks mengambil semua tugas organisasi (untuk Lurah) dengan paginasi.
+func (s *taskService) GetAllTasks(page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	return s.taskRepo.FindAll(page, limit)
 }
 
 // GetTaskByID mengambil detail tugas organisasi

@@ -214,20 +214,20 @@ func (m *TaskRepositoryMock) Create(task *domain.TugasOrganisasi) error {
 	return args.Error(0)
 }
 
-func (m *TaskRepositoryMock) FindByAssigneeID(userID int) ([]domain.TugasOrganisasi, error) {
-	args := m.Called(userID)
+func (m *TaskRepositoryMock) FindByAssigneeID(userID int, page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	args := m.Called(userID, page, limit)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, args.Get(1).(int64), args.Error(2)
 	}
-	return args.Get(0).([]domain.TugasOrganisasi), args.Error(1)
+	return args.Get(0).([]domain.TugasOrganisasi), args.Get(1).(int64), args.Error(2)
 }
 
-func (m *TaskRepositoryMock) FindAll() ([]domain.TugasOrganisasi, error) {
-	args := m.Called()
+func (m *TaskRepositoryMock) FindAll(page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	args := m.Called(page, limit)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, args.Get(1).(int64), args.Error(2)
 	}
-	return args.Get(0).([]domain.TugasOrganisasi), args.Error(1)
+	return args.Get(0).([]domain.TugasOrganisasi), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *TaskRepositoryMock) FindByID(id uint) (*domain.TugasOrganisasi, error) {
@@ -267,12 +267,12 @@ func (m *NotificationRepositoryMock) Create(notif *domain.Notification) error {
 	return args.Error(0)
 }
 
-func (m *NotificationRepositoryMock) FindByUserID(userID int) ([]domain.Notification, error) {
-	args := m.Called(userID)
+func (m *NotificationRepositoryMock) FindByUserID(userID int, page, limit int) ([]domain.Notification, int64, error) {
+	args := m.Called(userID, page, limit)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, args.Get(1).(int64), args.Error(2)
 	}
-	return args.Get(0).([]domain.Notification), args.Error(1)
+	return args.Get(0).([]domain.Notification), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *NotificationRepositoryMock) MarkAsRead(notifID int, userID int) error {
@@ -508,12 +508,12 @@ func (m *IzinRepositoryMock) GetApprovedByUserAndDateRange(userID uint, start, e
 	return args.Get(0).([]domain.PengajuanIzin), args.Error(1)
 }
 
-func (m *IzinRepositoryMock) GetAll() ([]domain.PengajuanIzin, error) {
-	args := m.Called()
+func (m *IzinRepositoryMock) GetAll(page, limit int) ([]domain.PengajuanIzin, int64, error) {
+	args := m.Called(page, limit)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, args.Get(1).(int64), args.Error(2)
 	}
-	return args.Get(0).([]domain.PengajuanIzin), args.Error(1)
+	return args.Get(0).([]domain.PengajuanIzin), args.Get(1).(int64), args.Error(2)
 }
 
 // ============================================================

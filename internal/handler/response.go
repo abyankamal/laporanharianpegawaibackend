@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -97,4 +98,45 @@ func SendError(c fiber.Ctx, status int, message string, details ...interface{}) 
 		Message: message,
 		Details: detail,
 	})
+}
+
+// ParsePagination mengekstrak query parameter 'page' dan 'limit' dengan nilai default dan batas maksimum.
+// Default: page=1, limit=10 (atau defaultLimit yang diberikan), limit capped pada 100.
+func ParsePagination(c fiber.Ctx, defaultLimits ...int) (page int, limit int, offset int) {
+	page = 1
+	limit = 10
+	if len(defaultLimits) > 0 && defaultLimits[0] > 0 {
+		limit = defaultLimits[0]
+	}
+
+	if pStr := c.Query("page"); pStr != "" {
+		if p, err := strconv.Atoi(pStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if lStr := c.Query("limit"); lStr != "" {
+		if l, err := strconv.Atoi(lStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset = (page - 1) * limit
+	return page, limit, offset
+}
+
+// CalculateTotalPages menghitung total halaman berdasarkan total items dan limit.
+func CalculateTotalPages(totalItems int64, limit int) int {
+	if limit <= 0 {
+		return 1
+	}
+	totalPages := int((totalItems + int64(limit) - 1) / int64(limit))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	return totalPages
 }

@@ -11,8 +11,8 @@ import (
 // TaskRepository adalah interface untuk operasi database Tugas Organisasi.
 type TaskRepository interface {
 	Create(task *domain.TugasOrganisasi) error
-	FindByAssigneeID(userID int) ([]domain.TugasOrganisasi, error) // Query tugas organisasi berdasarkan assignee
-	FindAll() ([]domain.TugasOrganisasi, error)
+	FindByAssigneeID(userID int, page, limit int) ([]domain.TugasOrganisasi, int64, error) // Query tugas organisasi berdasarkan assignee
+	FindAll(page, limit int) ([]domain.TugasOrganisasi, int64, error)
 	FindByID(id uint) (*domain.TugasOrganisasi, error)
 	Update(task *domain.TugasOrganisasi) error
 	ReplaceAssignees(taskID uint, users []domain.User) error // Update relasi M2M assignees
@@ -34,26 +34,66 @@ func (r *taskRepository) Create(task *domain.TugasOrganisasi) error {
 	return r.db.Omit("Creator", "Assignees").Create(task).Error
 }
 
-// FindByAssigneeID mengambil tugas organisasi yang di-assign ke user tertentu (via M2M), yang belum lewat deadline.
-func (r *taskRepository) FindByAssigneeID(userID int) ([]domain.TugasOrganisasi, error) {
+// FindByAssigneeID mengambil tugas organisasi yang di-assign ke user tertentu (via M2M), yang belum lewat deadline dengan paginasi.
+func (r *taskRepository) FindByAssigneeID(userID int, page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	} else if limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	var totalItems int64
+	err := r.db.Model(&domain.TugasOrganisasi{}).
+		Joins("JOIN tugas_assignees ON tugas_assignees.tugas_organisasi_id = tugas_organisasi.id").
+		Where("tugas_assignees.user_id = ?", userID).
+		Where("tugas_organisasi.deadline IS NULL OR tugas_organisasi.deadline >= ?", time.Now()).
+		Count(&totalItems).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
 	var tasks []domain.TugasOrganisasi
-	err := r.db.Preload("Creator").Preload("Assignees").Preload("Assignees.Jabatan").
+	err = r.db.Preload("Creator").Preload("Assignees").Preload("Assignees.Jabatan").
 		Joins("JOIN tugas_assignees ON tugas_assignees.tugas_organisasi_id = tugas_organisasi.id").
 		Where("tugas_assignees.user_id = ?", userID).
 		Where("tugas_organisasi.deadline IS NULL OR tugas_organisasi.deadline >= ?", time.Now()).
 		Order("tugas_organisasi.created_at DESC").
+		Limit(limit).Offset(offset).
 		Find(&tasks).Error
-	return tasks, err
+	return tasks, totalItems, err
 }
 
-// FindAll mengambil semua tugas organisasi dari database, yang belum lewat deadline.
-func (r *taskRepository) FindAll() ([]domain.TugasOrganisasi, error) {
+// FindAll mengambil semua tugas organisasi dari database, yang belum lewat deadline dengan paginasi.
+func (r *taskRepository) FindAll(page, limit int) ([]domain.TugasOrganisasi, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	} else if limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	var totalItems int64
+	err := r.db.Model(&domain.TugasOrganisasi{}).
+		Where("deadline IS NULL OR deadline >= ?", time.Now()).
+		Count(&totalItems).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
 	var tasks []domain.TugasOrganisasi
-	err := r.db.Preload("Creator").Preload("Assignees").Preload("Assignees.Jabatan").
+	err = r.db.Preload("Creator").Preload("Assignees").Preload("Assignees.Jabatan").
 		Where("deadline IS NULL OR deadline >= ?", time.Now()).
 		Order("created_at DESC").
+		Limit(limit).Offset(offset).
 		Find(&tasks).Error
-	return tasks, err
+	return tasks, totalItems, err
 }
 
 // FindByID mengambil tugas organisasi berdasarkan ID.

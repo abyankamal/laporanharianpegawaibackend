@@ -11,7 +11,7 @@ import (
 // NotificationRepository adalah interface untuk operasi database Notification.
 type NotificationRepository interface {
 	Create(notif *domain.Notification) error
-	FindByUserID(userID int) ([]domain.Notification, error)
+	FindByUserID(userID int, page, limit int) ([]domain.Notification, int64, error)
 	FindByID(id int, userID int) (*domain.Notification, error)
 	MarkAsRead(notifID int, userID int) error
 }
@@ -31,20 +31,39 @@ func (r *notificationRepository) Create(notif *domain.Notification) error {
 	return r.db.Create(notif).Error
 }
 
-// FindByUserID mengambil semua notifikasi milik user tertentu atau pengumuman global (user_id = 0), diurutkan terbaru di atas.
+// FindByUserID mengambil notifikasi milik user tertentu atau pengumuman global (user_id = 0) dengan paginasi.
 // Untuk pengumuman global (user_id = 0), status is_read ditentukan dari apakah user sudah memiliki catatan di notification_reads.
-func (r *notificationRepository) FindByUserID(userID int) ([]domain.Notification, error) {
-	var notifications []domain.Notification
+func (r *notificationRepository) FindByUserID(userID int, page, limit int) ([]domain.Notification, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
+	} else if limit > 100 {
+		limit = 100
+	}
+	offset := (page - 1) * limit
+
+	var totalItems int64
 	err := r.db.Table("notifications").
+		Where("notifications.user_id = ? OR notifications.user_id = 0", userID).
+		Count(&totalItems).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var notifications []domain.Notification
+	err = r.db.Table("notifications").
 		Select("notifications.id, notifications.user_id, notifications.kategori, notifications.judul, notifications.pesan, CASE WHEN notifications.user_id = 0 THEN (CASE WHEN nr.id IS NOT NULL THEN 1 ELSE 0 END) ELSE notifications.is_read END AS is_read, notifications.terkait_id, notifications.created_at").
 		Joins("LEFT JOIN notification_reads nr ON nr.notification_id = notifications.id AND nr.user_id = ?", userID).
 		Where("notifications.user_id = ? OR notifications.user_id = 0", userID).
 		Order("notifications.created_at DESC").
+		Limit(limit).Offset(offset).
 		Scan(&notifications).Error
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return notifications, nil
+	return notifications, totalItems, nil
 }
 
 // FindByID mengambil satu notifikasi spesifik milik user tertentu atau pengumuman global.

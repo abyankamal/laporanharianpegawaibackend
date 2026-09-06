@@ -52,15 +52,16 @@ func TestGetMyNotifications_Success(t *testing.T) {
 			},
 		}
 
-		mockNotifRepo.On("FindByUserID", 1).Return(expectedNotifs, nil)
+		mockNotifRepo.On("FindByUserID", 1, 1, 10).Return(expectedNotifs, int64(3), nil)
 
 		notifSvc := NewNotificationService(mockNotifRepo)
 
 		// Execute
-		notifs, err := notifSvc.GetMyNotifications(1)
+		notifs, total, err := notifSvc.GetMyNotifications(1, 1, 10)
 
 		// Assert
 		assert.NoError(t, err)
+		assert.Equal(t, int64(3), total)
 		assert.Len(t, notifs, 3)
 		assert.Equal(t, "Tugas Baru Ditetapkan", notifs[0].Judul)
 		assert.Equal(t, "Penilaian Kinerja Baru", notifs[1].Judul)
@@ -73,13 +74,14 @@ func TestGetMyNotifications_Success_Empty(t *testing.T) {
 	t.Run("Sukses: User belum punya notifikasi (empty list)", func(t *testing.T) {
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
-		mockNotifRepo.On("FindByUserID", 99).Return([]domain.Notification{}, nil)
+		mockNotifRepo.On("FindByUserID", 99, 1, 10).Return([]domain.Notification{}, int64(0), nil)
 
 		notifSvc := NewNotificationService(mockNotifRepo)
 
-		notifs, err := notifSvc.GetMyNotifications(99)
+		notifs, total, err := notifSvc.GetMyNotifications(99, 1, 10)
 
 		assert.NoError(t, err)
+		assert.Equal(t, int64(0), total)
 		assert.Empty(t, notifs)
 		assert.Len(t, notifs, 0)
 		mockNotifRepo.AssertExpectations(t)
@@ -90,13 +92,14 @@ func TestGetMyNotifications_Fail_DBError(t *testing.T) {
 	t.Run("Gagal: Error database saat query notifikasi", func(t *testing.T) {
 		mockNotifRepo := new(mocks.NotificationRepositoryMock)
 
-		mockNotifRepo.On("FindByUserID", 1).Return(nil, errors.New("database connection lost"))
+		mockNotifRepo.On("FindByUserID", 1, 1, 10).Return(nil, int64(0), errors.New("database connection lost"))
 
 		notifSvc := NewNotificationService(mockNotifRepo)
 
-		notifs, err := notifSvc.GetMyNotifications(1)
+		notifs, total, err := notifSvc.GetMyNotifications(1, 1, 10)
 
 		assert.Error(t, err)
+		assert.Equal(t, int64(0), total)
 		assert.Nil(t, notifs)
 		assert.Equal(t, "database connection lost", err.Error())
 	})

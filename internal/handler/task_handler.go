@@ -100,7 +100,7 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 	return SendSuccess(c, fiber.StatusCreated, "Tugas organisasi berhasil dibuat", responseData)
 }
 
-// GetMyTasks menangani pegawai untuk melihat tugas organisasi yang di-assign padanya.
+// GetMyTasks menangani pegawai untuk melihat tugas organisasi yang di-assign padanya dengan paginasi.
 func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
@@ -109,29 +109,35 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	}
 	userID := int(userIDFloat)
 
+	page, limit, _ := ParsePagination(c, 10)
+
 	// 2. Panggil service
-	tasks, err := h.taskService.GetMyTasks(userID)
+	tasks, totalItems, err := h.taskService.GetMyTasks(userID, page, limit)
 	if err != nil {
 		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas")
 	}
 
 	// 3. Map ke format response
 	responseData := h.mapTasksToResponse(tasks)
+	totalPages := CalculateTotalPages(totalItems, limit)
 
 	// 4. Return response
-	return SendSuccess(c, fiber.StatusOK, "Daftar tugas organisasi berhasil diambil", responseData)
+	return SendPaginated(c, fiber.StatusOK, "Daftar tugas organisasi berhasil diambil", responseData, page, limit, totalItems, totalPages)
 }
 
-// GetAll menangani Lurah untuk melihat seluruh tugas organisasi.
+// GetAll menangani Lurah untuk melihat seluruh tugas organisasi dengan paginasi.
 func (h *TaskHandler) GetAll(c fiber.Ctx) error {
-	tasks, err := h.taskService.GetAllTasks()
+	page, limit, _ := ParsePagination(c, 10)
+
+	tasks, totalItems, err := h.taskService.GetAllTasks(page, limit)
 	if err != nil {
 		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas")
 	}
 
 	responseData := h.mapTasksToResponse(tasks)
+	totalPages := CalculateTotalPages(totalItems, limit)
 
-	return SendSuccess(c, fiber.StatusOK, "Daftar seluruh tugas organisasi berhasil diambil", responseData)
+	return SendPaginated(c, fiber.StatusOK, "Daftar seluruh tugas organisasi berhasil diambil", responseData, page, limit, totalItems, totalPages)
 }
 
 // GetByID menangani pengambilan detail tugas organisasi berdasarkan ID.

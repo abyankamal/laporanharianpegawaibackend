@@ -86,3 +86,59 @@ func TestSendError(t *testing.T) {
 	assert.Equal(t, "Parameter tidak valid", res.Message)
 	assert.Equal(t, "detail error info", res.Details)
 }
+
+func TestParsePagination(t *testing.T) {
+	app := fiber.New()
+	var parsedPage, parsedLimit, parsedOffset int
+
+	app.Get("/test-page", func(c fiber.Ctx) error {
+		parsedPage, parsedLimit, parsedOffset = ParsePagination(c, 15)
+		return c.SendStatus(fiber.StatusOK)
+	})
+
+	t.Run("Default values when empty", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test-page", nil)
+		_, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, parsedPage)
+		assert.Equal(t, 15, parsedLimit)
+		assert.Equal(t, 0, parsedOffset)
+	})
+
+	t.Run("Custom page and limit", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test-page?page=3&limit=25", nil)
+		_, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 3, parsedPage)
+		assert.Equal(t, 25, parsedLimit)
+		assert.Equal(t, 50, parsedOffset)
+	})
+
+	t.Run("Cap limit to 100", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test-page?page=2&limit=500", nil)
+		_, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, parsedPage)
+		assert.Equal(t, 100, parsedLimit)
+		assert.Equal(t, 100, parsedOffset)
+	})
+
+	t.Run("Invalid parameters fallback to defaults", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/test-page?page=-5&limit=abc", nil)
+		_, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, parsedPage)
+		assert.Equal(t, 15, parsedLimit)
+		assert.Equal(t, 0, parsedOffset)
+	})
+}
+
+func TestCalculateTotalPages(t *testing.T) {
+	assert.Equal(t, 1, CalculateTotalPages(0, 10))
+	assert.Equal(t, 1, CalculateTotalPages(5, 10))
+	assert.Equal(t, 1, CalculateTotalPages(10, 10))
+	assert.Equal(t, 2, CalculateTotalPages(11, 10))
+	assert.Equal(t, 5, CalculateTotalPages(50, 10))
+	assert.Equal(t, 6, CalculateTotalPages(51, 10))
+	assert.Equal(t, 1, CalculateTotalPages(10, 0))
+}

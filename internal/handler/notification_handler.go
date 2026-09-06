@@ -18,7 +18,7 @@ func NewNotificationHandler(notifService service.NotificationService) *Notificat
 	return &NotificationHandler{notifService: notifService}
 }
 
-// GetMy menangani request untuk mengambil semua notifikasi milik user yang sedang login.
+// GetMy menangani request untuk mengambil semua notifikasi milik user yang sedang login dengan paginasi.
 func (h *NotificationHandler) GetMy(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token (via Locals dari middleware)
 	userIDFloat, ok := c.Locals("user_id").(float64)
@@ -27,14 +27,18 @@ func (h *NotificationHandler) GetMy(c fiber.Ctx) error {
 	}
 	userID := int(userIDFloat)
 
+	page, limit, _ := ParsePagination(c, 10)
+
 	// 2. Panggil service
-	notifications, err := h.notifService.GetMyNotifications(userID)
+	notifications, totalItems, err := h.notifService.GetMyNotifications(userID, page, limit)
 	if err != nil {
 		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil notifikasi")
 	}
 
-	// 3. Return response sukses
-	return SendSuccess(c, fiber.StatusOK, "Notifikasi berhasil diambil", notifications)
+	totalPages := CalculateTotalPages(totalItems, limit)
+
+	// 3. Return response sukses berhalaman
+	return SendPaginated(c, fiber.StatusOK, "Notifikasi berhasil diambil", notifications, page, limit, totalItems, totalPages)
 }
 
 // GetByID menangani request untuk mengambil satu notifikasi spesifik berdasarkan ID.

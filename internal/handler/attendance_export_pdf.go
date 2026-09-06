@@ -298,11 +298,12 @@ func generateAbsensiPDF(
 				if code != "" {
 					pdf.SetFont("Arial", "B", 7.5)
 					pdf.SetXY(cellX, startY+2)
-					if code == "A" {
+					switch code {
+					case "A":
 						pdf.SetTextColor(200, 0, 0) // Merah untuk Alpha
-					} else if code == "v" {
+					case "v":
 						pdf.SetTextColor(0, 128, 0) // Hijau untuk Hadir/Dinas
-					} else {
+					default:
 						pdf.SetTextColor(0, 100, 200) // Biru untuk Izin, Sakit, Cuti
 					}
 					pdf.CellFormat(dayW, 6, code, "", 0, "C", false, 0, "")

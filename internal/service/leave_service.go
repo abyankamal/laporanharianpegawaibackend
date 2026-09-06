@@ -33,7 +33,7 @@ type IzinService interface {
 	ApprovePengajuan(izinID uint, approverID uint, approved bool, komentar string) error
 	GetMyPengajuan(userID uint) ([]domain.PengajuanIzin, error)
 	GetPendingApprovals() ([]domain.PengajuanIzin, error)
-	GetAllPengajuan() ([]domain.PengajuanIzin, error)
+	GetAllPengajuan(page, limit int) ([]domain.PengajuanIzin, int64, error)
 }
 
 type izinService struct {
@@ -291,8 +291,8 @@ func (s *izinService) GetPendingApprovals() ([]domain.PengajuanIzin, error) {
 }
 
 // GetAllPengajuan mengambil semua pengajuan izin untuk kebutuhan Web Admin / Lurah.
-func (s *izinService) GetAllPengajuan() ([]domain.PengajuanIzin, error) {
-	return s.izinRepo.GetAll()
+func (s *izinService) GetAllPengajuan(page, limit int) ([]domain.PengajuanIzin, int64, error) {
+	return s.izinRepo.GetAll(page, limit)
 }
 
 // saveDokumenIzin menyimpan file dokumen pendukung izin.
