@@ -56,7 +56,7 @@ func (h *AbsensiHandler) CheckIn(c fiber.Ctx) error {
 		return ErrorResponse(c, err)
 	}
 
-	return SendSuccess(c, fiber.StatusOK, "Absensi masuk berhasil", absensi)
+	return SendSuccess(c, fiber.StatusOK, "Absensi masuk berhasil", ToAbsensiDTO(absensi))
 }
 
 // CheckOut menangani request absensi pulang.
@@ -89,7 +89,7 @@ func (h *AbsensiHandler) CheckOut(c fiber.Ctx) error {
 		return ErrorResponse(c, err)
 	}
 
-	return SendSuccess(c, fiber.StatusOK, "Absensi pulang berhasil", absensi)
+	return SendSuccess(c, fiber.StatusOK, "Absensi pulang berhasil", ToAbsensiDTO(absensi))
 }
 
 // GetTodayStatus menangani request status absensi hari ini.
@@ -105,13 +105,14 @@ func (h *AbsensiHandler) GetTodayStatus(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil status absensi")
 	}
 
+	dto := ToAbsensiDTO(absensi)
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"success":    true,
 		"status":     "success",
 		"message":    "Status absensi berhasil diambil",
 		"is_workday": isWorkday,
 		"data": fiber.Map{
-			"absensi":    absensi,
+			"absensi":    dto,
 			"is_workday": isWorkday,
 		},
 	})

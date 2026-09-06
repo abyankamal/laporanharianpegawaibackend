@@ -49,7 +49,7 @@ func (h *IzinHandler) CreateByAdmin(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return SendSuccess(c, fiber.StatusCreated, "Pencatatan izin pegawai berhasil disimpan dan disetujui", izin)
+	return SendSuccess(c, fiber.StatusCreated, "Pencatatan izin pegawai berhasil disimpan dan disetujui", ToPengajuanIzinDTO(izin))
 }
 
 // Create menangani request pembuatan pengajuan izin baru.
@@ -81,7 +81,7 @@ func (h *IzinHandler) Create(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	return SendSuccess(c, fiber.StatusCreated, "Pengajuan izin berhasil dibuat", izin)
+	return SendSuccess(c, fiber.StatusCreated, "Pengajuan izin berhasil dibuat", ToPengajuanIzinDTO(izin))
 }
 
 // GetMy menangani request daftar pengajuan izin milik user.
@@ -97,7 +97,7 @@ func (h *IzinHandler) GetMy(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data pengajuan izin")
 	}
 
-	return SendSuccess(c, fiber.StatusOK, "Data pengajuan izin berhasil diambil", list)
+	return SendSuccess(c, fiber.StatusOK, "Data pengajuan izin berhasil diambil", ToPengajuanIzinDTOList(list))
 }
 
 // GetPending menangani request daftar pengajuan izin yang menunggu approval (Lurah).
@@ -108,7 +108,7 @@ func (h *IzinHandler) GetPending(c fiber.Ctx) error {
 		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data pengajuan")
 	}
 
-	return SendSuccess(c, fiber.StatusOK, "Data pengajuan pending berhasil diambil", list)
+	return SendSuccess(c, fiber.StatusOK, "Data pengajuan pending berhasil diambil", ToPengajuanIzinDTOList(list))
 }
 
 // GetAll menangani request seluruh daftar pengajuan izin (Web Admin).
@@ -121,7 +121,7 @@ func (h *IzinHandler) GetAll(c fiber.Ctx) error {
 	}
 
 	totalPages := CalculateTotalPages(totalItems, limit)
-	return SendPaginated(c, fiber.StatusOK, "Data pengajuan izin berhasil diambil", list, page, limit, totalItems, totalPages)
+	return SendPaginated(c, fiber.StatusOK, "Data pengajuan izin berhasil diambil", ToPengajuanIzinDTOList(list), page, limit, totalItems, totalPages)
 }
 
 // Approve menangani request approval/rejection pengajuan izin (Lurah).

@@ -38,7 +38,7 @@ func (h *NotificationHandler) GetMy(c fiber.Ctx) error {
 	totalPages := CalculateTotalPages(totalItems, limit)
 
 	// 3. Return response sukses berhalaman
-	return SendPaginated(c, fiber.StatusOK, "Notifikasi berhasil diambil", notifications, page, limit, totalItems, totalPages)
+	return SendPaginated(c, fiber.StatusOK, "Notifikasi berhasil diambil", ToNotificationDTOList(notifications), page, limit, totalItems, totalPages)
 }
 
 // GetByID menangani request untuk mengambil satu notifikasi spesifik berdasarkan ID.
@@ -64,7 +64,7 @@ func (h *NotificationHandler) GetByID(c fiber.Ctx) error {
 	}
 
 	// 4. Return response sukses
-	return SendSuccess(c, fiber.StatusOK, "Notifikasi berhasil diambil", notification)
+	return SendSuccess(c, fiber.StatusOK, "Notifikasi berhasil diambil", ToNotificationDTO(*notification))
 }
 
 // MarkRead menangani request untuk menandai notifikasi sebagai sudah dibaca.
