@@ -53,7 +53,7 @@ func (h *AbsensiHandler) CheckIn(c fiber.Ctx) error {
 
 	absensi, err := h.absensiService.CheckIn(input)
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	return SendSuccess(c, fiber.StatusOK, "Absensi masuk berhasil", absensi)
@@ -86,7 +86,7 @@ func (h *AbsensiHandler) CheckOut(c fiber.Ctx) error {
 
 	absensi, err := h.absensiService.CheckOut(input)
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	return SendSuccess(c, fiber.StatusOK, "Absensi pulang berhasil", absensi)

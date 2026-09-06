@@ -24,89 +24,57 @@ func (h *ReviewHandler) Create(c fiber.Ctx) error {
 	// 1. Ambil penilai_id dari JWT Token (via Locals dari middleware)
 	penilaiIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	penilaiID := uint(penilaiIDFloat)
 
 	// Ambil role dari JWT
 	penilaiRole, ok := c.Locals("role").(string)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Role tidak ditemukan",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "Role tidak ditemukan")
 	}
 
 	// 2. Parse JSON Body
 	var req service.CreateReviewRequest
 	if err := c.Bind().JSON(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Format request tidak valid: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
 	// 3. Validasi input wajib
 	if req.TargetUserID == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "target_user_id wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "target_user_id wajib diisi")
 	}
 	if req.SkorID == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "skor_id wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "skor_id wajib diisi")
 	}
 	if req.JenisPeriode == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "jenis_periode wajib diisi (Harian/Mingguan/Bulanan/Custom)",
-		})
+		return SendError(c, fiber.StatusBadRequest, "jenis_periode wajib diisi (Harian/Mingguan/Bulanan/Custom)")
 	}
 	if req.TanggalMulai == "" || req.TanggalSelesai == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "tanggal_mulai dan tanggal_selesai wajib diisi",
-		})
+		return SendError(c, fiber.StatusBadRequest, "tanggal_mulai dan tanggal_selesai wajib diisi")
 	}
 	if req.Bulan <= 0 || req.Bulan > 12 || req.Tahun <= 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": "bulan (1-12) dan tahun wajib diisi dengan valid",
-		})
+		return SendError(c, fiber.StatusBadRequest, "bulan (1-12) dan tahun wajib diisi dengan valid")
 	}
 
 	// 4. Panggil service
 	penilaian, err := h.reviewService.SubmitReview(penilaiID, penilaiRole, req)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"status":  "error",
-			"message": err.Error(),
-		})
+		return ErrorResponse(c, err)
 	}
 
 	// 5. Return response sukses
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Penilaian berhasil disimpan",
-		"data": fiber.Map{
-			"id":              penilaian.ID,
-			"user_id":         penilaian.UserID,
-			"penilai_id":      penilaian.PenilaiID,
-			"skor_id":         penilaian.SkorID,
-			"jenis_periode":   penilaian.JenisPeriode,
-			"bulan":           penilaian.Bulan,
-			"tahun":           penilaian.Tahun,
-			"tanggal_mulai":   penilaian.TanggalMulai.Format("2006-01-02"),
-			"tanggal_selesai": penilaian.TanggalSelesai.Format("2006-01-02"),
-			"created_at":      penilaian.CreatedAt,
-		},
+	return SendSuccess(c, fiber.StatusCreated, "Penilaian berhasil disimpan", fiber.Map{
+		"id":              penilaian.ID,
+		"user_id":         penilaian.UserID,
+		"penilai_id":      penilaian.PenilaiID,
+		"skor_id":         penilaian.SkorID,
+		"jenis_periode":   penilaian.JenisPeriode,
+		"bulan":           penilaian.Bulan,
+		"tahun":           penilaian.Tahun,
+		"tanggal_mulai":   penilaian.TanggalMulai.Format("2006-01-02"),
+		"tanggal_selesai": penilaian.TanggalSelesai.Format("2006-01-02"),
+		"created_at":      penilaian.CreatedAt,
 	})
 }
 
@@ -115,10 +83,7 @@ func (h *ReviewHandler) GetMyReviews(c fiber.Ctx) error {
 	// 1. Ambil user_id dari JWT Token
 	userIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	userID := int(userIDFloat)
 
@@ -139,28 +104,14 @@ func (h *ReviewHandler) GetMyReviews(c fiber.Ctx) error {
 	// 3. Panggil service
 	reviews, total, err := h.reviewService.GetReviewsByUserID(userID, limit, offset)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil data penilaian: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data penilaian")
 	}
 
 	// 4. Hitung total halaman
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	// 5. Return response
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data penilaian berhasil diambil",
-		"data":    reviews,
-		"meta": fiber.Map{
-			"total":       total,
-			"page":        page,
-			"limit":       limit,
-			"total_pages": totalPages,
-		},
-	})
+	return SendPaginated(c, fiber.StatusOK, "Data penilaian berhasil diambil", reviews, page, limit, total, totalPages)
 }
 
 // GetMySubmittedReviews menangani request atasan untuk melihat history penilaian yang pernah dibuat.
@@ -168,27 +119,16 @@ func (h *ReviewHandler) GetMySubmittedReviews(c fiber.Ctx) error {
 	// 1. Ambil penilai_id dari JWT Token
 	penilaiIDFloat, ok := c.Locals("user_id").(float64)
 	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"status":  "error",
-			"message": "User tidak terautentikasi",
-		})
+		return SendError(c, fiber.StatusUnauthorized, "User tidak terautentikasi")
 	}
 	penilaiID := int(penilaiIDFloat)
 
 	// 2. Panggil service
 	reviews, err := h.reviewService.GetReviewsByPenilaiID(penilaiID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"status":  "error",
-			"message": "Gagal mengambil data penilaian: " + err.Error(),
-		})
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data penilaian")
 	}
 
 	// 3. Return response
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"status":  "success",
-		"message": "Data penilaian berhasil diambil",
-		"data":    reviews,
-	})
+	return SendSuccess(c, fiber.StatusOK, "Data penilaian berhasil diambil", reviews)
 }

@@ -67,6 +67,7 @@ func ErrorResponse(c fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, apperror.ErrReportNotFound),
 		errors.Is(err, apperror.ErrUserNotFound),
+		errors.Is(err, apperror.ErrTaskNotFound),
 		strings.Contains(strings.ToLower(message), "tidak ditemukan"):
 		status = fiber.StatusNotFound
 
@@ -76,22 +77,47 @@ func ErrorResponse(c fiber.Ctx, err error) error {
 		errors.Is(err, apperror.ErrOnlyOwnReportAllowed),
 		errors.Is(err, apperror.ErrOnlyStaffOrOwnAllowed),
 		errors.Is(err, apperror.ErrOnlyOwnReportModifiable),
-		strings.Contains(strings.ToLower(message), "akses ditolak"):
+		strings.Contains(strings.ToLower(message), "akses ditolak"),
+		strings.Contains(strings.ToLower(message), "tidak memiliki akses"):
 		status = fiber.StatusForbidden
 
 	case errors.Is(err, apperror.ErrUnauthorized),
 		errors.Is(err, apperror.ErrInvalidToken):
 		status = fiber.StatusUnauthorized
 
+	case errors.Is(err, apperror.ErrNIPAlreadyExists),
+		errors.Is(err, apperror.ErrConflict),
+		errors.Is(err, apperror.ErrAlreadyCheckedIn),
+		errors.Is(err, apperror.ErrAlreadyCheckedOut),
+		strings.Contains(strings.ToLower(message), "sudah terdaftar"),
+		strings.Contains(strings.ToLower(message), "sudah melakukan absensi"),
+		strings.Contains(strings.ToLower(message), "duplicate"),
+		strings.Contains(strings.ToLower(message), "konflik"):
+		status = fiber.StatusConflict
+
 	case errors.Is(err, apperror.ErrBadRequest),
 		errors.Is(err, apperror.ErrInvalidEvaluationStatus),
 		errors.Is(err, apperror.ErrReasonRequired),
 		errors.Is(err, apperror.ErrReportAlreadyReviewed),
 		errors.Is(err, apperror.ErrReportAlreadyApproved),
-		errors.Is(err, apperror.ErrNIPAlreadyExists),
 		errors.Is(err, apperror.ErrOldPasswordMismatch),
 		errors.Is(err, apperror.ErrSamePassword):
 		status = fiber.StatusBadRequest
+	}
+
+	// Sanitasi error message jika berstatus 500 dan membocorkan rincian database/driver
+	if status == fiber.StatusInternalServerError {
+		lowered := strings.ToLower(message)
+		if strings.Contains(lowered, "sql") ||
+			strings.Contains(lowered, "mysql") ||
+			strings.Contains(lowered, "driver") ||
+			strings.Contains(lowered, "gorm") ||
+			strings.Contains(lowered, "syntax error") ||
+			strings.Contains(lowered, "connection refused") ||
+			strings.Contains(lowered, "table ") ||
+			strings.Contains(lowered, "column ") {
+			message = "Terjadi kesalahan internal server"
+		}
 	}
 
 	return SendError(c, status, message)

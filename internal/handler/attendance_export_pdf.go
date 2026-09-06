@@ -78,7 +78,7 @@ func (h *AbsensiHandler) ExportPDF(c fiber.Ctx) error {
 	// Generate PDF
 	pdfBytes, err := generateAbsensiPDF(recaps, users, bulan, tahun, lurah, sekretaris, holidayDays)
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal membuat PDF: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal membuat PDF")
 	}
 
 	filename := fmt.Sprintf("daftar_hadir_%s_%d.pdf", getIndonesianMonthName(time.Month(bulan)), tahun)

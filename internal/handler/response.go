@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 )
 
@@ -62,6 +64,31 @@ func SendError(c fiber.Ctx, status int, message string, details ...interface{}) 
 	var detail interface{}
 	if len(details) > 0 {
 		detail = details[0]
+	}
+
+	if status == fiber.StatusInternalServerError {
+		lowered := strings.ToLower(message)
+		if strings.Contains(lowered, "sql") ||
+			strings.Contains(lowered, "mysql") ||
+			strings.Contains(lowered, "driver") ||
+			strings.Contains(lowered, "gorm") ||
+			strings.Contains(lowered, "syntax error") ||
+			strings.Contains(lowered, "connection refused") ||
+			strings.Contains(lowered, "table ") ||
+			strings.Contains(lowered, "column ") {
+			message = "Terjadi kesalahan internal server"
+		}
+		if detail != nil {
+			if dStr, ok := detail.(string); ok {
+				dLower := strings.ToLower(dStr)
+				if strings.Contains(dLower, "sql") ||
+					strings.Contains(dLower, "mysql") ||
+					strings.Contains(dLower, "driver") ||
+					strings.Contains(dLower, "gorm") {
+					detail = nil
+				}
+			}
+		}
 	}
 
 	return c.Status(status).JSON(Response{

@@ -27,7 +27,7 @@ type CreateJabatanRequest struct {
 func (h *JabatanHandler) GetAll(c fiber.Ctx) error {
 	jabatans, err := h.jabatanService.GetAllJabatan()
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data jabatan: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data jabatan")
 	}
 
 	var response []JabatanModelResponse
@@ -70,7 +70,7 @@ func (h *JabatanHandler) Create(c fiber.Ctx) error {
 
 	jabatan, err := h.jabatanService.CreateJabatan(req.Nama)
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal membuat jabatan: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal membuat jabatan")
 	}
 
 	return SendSuccess(c, fiber.StatusCreated, "Jabatan berhasil dibuat", JabatanModelResponse{
@@ -92,7 +92,7 @@ func (h *JabatanHandler) Update(c fiber.Ctx) error {
 
 	jabatan, err := h.jabatanService.UpdateJabatan(uint(id), req.Nama)
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal memperbarui jabatan: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal memperbarui jabatan")
 	}
 
 	return SendSuccess(c, fiber.StatusOK, "Jabatan berhasil diperbarui", JabatanModelResponse{
@@ -108,7 +108,7 @@ func (h *JabatanHandler) Delete(c fiber.Ctx) error {
 	}
 
 	if err := h.jabatanService.DeleteJabatan(uint(id)); err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal menghapus jabatan: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal menghapus jabatan")
 	}
 
 	return SendSuccess(c, fiber.StatusOK, "Jabatan berhasil dihapus", nil)

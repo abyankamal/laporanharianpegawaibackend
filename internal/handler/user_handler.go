@@ -197,7 +197,7 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 
 	user, err := h.userService.CreateUser(req)
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	return SendSuccess(c, fiber.StatusCreated, "User berhasil dibuat", UserResponse{
@@ -280,7 +280,7 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 	// 2. Parse JSON Body
 	var req service.ChangePasswordRequest
 	if err := c.Bind().JSON(&req); err != nil {
-		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid: "+err.Error())
+		return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 	}
 
 	// 3. Validasi input wajib
@@ -294,7 +294,7 @@ func (h *UserHandler) ChangePassword(c fiber.Ctx) error {
 	// 4. Panggil service
 	err := h.userService.ChangePassword(userID, req)
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	// 5. Return response sukses
@@ -342,7 +342,7 @@ func (h *UserHandler) ChangePhoto(c fiber.Ctx) error {
 	// 3. Panggil service
 	fotoPath, err := h.userService.UpdateProfilePhoto(userID, fileHeader)
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	// 4. Return response sukses
@@ -358,7 +358,7 @@ func (h *UserHandler) GetSupervisors(c fiber.Ctx) error {
 
 	supervisors, err := h.userService.GetSupervisors(roleFilter)
 	if err != nil {
-		return SendError(c, fiber.StatusNotFound, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	var response []UserResponse

@@ -41,7 +41,7 @@ func (h *TaskHandler) Create(c fiber.Ctx) error {
 
 	if strings.Contains(contentType, "application/json") {
 		if err := c.Bind().JSON(&req); err != nil {
-			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid: "+err.Error())
+			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 		}
 	} else {
 		// Multipart/Form data
@@ -115,7 +115,7 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 	// 2. Panggil service
 	tasks, err := h.taskService.GetMyTasks(userID)
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas")
 	}
 
 	// 3. Map ke format response
@@ -129,7 +129,7 @@ func (h *TaskHandler) GetMyTasks(c fiber.Ctx) error {
 func (h *TaskHandler) GetAll(c fiber.Ctx) error {
 	tasks, err := h.taskService.GetAllTasks()
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil daftar tugas")
 	}
 
 	responseData := h.mapTasksToResponse(tasks)
@@ -170,7 +170,7 @@ func (h *TaskHandler) GetByID(c fiber.Ctx) error {
 	task, err := h.taskService.GetTaskByID(requesterID, requesterRole, uint(taskID))
 	if err != nil {
 		log.Printf("[DEBUG] GetTaskByID - Error: %v\n", err)
-		return SendError(c, fiber.StatusForbidden, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	// Log jumlah assignees yang ter-preload
@@ -250,7 +250,7 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 
 	if strings.Contains(contentType, "application/json") {
 		if err := c.Bind().JSON(&req); err != nil {
-			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid: "+err.Error())
+			return SendError(c, fiber.StatusBadRequest, "Format request tidak valid")
 		}
 	} else {
 		// Multipart/Form data
@@ -278,7 +278,7 @@ func (h *TaskHandler) Update(c fiber.Ctx) error {
 	// 4. Panggil service
 	updatedTask, err := h.taskService.UpdateTask(requesterID, requesterRole, uint(taskID), req)
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	// 5. Susun response
@@ -326,7 +326,7 @@ func (h *TaskHandler) Delete(c fiber.Ctx) error {
 	// 3. Panggil service
 	err = h.taskService.DeleteTask(requesterID, requesterRole, uint(taskID))
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	return SendSuccess(c, fiber.StatusOK, "Tugas organisasi berhasil dihapus", nil)

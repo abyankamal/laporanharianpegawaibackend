@@ -34,7 +34,7 @@ func (h *DashboardHandler) GetSummary(c fiber.Ctx) error {
 	// 3. Panggil service
 	summary, err := h.dashboardService.GetSummary(userID, userRole)
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data dashboard: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data dashboard")
 	}
 
 	// 4. Return response

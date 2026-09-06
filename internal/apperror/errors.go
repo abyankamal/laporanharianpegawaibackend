@@ -21,6 +21,13 @@ var (
 	ErrOldPasswordMismatch      = errors.New("password lama tidak sesuai")
 	ErrSamePassword             = errors.New("password baru tidak boleh sama dengan password lama")
 
+	// Domain: Task
+	ErrTaskNotFound             = errors.New("tugas tidak ditemukan")
+
+	// Domain: Attendance
+	ErrAlreadyCheckedIn         = errors.New("Anda sudah melakukan absensi masuk hari ini")
+	ErrAlreadyCheckedOut        = errors.New("Anda sudah melakukan absensi pulang hari ini")
+
 	// Domain: Auth & Permission
 	ErrForbidden                = errors.New("akses ditolak")
 	ErrUnauthorized             = errors.New("unauthorized")
@@ -28,5 +35,6 @@ var (
 
 	// Domain: Common
 	ErrBadRequest               = errors.New("request tidak valid")
+	ErrConflict                 = errors.New("terjadi konflik data")
 	ErrInternal                 = errors.New("terjadi kesalahan internal server")
 )

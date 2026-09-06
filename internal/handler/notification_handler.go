@@ -30,7 +30,7 @@ func (h *NotificationHandler) GetMy(c fiber.Ctx) error {
 	// 2. Panggil service
 	notifications, err := h.notifService.GetMyNotifications(userID)
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil notifikasi: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil notifikasi")
 	}
 
 	// 3. Return response sukses

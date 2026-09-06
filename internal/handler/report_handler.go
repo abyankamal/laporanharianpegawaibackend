@@ -86,7 +86,7 @@ func (h *ReportHandler) GetAll(c fiber.Ctx) error {
 	// 6. Panggil service (dengan RBAC)
 	reports, total, err := h.reportService.GetAllReports(filter, requesterRole, requesterID)
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data laporan: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil data laporan")
 	}
 
 	// 6. Hitung total halaman
@@ -196,7 +196,7 @@ func (h *ReportHandler) Create(c fiber.Ctx) error {
 	// 7. Panggil service
 	laporan, err := h.reportService.CreateReport(input)
 	if err != nil {
-		return SendError(c, fiber.StatusBadRequest, err.Error())
+		return ErrorResponse(c, err)
 	}
 
 	// 8. Return response sukses
@@ -372,7 +372,7 @@ func (h *ReportHandler) GetReportRecapHandler(c fiber.Ctx) error {
 	}
 
 	if err != nil {
-		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil rekap laporan: "+err.Error())
+		return SendError(c, fiber.StatusInternalServerError, "Gagal mengambil rekap laporan")
 	}
 
 	// 5. Return response
