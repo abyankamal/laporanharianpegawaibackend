@@ -66,7 +66,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 
 	// Laporan
 	mReport := mProtected.Group("/reports")
-	mReport.Post("/", h.Report.Create)
+	mReport.Post("/", middleware.IdempotencyGuard(), h.Report.Create)
 	mReport.Get("/", h.Report.GetAll)
 	mReport.Get("/recap", h.Report.GetReportRecapHandler)
 	mReport.Get("/recap-pegawai", h.Admin.GetRekapLaporan, middleware.AllowRoles("lurah", "sekertaris", "admin"))
@@ -117,7 +117,7 @@ func setupMobileRoutes(api fiber.Router, h Handlers) {
 
 	// Pengajuan Izin/Sakit/Cuti (Mobile)
 	mIzin := mProtected.Group("/izin")
-	mIzin.Post("/", h.Izin.Create)
+	mIzin.Post("/", middleware.IdempotencyGuard(), h.Izin.Create)
 	mIzin.Get("/", h.Izin.GetMy)
 	mIzin.Get("/pending", h.Izin.GetPending, middleware.AllowRoles("lurah"))
 	mIzin.Put("/:id/approve", h.Izin.Approve, middleware.AllowRoles("lurah"))
